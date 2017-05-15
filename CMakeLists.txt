@@ -8,7 +8,7 @@ set (PROJECT_VERSION_MAJOR 2)
 set (PROJECT_VERSION_MINOR 1)
 set (PROJECT_VERSION_PATCH 4)
 
-option(ENABLE_PROFILING      "Enable profiling"              OFF)
+option(ENABLE_PROFILING      "Enable profiling"              ON )
 option(ENABLE_BOUNDS_CHECK   "Enable bounds check"           OFF)
 option(ENABLE_CODE_COVERAGE  "Enable code coverage"          OFF)
 option(ENABLE_MPI            "Enable MPI parallelization"    OFF)
@@ -24,6 +24,7 @@ include(ConfigSafeGuards)
 include(ConfigGitRevision)
 include(ConfigureScript)
 include(ConfigCompilerFlags)
+include_directories(/home/suzanka/anaconda2/pkgs/numpy-1.12.1-py27_0/lib/python2.7/site-packages/numpy/core/include/)
 
 find_package(Python REQUIRED)
 set(PYTHON_SITE_INSTALL_DIR 
