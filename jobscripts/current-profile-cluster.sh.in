@@ -197,11 +197,11 @@ cat /dev/null > ./$dirname/calculation.dat
 echo atom1=$atom1  >> ./$dirname/calculation.dat
 echo atom2=$atom2 >> ./$dirname/calculation.dat
 echo fixed point: Fx=$Fx, Fy=$Fy, Fz=$Fz  >> ./$dirname/calculation.dat
-echo magnetic field: Mx=$Mx, My=$My, Mz=$Mz  >> ./$dirname/calculation.dat
+echo magnetic field: MFx=$MFx, MFy=$MFy, MFz=$MFz  >> ./$dirname/calculation.dat
 echo distance=$distance >> ./$dirname/calculation.dat
 echo in=$start out=$out up=$up down=$down  >> ./$dirname/calculation.dat
 echo delta=$delta >> ./$dirname/calculation.dat
-echo spacing=( $spacingX ; $spacingY ; $spacingZ )  >> ./$dirname/calculation.dat
+echo `spacing=( $spacingX ; $spacingY ; $spacingZ )`  >> ./$dirname/calculation.dat
 
 ################################################################################
 
