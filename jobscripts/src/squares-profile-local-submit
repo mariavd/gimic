@@ -1,0 +1,156 @@
+##!bin/bash
+# Submit the calculation
+
+wrkdir=$(pwd)
+wrkdir=$(echo $wrkdir/$dirname)
+echo "Working directory:"; echo $wrkdir; echo
+checkIfEmpty wrkdir $wrkdir
+
+echo "Running Gimic calculations..."
+
+filenum=$(ls $wrkdir/*inp | wc -l)
+checkIfEmpty filenum $filenum
+
+nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
+nstepsV=$( sed -n -e 's/^.*nstepsV=//p' $wrkdir/calculation.dat | awk '{print $1}')
+checkIfEmpty nstepsH $nstepsH
+checkIfEmpty nstepsV $nstepsV
+
+parallel=4
+
+echo "Enter the number of parallel jobs"
+read parallel
+checkIfEmpty parallel $parallel
+
+# check if too many parallel tasks are called
+if [ $parallel -gt $nstepsH ]
+then
+    $parallel=$($nstepsH)
+fi
+
+rm -rf *out *dat *eps GIMIC.*
+date
+echo "Running $parallel out of $filenum GIMIC calculations at a time..."
+
+# Run the tasks in row-major order
+wholeH=$( awk -v filenum=$nstepsH -v parallel=$parallel 'BEGIN{printf "%d\n", filenum/parallel}'  ) 
+remainH=$(awk -v whole=$wholeH -v filenum=$nstepsH -v parallel=$parallel 'BEGIN{printf "%d\n", (filenum-whole*parallel) }')
+checkIfEmpty wholeH $wholeH
+checkIfEmpty remainH $remainH
+
+wholeV=$( awk -v filenum=$nstepsV -v parallel=$parallel 'BEGIN{printf "%d\n", filenum/parallel}'  ) 
+remainV=$(awk -v whole=$wholeV -v filenum=$nstepsV -v parallel=$parallel 'BEGIN{printf "%d\n", (filenum-whole*parallel) }')
+checkIfEmpty wholeV $wholeV
+checkIfEmpty remainV $remainV
+
+completedH=0
+completedV=0
+
+echo "whole and remains: H, V"
+echo $wholeH, $remainH
+echo $wholeV, $remainV
+echo
+
+for ((i=0; i<$(( $wholeH  )); i++)) # the first index	
+do 
+#    echo i=$i
+    for ((j=0; j<$parallel; j++))  # the first index
+    do  
+#	echo j=$j
+	idxH=$(( $i*$wholeH + $j ))
+	for ((k=0; k<$(( $wholeV  )); k++)) # the second index
+	do 
+#	    echo k=$k
+	    for ((l=0; l<$parallel; l++)) #the second index
+	    do  
+#		echo l=$l
+		idxV=$(( $k*$wholeV + $l ))
+		cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out & 
+	    done 
+	    wait
+	done
+	completedV=$(( $completedV+$parallel ))
+	date
+	echo "$completedV vertical completed"; echo
+	#    done 
+	# calculate the remaining vertical ones:
+	if [[ "$remainV" -gt 0 ]]; then
+	    for ((m=0; m<=$remainV; m++))
+	    do  
+		echo Remaining vertical: m=$m
+		for ((n=0; n<$parallel; n++))
+		do  
+		    echo n=$n
+		    idxV=$(( $m*$wholeV + $n ))
+		    echo idx = $idxH, $idxV
+		    cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out & 
+		done
+	    done
+	fi
+    done    
+    completedH=$(( $compltedH+$parallel ))
+    echo "$completedH horizontal completed"; echo
+done
+
+
+
+# calculate the remaining horizontal ones:
+if [[ "$remainH" -gt 0 ]]; then
+    for ((i=0; i<$remainH; i++))
+    do  
+	for ((k=0; k<$(( $wholeV  )); k++)) 	
+	do 
+	    for ((j=0; j<$parallel; j++))
+	    do  
+#	echo j=$j
+	echo "remaining H"
+		idxH=$(($parallel*$wholeH+$i))
+		idxV=$(($k+$j*$wholeV))
+		echo idx = $idxH, $idxV
+		#	    grepstring=""
+		#	    if [ -f "$wrkdir/gimic.$index.out" ]
+		#	    then
+		#		echo "The file $wrkdir/gimic.$index.out already exists."
+		#		grepstring=$(grep "wall" $wrkdir/gimic.$index.out)
+		#		echo "$grepstring"
+		#	    fi
+
+		#	    if [ -z "$grepstring" ]
+		#	    then
+		cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out & 
+		#	    fi
+	    done 
+	    wait
+	    completedV=$(( $completedV+$parallel ))
+	    date
+	    echo "$completedV vertical completed"; echo
+	done
+	# calculate the remaining vertical ones:
+	if [[ "$remainV" -gt 0 ]]; then
+	    for ((m=0; m<$remainV; m++))
+	    do  
+		echo m=$m
+		(cd $wrkdir && gimic $wrkdir/gimic.$idxH.$(($parallel*$whole+$m)).inp >  $wrkdir/gimic.$idXH.$(($parallel*$whole+$m)).out &) 
+	    done
+	fi
+
+	#	(cd $wrkdir && gimic $wrkdir/gimic.$(($parallel*$whole+$i)).inp >  $wrkdir/gimic.$(($parallel*$whole+$i)).out &) 
+    done
+fi
+#    echo "$filenum of $filenum completed"
+
+
+
+rm -rf GIMIC* 
+
+
+#######################################################################
+# Find the zeroes on the current profile plot
+
+(cd $wrkdir && @SCRIPTS_DIR@/gradient-square.sh  )
+
+#cat $wrkdir/profile-points.out
+
+#######################################################################
+
+echo
