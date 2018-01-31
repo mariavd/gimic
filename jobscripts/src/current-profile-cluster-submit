@@ -22,8 +22,9 @@ then
 fi
 
 # job duration:
+duration=12
 echo "Enter the time limit for the execution of the batch job in hours"
-valueDimInp duration $duration
+valueDimInp duration $duration "hours"
 checkIfEmpty duration $duration
 
 sbatch --ntasks="$parallel" --job-name="$dirname" --time="$duration":00:00 @SCRIPTS_DIR@/jobscript "$wrkdir" "$parallel" 
