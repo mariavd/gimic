@@ -59,7 +59,7 @@ do
 done
 
 printf "\nEND POINT OF THE INTEGRATION\n"
-out=6
+out=7
 printf "\nDo you accept out=$out bohr?" # ask about the default value 
 userInp out $out
 
