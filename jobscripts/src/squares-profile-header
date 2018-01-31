@@ -117,7 +117,7 @@ checkMaxProj="installed"
 if [ ! -z $accept ] && [ $accept == "a" ]
 then
     checkMaxProj=$(command -v maximise_projection) #  command -> returns the path of the binary if it is found
-    if [ -e $checkMaxProj ]
+    if [ ! -e $checkMaxProj ]
     then
 	echo "The program maximise_projection is not found. Switching to manual input of the magnetic field components."
     else
