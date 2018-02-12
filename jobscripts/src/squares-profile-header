@@ -132,7 +132,7 @@ then
 	MFz=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$4} }')
     fi
 fi
-if ( [ ! -z $accept ] && [ $accept == "m" ] ) || [ -e $checkMaxProj ]
+if ( [ ! -z $accept ] && [ $accept == "m" ] ) || [ ! -e $checkMaxProj ]
 then
     echo "Please enter numeric values."
     valueDimInp MFx $MFx "bohr"
