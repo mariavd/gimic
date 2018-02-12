@@ -64,18 +64,18 @@ do
 done
 
 printf "\nEND POINT OF THE INTEGRATION\n"
-out=7
+out=10
 printf "\nDo you accept out=$out bohr?" # ask about the default value 
 userInp out $out
 
 printf "\n\nUPPER AND LOWER BOUNDS OF THE INTEGRATION\n"
-up=5
-down=-5
+up=10
+down=-10
 valueDimInp up $up "bohr"
 valueDimInp down $down "bohr"
 
 printf "\n\nWIDTH OF THE SLICES\n"
-delta=1 #0.05
+delta=0.25
 #deltaV=0.05
 #echo "Horizontal slicing (in-out):"
 valueDimInp delta $delta "bohr"	

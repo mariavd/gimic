@@ -46,6 +46,8 @@ checkIfEmpty remainV $remainV
 completedH=0
 completedV=0
 
+# TODO: for the cluster version: make a list of all the input files and loop over them, instead of calculating indices
+
 idxH=-1
 idxV=-1
 for ((i=0; i<$wholeH; i++))	

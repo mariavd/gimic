@@ -356,19 +356,19 @@ function checkPreviousCalc() {
 function normalPlane() 
 {
 # usage: 
-# echo $x0 $x1 1 | normalPlane
+# echo $x0 $x1 $x2 | normalPlane
 # where the coordinates are in bohr
-    # take the coordinates of x0 and x1
-    # take a third point C that lies at (x0x, x0y, 1)
-    # define vector a: C -> x0; vector b: C -> x1;
-    # calculate their cross product to find the normal vector to the plane at point C
+# take the coordinates of x0 and x1
+# define the point C with coords the third point from the plane
+# define vector a: C -> x0; vector b: C -> x1;
+# calculate their cross product to find the normal vector to the plane at point C
 
     awk '{
           split($0,crd);
 
-          cx = crd[1]; 
-          cy = crd[2]; 
-          cz = crd[7]; 
+          cx = crd[7]; 
+          cy = crd[8]; 
+          cz = crd[9]; 
 
           ax = cx - crd[1]; 
           ay = cy - crd[2];
