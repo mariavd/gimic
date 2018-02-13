@@ -3,9 +3,10 @@ module magnet_module
     use globals_module
     use settings_module
     use grid_class
+    use tensor_module
     implicit none
 
-    public get_magnet
+    public get_magnet, get_magnet_essential
     private
 contains
     subroutine get_magnet(g, mag)
@@ -63,6 +64,27 @@ contains
             call check_field(v, mag)
         end if
 
+    end subroutine
+
+    subroutine get_magnet_essential(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
+        type(grid_t) :: g
+        real(DP), dimension(:), intent(in) :: mag
+        real(DP), dimension(:), intent(out) :: mag_along, mag_normal
+
+        real(DP), dimension(3) :: v
+!        real(DP), dimension(3) :: normal
+
+!        normal=get_grid_normal(g)
+!        mag_along=normal
+        mag_normal=get_grid_normal(g)
+        mag_normal=-mag_normal
+        mag_along=cross_product(mag,mag_normal)
+
+        write (*,*) 'DEBUG: mag_normal: ', mag_normal
+        write (*,*) 'DEBUG: mag_along: ', mag_along
+        call get_basvec(g, 3, v)
+        call check_field(v, mag_along)
+        call check_field(v, mag_normal)
     end subroutine
 
     subroutine check_field(dir,mag)

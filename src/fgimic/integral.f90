@@ -93,12 +93,11 @@ contains
 
         call get_grid_size(this%grid, p1, p2, p3)
         call get_magnet(this%grid, bb)
+        call get_magnet_essential(this%grid, bb, bb_prime, bb_second)
         !call jfield_eta(this%jf)
 
         normal=get_grid_normal(this%grid)
 
-        bb_prime=normal
-        bb_second=cross_product(bb,bb_prime);
 
         bound=1.d+10
         bound=this%grid%radius
@@ -184,17 +183,13 @@ contains
                         nsum=nsum+jp
                     end if
                     if (jp_prime > 0.d0) then
-                        ! get positive contribution
                         p_prime_sum = p_prime_sum + jp_prime
                     else
-                        ! get negative contribution
                         n_prime_sum = n_prime_sum + jp_prime
                     end if
                     if (jp_second > 0.d0) then
-                        ! get positive contribution
                         p_second_sum = p_second_sum + jp_second
                     else
-                        ! get negative contribution
                         n_second_sum = n_second_sum + jp_second
                     end if
                     end do
@@ -203,9 +198,9 @@ contains
                 psum2=psum2+psum*w
                 nsum2=nsum2+nsum*w
                 
-                x_prime_sum2=x_prime_sum2+x_prime_sum*w
-                p_prime_sum2=p_prime_sum2+p_prime_sum*w
-                n_prime_sum2=n_prime_sum2+n_prime_sum*w
+                x_prime_sum2 = x_prime_sum2 + x_prime_sum*w
+                p_prime_sum2 = p_prime_sum2 + p_prime_sum*w
+                n_prime_sum2 = n_prime_sum2 + n_prime_sum*w
 
                 x_second_sum2=x_second_sum2+x_second_sum*w
                 p_second_sum2=p_second_sum2+p_second_sum*w
@@ -236,8 +231,10 @@ contains
 
         call nl
         call msg_out(repeat('*', 60))
-!        write(str_g, '(a,3f10.5)') '   Magnetic field <x,y,z> =', bb
-!        call msg_out(str_g)
+        write(str_g, '(a,3f10.5)') '   Magnetic field <x,y,z> =', bb
+        call msg_out(str_g)
+        write(str_g, '(a,3f10.5)') '   Normal to the plane =', normal 
+        call msg_out(str_g)
         write(str_g, '(a,f15.8)') '   Induced current (au)    :', xsum3
         call msg_out(str_g)
         write(str_g, '(a,f15.8,a,f13.8,a)') &
