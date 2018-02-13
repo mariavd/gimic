@@ -1,0 +1,104 @@
+#!/bin/bash
+
+function checkIfEmpty() {
+# usage: validateInput variable $variable 
+    local __inputVar=$1
+    local __inputValue="$2"
+    while [ -z "$__inputValue" ]
+    do
+        printf "*** Variable \"$__inputVar\" empty ***\nPlease restart the script.\n"
+	echo "If the error persists, file a bug report to maria.dimitrova@helsinki.fi or https://github.com/mariavd/gimic"; echo
+        exit;
+    done
+
+}
+
+
+echo "Calculating the gradient..."
+
+wrkdir=$(pwd)
+checkIfEmpty wrkdir $wrkdir
+dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
+checkIfEmpty dirname $dirname
+
+filenum=$(ls *.inp | wc -l)
+checkIfEmpty filenum $filenum
+
+start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
+out=$( sed -n -e 's/^.*out=//p' $wrkdir/calculation.dat | awk '{print $1}')
+delta=$( sed -n -e 's/^.*delta=//p' $wrkdir/calculation.dat | awk '{print $1}')
+checkIfEmpty start $start
+checkIfEmpty out $out
+checkIfEmpty delta $delta
+
+nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
+nstepsV=$( sed -n -e 's/^.*nstepsV=//p' $wrkdir/calculation.dat | awk '{print $1}')
+checkIfEmpty nstepsH $nstepsH
+checkIfEmpty nstepsV $nstepsV
+
+
+for (( i=0; i<$nstepsH; i++ ))
+do
+cat /dev/null > $wrkdir/paratropic.$i.dat #delete if it already exists
+cat /dev/null > $wrkdir/diatropic.$i.dat
+cat /dev/null > $wrkdir/current.$i.dat
+done
+
+cat /dev/null > $wrkdir/paratropic_prime.dat #delete if it already exists
+cat /dev/null > $wrkdir/diatropic_prime.dat
+cat /dev/null > $wrkdir/current_prime.dat
+
+cat /dev/null > $wrkdir/paratropic_second.dat #delete if it already exists
+cat /dev/null > $wrkdir/diatropic_second.dat
+cat /dev/null > $wrkdir/current_second.dat
+
+start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
+out=$( sed -n -e 's/^.*out=//p' $wrkdir/calculation.dat | awk '{print $1}')
+delta=$( sed -n -e 's/^.*delta=//p' $wrkdir/calculation.dat | awk '{print $1}')
+checkIfEmpty start $start
+checkIfEmpty out $out
+checkIfEmpty delta $delta
+
+for (( i=0; i<$filenum; i++ ))
+do
+    awk -v i=$i -v down=$down -v dia="$wrkdir/diatropic.dat" -v para="$wrkdir/paratropic.dat" -v delta=$delta -v out="$wrkdir/current.dat" '/Induced current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $5) >> out}; /Positive cont/ {printf("% .8f\t", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i.out
+
+    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_prime.dat" -v para="$wrkdir/paratropic_prime.dat" -v out="$wrkdir/current_prime.dat" '/Induced j_prime current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_prime/ {printf("% .8f\t", $6) >> dia}; /Negative j_prime/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
+
+    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_second.dat" -v para="$wrkdir/paratropic_second.dat" -v out="$wrkdir/current_second.dat" '/Induced j_second current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_second/ {printf("% .8f\t", $6) >> dia}; /Negative j_second/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
+
+done
+
+paste $wrkdir/current.dat $wrkdir/diatropic.dat $wrkdir/paratropic.dat > $wrkdir/current_profile.dat
+rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
+
+paste $wrkdir/current_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/paratropic_prime.dat > $wrkdir/current_profile_prime.dat
+rm -f $wrkdir/paratropic_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/current_prime.dat
+
+paste $wrkdir/current_second.dat $wrkdir/diatropic_second.dat $wrkdir/paratropic_second.dat > $wrkdir/current_profile_second.dat
+rm -f $wrkdir/paratropic_second.dat $wrkdir/diatropic_second.dat $wrkdir/current_second.dat
+
+
+printf "\nData saved in current_profile.dat\n\n"
+
+echo
+
+
+
+# GNUPLOT:
+# unset key
+# set view map
+# set cbrange [-0.2:0.2]
+# #set palette defined (0 "blue",25 "#00ffff",50 "white",75 "yellow", 100 "red",101 "grey")
+# set palette defined (0 "red",25 "yellow",50 "white",75 "#00ffff", 100 "blue",101 "grey")
+# 
+# set terminal pngcairo enhanced font 'Helvetica, 22' size 800,700
+# set output "squares-profile.png"
+# splot "current_profile.dat" matrix with image
+# 
+# 
+# set output "squares-profile-interpolate-20,20.png"
+# set pm3d map
+# set pm3d interpolate 20,20
+# splot "current_profile.dat" matrix notitle
+# 
