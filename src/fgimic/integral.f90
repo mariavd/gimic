@@ -234,8 +234,6 @@ contains
         call del_jtensor(jt)
 !!$OMP END PARALLEL
 
-write (*,*) 'DEBUGGING'
-
         call nl
         call msg_out(repeat('*', 60))
 !        write(str_g, '(a,3f10.5)') '   Magnetic field <x,y,z> =', bb
@@ -411,6 +409,7 @@ write (*,*) 'DEBUGGING'
 
         call nl
         call msg_out(repeat('*', 60))
+        write (*,*) 'DEBUG'
         write(str_g, '(a,f13.6)') 'Induced mod current (au)   :', xsum3
         call msg_out(str_g)
         write(str_g, '(a,f13.6,a,f11.6,a)') &
