@@ -212,6 +212,15 @@ contains
             call collect_sum(xsum2, xsum)
             call collect_sum(psum2, psum)
             call collect_sum(nsum2, nsum)
+
+            call collect_sum(x_prime_sum2, x_prime_sum)
+            call collect_sum(p_prime_sum2, p_prime_sum)
+            call collect_sum(n_prime_sum2, n_prime_sum)
+
+            call collect_sum(x_second_sum2, x_second_sum)
+            call collect_sum(p_second_sum2, p_second_sum)
+            call collect_sum(n_second_sum2, n_second_sum)
+
             w=get_weight(this%grid,k,3)
             xsum3=xsum3+xsum*w
             psum3=psum3+psum*w
@@ -406,7 +415,6 @@ contains
 
         call nl
         call msg_out(repeat('*', 60))
-        write (*,*) 'DEBUG'
         write(str_g, '(a,f13.6)') 'Induced mod current (au)   :', xsum3
         call msg_out(str_g)
         write(str_g, '(a,f13.6,a,f11.6,a)') &
