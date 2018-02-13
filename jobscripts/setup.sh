@@ -124,7 +124,7 @@ fi
 
 # Prepare the batch job script for squares profile:
 
-file=jobscript.IN
+file=jobscript-squares.IN
 SCRIPT_OUT=jobscript
 sedstring="s:@SCRIPTS_DIR@:$SCRIPTS_DIR:"
 if [ $SCRIPT_OUT -ot $file ] 

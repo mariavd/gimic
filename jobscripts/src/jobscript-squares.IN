@@ -1,0 +1,90 @@
+# This jobscript takes three arguments: 
+# $1 is the working directory for the calculation
+# $2 is the number of tasks to execute at the same time
+#
+# check for their correct number:
+# if [ ! $# == 2 ]; then
+#   echo "Usage: $0 wrkdir ntasks duration"
+#   exit
+# fi
+
+function checkIfEmpty() {
+# usage: validateInput variable $variable 
+local __inputVar=$1
+local __inputValue="$2"
+while [ -z "$__inputValue" ]
+do
+    printf "*** Variable \"$__inputVar\" empty ***\nPlease restart the script.\n"
+    echo "If the error persists, file a bug report to maria.dimitrova@helsinki.fi or https://github.com/mariavd/gimic"; echo
+    exit;
+done
+
+}
+
+
+echo "SLURM_JOB_ID is" $SLURM_JOB_ID
+echo 
+echo "Current profile calculation"
+
+wrkdir=$( echo $1 )
+checkIfEmpty wrkdir $wrkdir
+
+dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
+checkIfEmpty dirname $dirname
+
+#echo "Working directory:"; echo $wrkdir; echo
+
+filenum=$(ls $wrkdir/*inp | wc -l)
+checkIfEmpty filenum $filenum
+
+# clean up possible previous calculations
+rm -rf *eps GIMIC.*
+
+parallel=$2
+checkIfEmpty parallel $parallel
+
+date
+echo "Running $parallel out of $filenum GIMIC calculations at a time..."; echo 
+
+
+filesList=$( ( cd $wrkdir && ls *inp ) )
+checkIfEmpty filesList $filesList
+
+counter=0
+completed=1
+for file in $filesList
+do
+    counter=$(( $counter+1 ))
+    idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
+    idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
+#    echo $file " == gimic.$idxH.$idxV.inp"
+    cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out &
+    if [ $counter -eq $parallel ]
+    then
+	wait
+	counter=0
+	completed=$(( $completed+$parallel ))
+	date
+	echo "$completed out of $filenum jobs completed"; echo
+    fi
+
+done
+
+
+rm -rf GIMIC* 
+
+###################################################################################
+
+# Calculating the gradient:
+(cd $wrkdir && @SCRIPTS_DIR@/gradient.sh)
+
+# Find the zeroes on the current profile plot
+@SCRIPTS_DIR@/crit_pts.sh $wrkdir 
+
+#######################################################################
+
+# print some info like used time, disk, reserved memory and actual used memory
+sacct -j $SLURM_JOB_ID --format=jobid,jobname,AllocNodes,AllocCPUs,CPUTime,MaxDiskRead,MaxDiskWrite
+#sacct -a --format=elapsed,maxdiskwrite,reqmem,maxrss  -j $SLURM_JOB_ID
+
+echo
