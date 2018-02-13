@@ -179,13 +179,22 @@ contains
                     if (jp > 0.d0) then
                         ! get positive contribution
                         psum=psum+jp
-                        p_prime_sum = p_prime_sum + jp_prime
-                        p_second_sum = p_second_sum + jp_second
-
                     else
                         ! get negative contribution
                         nsum=nsum+jp
+                    end if
+                    if (jp_prime > 0.d0) then
+                        ! get positive contribution
+                        p_prime_sum = p_prime_sum + jp_prime
+                    else
+                        ! get negative contribution
                         n_prime_sum = n_prime_sum + jp_prime
+                    end if
+                    if (jp_second > 0.d0) then
+                        ! get positive contribution
+                        p_second_sum = p_second_sum + jp_second
+                    else
+                        ! get negative contribution
                         n_second_sum = n_second_sum + jp_second
                     end if
                     end do
@@ -405,10 +414,10 @@ write (*,*) 'DEBUGGING'
         write(str_g, '(a,f13.6)') 'Induced mod current (au)   :', xsum3
         call msg_out(str_g)
         write(str_g, '(a,f13.6,a,f11.6,a)') &
-            '      Positive contribution:', psum3, '  (',au2si(psum3),' )'
+            '      Positive mod contribution:', psum3, '  (',au2si(psum3),' )'
         call msg_out(str_g)
         write(str_g, '(a,f13.6,a,f11.6,a)') &
-            '      Negative contribution:', nsum3, '  (',au2si(nsum3),' )'
+            '      Negative mod contribution:', nsum3, '  (',au2si(nsum3),' )'
         call msg_out(str_g)
         call nl
         write(str_g, '(a,f13.6)') 'Induced mod current (nA/T) :', au2si(xsum3)
