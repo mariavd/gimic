@@ -6,7 +6,8 @@ module magnet_module
     use tensor_module
     implicit none
 
-    public get_magnet, get_magnet_essential
+    public get_magnet, get_magnet_essential_prime_second, get_magnet_essential_XYZ
+!    public get_magnet, get_magnet_essential
     private
 contains
     subroutine get_magnet(g, mag)
@@ -66,7 +67,8 @@ contains
 
     end subroutine
 
-    subroutine get_magnet_essential(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
+    subroutine get_magnet_essential_prime_second(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
+!    subroutine get_magnet_essential(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
         type(grid_t) :: g
         real(DP), dimension(:), intent(in) :: mag
         real(DP), dimension(:), intent(out) :: mag_along, mag_normal
@@ -85,6 +87,25 @@ contains
         call get_basvec(g, 3, v)
         call check_field(v, mag_along)
         call check_field(v, mag_normal)
+    end subroutine
+
+    subroutine get_magnet_essential_XYZ(g, magX, magY, magZ) ! B pointing along the int plane and normal to it
+        type(grid_t) :: g
+        real(DP), dimension(:), intent(out) :: magX, magY, magZ
+
+        real(DP), dimension(3) :: v
+!        real(DP), dimension(3) :: normal
+
+!        normal=get_grid_normal(g)
+!        mag_along=normal
+
+magX = (/ 1, 0, 0 /)
+magY = (/ 0, 1, 0 /)
+magZ = (/ 0, 0, 1 /)
+        call get_basvec(g, 3, v)
+        call check_field(v, magX)
+        call check_field(v, magY)
+        call check_field(v, magZ)
     end subroutine
 
     subroutine check_field(dir,mag)
