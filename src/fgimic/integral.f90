@@ -156,7 +156,7 @@ contains
 
                 do i=1,p1
                     rr=gridpoint(this%grid, i, j, k)
-                    r=sqrt(sum((rr-center)**2))
+                    r=dsqrt(sum((rr-center)**2))
                     call ctensor(jt, rr, tt, spin)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
                     jvec_prime=matmul(reshape(tt,(/3,3/)),bb_prime)
@@ -371,7 +371,7 @@ contains
                 nsum=0.d0
                 do i=1,p1
                     rr=gridpoint(this%grid, i, j, k)
-                    r=sqrt(sum((rr-center)**2))
+                    r=dsqrt(sum((rr-center)**2))
                     call ctensor(jt, rr, tt, spin)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
                     if ( r > bound ) then
@@ -387,7 +387,7 @@ contains
                             sgn=-1.d0
                         end if
                     end if
-                    jp=sgn*sqrt(sum(jvec**2))
+                    jp=sgn*dsqrt(sum(jvec**2))
                     xsum=xsum+jp*w
                     if (jp > 0.d0) then
                         psum=psum+jp*w
@@ -583,7 +583,7 @@ contains
                 xsum=0.d0
                 do i=1,p1
                     rr=gridpoint(this%grid, i, j, k)
-                    r=sqrt(sum((rr-center)**2))
+                    r=dsqrt(sum((rr-center)**2))
                     call ctensor(jt, rr, tt, spin)
                     ! attention: output of get_acid is in au !
                     val = get_acid(rr,tt)

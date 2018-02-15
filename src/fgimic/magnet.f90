@@ -68,16 +68,16 @@ contains
     end subroutine
 
     subroutine get_magnet_essential_prime_second(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
-!    subroutine get_magnet_essential(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
+        !    subroutine get_magnet_essential(g, mag, mag_along, mag_normal) ! B pointing along the int plane and normal to it
         type(grid_t) :: g
         real(DP), dimension(:), intent(in) :: mag
         real(DP), dimension(:), intent(out) :: mag_along, mag_normal
 
         real(DP), dimension(3) :: v
-!        real(DP), dimension(3) :: normal
+        !        real(DP), dimension(3) :: normal
 
-!        normal=get_grid_normal(g)
-!        mag_along=normal
+        !        normal=get_grid_normal(g)
+        !        mag_along=normal
         mag_normal=get_grid_normal(g)
         mag_normal=-mag_normal
         mag_along=cross_product(mag,mag_normal)
@@ -94,14 +94,14 @@ contains
         real(DP), dimension(:), intent(out) :: magX, magY, magZ
 
         real(DP), dimension(3) :: v
-!        real(DP), dimension(3) :: normal
+        !        real(DP), dimension(3) :: normal
 
-!        normal=get_grid_normal(g)
-!        mag_along=normal
+        !        normal=get_grid_normal(g)
+        !        mag_along=normal
 
-magX = (/ 1, 0, 0 /)
-magY = (/ 0, 1, 0 /)
-magZ = (/ 0, 0, 1 /)
+        magX = (/ 1.d0, 0.d0, 0.d0 /)
+        magY = (/ 0.d0, 1.d0, 0.d0 /)
+        magZ = (/ 0.d0, 0.d0, 1.d0 /)
         call get_basvec(g, 3, v)
         call check_field(v, magX)
         call check_field(v, magY)
@@ -115,6 +115,7 @@ magZ = (/ 0, 0, 1 /)
         real(DP) :: x
 
         x=dot_product(dir, mag)
+        write (*,*) 'DEBUG: ( ', dir, ' ) * ( ', mag, ' ) = ', x
         if (x > 0.d0) then
             mag=-mag
             call msg_info('Left handed coordinate system,&
