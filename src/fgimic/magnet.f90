@@ -79,8 +79,8 @@ contains
         !        normal=get_grid_normal(g)
         !        mag_along=normal
         mag_normal=get_grid_normal(g)
-        mag_normal=-mag_normal
-        mag_along=cross_product(mag,mag_normal)
+        mag_normal=-mag_normal/sqrt(2.d0)
+        mag_along=cross_product(mag,mag_normal)/sqrt(2.d0)
 
         write (*,*) 'DEBUG: mag_normal: ', mag_normal
         write (*,*) 'DEBUG: mag_along: ', mag_along
@@ -99,9 +99,9 @@ contains
         !        normal=get_grid_normal(g)
         !        mag_along=normal
 
-        magX = (/ 1.d0, 0.d0, 0.d0 /)
-        magY = (/ 0.d0, 1.d0, 0.d0 /)
-        magZ = (/ 0.d0, 0.d0, 1.d0 /)
+        magX = (/ 1.d0/sqrt(2.d0), 0.d0, 0.d0 /)
+        magY = (/ 0.d0, 1.d0/sqrt(2.d0), 0.d0 /)
+        magZ = (/ 0.d0, 0.d0, 1.d0/sqrt(2.d0) /)
         call get_basvec(g, 3, v)
         call check_field(v, magX)
         call check_field(v, magY)

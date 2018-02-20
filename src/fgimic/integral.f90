@@ -93,8 +93,8 @@ contains
 
         call get_grid_size(this%grid, p1, p2, p3)
         call get_magnet(this%grid, bb)
-!        call get_magnet_essential_prime_second(this%grid, bb, bb_prime, bb_second)
-        call get_magnet_essential_XYZ(this%grid, bb, bb_prime, bb_second)
+        call get_magnet_essential_prime_second(this%grid, bb, bb_prime, bb_second)
+!        call get_magnet_essential_XYZ(this%grid, bb, bb_prime, bb_second)
         !call jfield_eta(this%jf)
 
         normal=get_grid_normal(this%grid)
