@@ -21,7 +21,7 @@ checkIfEmpty wrkdir $wrkdir
 dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
 checkIfEmpty dirname $dirname
 
-filenum=$(ls *.inp | wc -l)
+filenum=$(find . -maxdepth 1 -type f -name '*.inp' | wc -l)
 checkIfEmpty filenum $filenum
 
 start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
@@ -67,36 +67,42 @@ do
     done
 done
 
-paste $wrkdir/current.dat $wrkdir/diatropic.dat $wrkdir/paratropic.dat > $wrkdir/current_profile.dat
+(cd $wrkdir && files=$(find . -maxdepth 1 -type f -name 'current.*.dat') && paste $files  > $wrkdir/current_profile.dat )
+tac $wrkdir/current_profile.dat > $wrkdir/cr.dat
+
 rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
-
-paste $wrkdir/current_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/paratropic_prime.dat > $wrkdir/current_profile_prime.dat
-rm -f $wrkdir/paratropic_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/current_prime.dat
-
-paste $wrkdir/current_second.dat $wrkdir/diatropic_second.dat $wrkdir/paratropic_second.dat > $wrkdir/current_profile_second.dat
-rm -f $wrkdir/paratropic_second.dat $wrkdir/diatropic_second.dat $wrkdir/current_second.dat
-
 
 printf "\nData saved in current_profile.dat\n\n"
 
 echo
 
+#minCurrent=$( awk 'NR == 1 {min=$1;} {for(i=1;i<=NF;i++) if ($i < min) min=$i ;}  END { print min;}' cr.dat )
+#maxCurrent=$( awk 'NR == 1 {max=$1;} {for(i=1;i<=NF;i++) if ($i > max) max=$i ;}  END { print min;}' cr.dat )
+#checkIfEmpty minCurrent $minCurrent
+#checkIfEmpty maxCurrent $maxCurrent
 
+currentRange=$( awk 'NR == 1 {min=$1; max=$1}  {for(i=1;i<=NF;i++) {if ($i < min) min=$i ; if ($i > max) max=$i;} }   END { printf("%.2f", (min+max)*0.5);}' cr.dat  )
+checkIfEmpty currentRange $currentRange
 
 # GNUPLOT:
-# unset key
-# set view map
-# set cbrange [-0.2:0.2]
-# #set palette defined (0 "blue",25 "#00ffff",50 "white",75 "yellow", 100 "red",101 "grey")
-# set palette defined (0 "red",25 "yellow",50 "white",75 "#00ffff", 100 "blue",101 "grey")
-# 
-# set terminal pngcairo enhanced font 'Helvetica, 22' size 800,700
-# set output "squares-profile.png"
-# splot "current_profile.dat" matrix with image
-# 
-# 
-# set output "squares-profile-interpolate-20,20.png"
-# set pm3d map
-# set pm3d interpolate 20,20
-# splot "current_profile.dat" matrix notitle
-# 
+unset key
+unset xtics
+unset ytics
+set view map
+set cbrange [-$currentRange:$currentRange]
+set xrange [0:$nstepsH]
+set yrange [0:$nstepsV]
+set rmargin screen 0.8
+set lmargin screen 0.1
+#set palette defined (0 "blue",25 "#00ffff",50 "white",75 "yellow", 100 "red",101 "grey")
+set palette defined (0 "red",25 "yellow",50 "white",75 "#00ffff", 100 "blue",101 "grey")
+
+set terminal pngcairo enhanced font 'Helvetica, 22' size 800,900
+set output "squares-profile.png"
+splot "cr.dat" matrix with image
+
+set output "squares-profile-interpolate-20,20.png"
+set pm3d map
+set pm3d interpolate 20,20
+splot "cr.dat" matrix notitle
+

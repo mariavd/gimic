@@ -28,28 +28,34 @@ echo
 date
 echo "Running $parallel out of $filenum GIMIC calculations at a time..."
 
-filesList=$( ( cd $wrkdir && ls *inp ) )
-checkIfEmpty filesList $filesList
-
-counter=0
-completed=1
-for file in $filesList
+for ((col=0; col<$nstepsV; col++))
 do
-    counter=$(( $counter+1 ))
-    idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
-    idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
-#    echo $file " == gimic.$idxH.$idxV.inp"
-    cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out &
-    if [ $counter -eq $parallel ]
-    then
-	wait
-	counter=0
-	completed=$(( $completed+$parallel ))
-	date
-	echo "$completed out of $filenum jobs completed"; echo
-    fi
+
+    filesList=$( ( cd $wrkdir && find . -maxdepth 1 -type f -name "*.$col.inp" ) )
+    checkIfEmpty filesList $filesList
+
+    counter=0
+    completed=0
+    for file in $filesList
+    do
+	counter=$(( $counter+1 ))
+	idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
+	idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
+	#    echo $file " == gimic.$idxH.$idxV.inp"
+	cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out &
+	if [ $counter -eq $parallel ]
+	then
+	    wait
+	    counter=0
+	    completed=$(( $completed+$parallel ))
+	    date
+	    echo "$completed out of $filenum jobs completed"; echo
+	fi
+
+    done
 
 done
+
 
 
 rm -rf GIMIC* 
