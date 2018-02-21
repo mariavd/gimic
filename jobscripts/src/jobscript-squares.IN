@@ -76,10 +76,10 @@ rm -rf GIMIC*
 ###################################################################################
 
 # Calculating the gradient:
-(cd $wrkdir && @SCRIPTS_DIR@/gradient.sh)
+(cd $wrkdir && @SCRIPTS_DIR@/gradient-square.sh)
 
 # Find the zeroes on the current profile plot
-@SCRIPTS_DIR@/crit_pts.sh $wrkdir 
+#@SCRIPTS_DIR@/crit_pts.sh $wrkdir 
 
 #######################################################################
 

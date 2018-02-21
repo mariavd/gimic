@@ -59,14 +59,12 @@ checkIfEmpty start $start
 checkIfEmpty out $out
 checkIfEmpty delta $delta
 
-for (( i=0; i<$filenum; i++ ))
+for ((i=0; i<nstepsH; i++))
 do
-    awk -v i=$i -v down=$down -v dia="$wrkdir/diatropic.dat" -v para="$wrkdir/paratropic.dat" -v delta=$delta -v out="$wrkdir/current.dat" '/Induced current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $5) >> out}; /Positive cont/ {printf("% .8f\t", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i.out
-
-    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_prime.dat" -v para="$wrkdir/paratropic_prime.dat" -v out="$wrkdir/current_prime.dat" '/Induced j_prime current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_prime/ {printf("% .8f\t", $6) >> dia}; /Negative j_prime/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
-
-    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_second.dat" -v para="$wrkdir/paratropic_second.dat" -v out="$wrkdir/current_second.dat" '/Induced j_second current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_second/ {printf("% .8f\t", $6) >> dia}; /Negative j_second/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
-
+    for ((j=0; j<nstepsV; j++))
+    do  
+        awk -v dia="$wrkdir/diatropic.$i.dat" -v para="$wrkdir/paratropic.$i.dat" -v delta=$delta -v out="$wrkdir/current.$i.dat" '/Induced current \(n/ {printf("% .8f\n", $5) >> out}; /Positive cont/ {printf("% .8f\n", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i.$j.out
+    done
 done
 
 paste $wrkdir/current.dat $wrkdir/diatropic.dat $wrkdir/paratropic.dat > $wrkdir/current_profile.dat
