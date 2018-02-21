@@ -8,13 +8,8 @@ checkIfEmpty wrkdir $wrkdir
 
 echo "Running Gimic calculations..."
 
-filenum=$(ls $wrkdir/*inp | wc -l)
+filenum=$(find . -maxdepth 1 -type f -name '*.inp' | wc -l)
 checkIfEmpty filenum $filenum
-
-#nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
-#nstepsV=$( sed -n -e 's/^.*nstepsV=//p' $wrkdir/calculation.dat | awk '{print $1}')
-#checkIfEmpty nstepsH $nstepsH
-#checkIfEmpty nstepsV $nstepsV
 
 parallel=4
 

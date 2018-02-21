@@ -226,17 +226,6 @@ function calculateFixedCoord() {
 }
 
 
-function dotProduct() {
-    #
-    awk -v A1x="$1" -v A1y="$2" -v A1z="$3" -v A2x="$4" -v A2y="$5" -v A2z="$6" 'BEGIN{ 
-        dot = A1x*A2x + A1y*A2y + A1z*A2z;
-	print dot;
-    }'
-}
-
-
-
-
 
 
 function planeSanityCheck() {
@@ -254,7 +243,7 @@ then
     # take the first two coordinates of the int plane
     cat ./$dirname/grid.xyz | head -n -3 > ./$dirname/grid.check.xyz
 
-    last=$(ls ./$dirname/*inp | wc -l)
+    last=$(find . -maxdepth 1 -type f -name './$dirname/*.inp' | wc -l )
     last=$(( $last -1 ))
     (cd ./$dirname/ && gimic --dryrun gimic.$last.inp > /dev/null)
 
@@ -386,5 +375,19 @@ function normalPlane()
           print nx/nmod, ny/nmod, nz/nmod; 
     }'
 };
+
+
+function dotProduct() {
+# usage: 
+# echo $x0 $x1 | dotProduct
+    awk '{
+          split($0,crd);
+	dot = crd[1]*crd[4] + crd[2]*crd[5] + crd[3]*crd[6]
+	print dot;
+    }'
+}
+
+
+
 
 
