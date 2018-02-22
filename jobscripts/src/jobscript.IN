@@ -34,7 +34,7 @@ checkIfEmpty dirname $dirname
 
 #echo "Working directory:"; echo $wrkdir; echo
 
-filenum=$(find . -maxdepth 1 -type f -name '*.inp' | wc -l)
+filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l))
 checkIfEmpty filenum $filenum
 
 # clean up possible previous calculations

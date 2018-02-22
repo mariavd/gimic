@@ -21,7 +21,7 @@ checkIfEmpty wrkdir $wrkdir
 dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
 checkIfEmpty dirname $dirname
 
-filenum=$(find . -maxdepth 1 -type f -name '*.inp' | wc -l)
+filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l))
 checkIfEmpty filenum $filenum
 
 start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
@@ -43,14 +43,6 @@ cat /dev/null > $wrkdir/paratropic.$i.dat #delete if it already exists
 cat /dev/null > $wrkdir/diatropic.$i.dat
 cat /dev/null > $wrkdir/current.$i.dat
 done
-
-cat /dev/null > $wrkdir/paratropic_prime.dat #delete if it already exists
-cat /dev/null > $wrkdir/diatropic_prime.dat
-cat /dev/null > $wrkdir/current_prime.dat
-
-cat /dev/null > $wrkdir/paratropic_second.dat #delete if it already exists
-cat /dev/null > $wrkdir/diatropic_second.dat
-cat /dev/null > $wrkdir/current_second.dat
 
 start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
 out=$( sed -n -e 's/^.*out=//p' $wrkdir/calculation.dat | awk '{print $1}')
@@ -85,6 +77,7 @@ currentRange=$( awk 'NR == 1 {min=$1; max=$1}  {for(i=1;i<=NF;i++) {if ($i < min
 checkIfEmpty currentRange $currentRange
 
 # GNUPLOT:
+gnuplot <<<EOF
 unset key
 unset xtics
 unset ytics
@@ -105,4 +98,5 @@ set output "squares-profile-interpolate-20,20.png"
 set pm3d map
 set pm3d interpolate 20,20
 splot "cr.dat" matrix notitle
+EOF
 
