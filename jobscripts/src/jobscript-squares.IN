@@ -32,9 +32,7 @@ checkIfEmpty wrkdir $wrkdir
 dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
 checkIfEmpty dirname $dirname
 
-#echo "Working directory:"; echo $wrkdir; echo
-
-filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l) )
+filenum=$(cd $wrkdir/gimic.0 && find . -maxdepth 1 -type f -name '*.inp' | wc -l) # holds the number of files in a row of the squares
 checkIfEmpty filenum $filenum
 
 # clean up possible previous calculations
@@ -46,35 +44,28 @@ checkIfEmpty parallel $parallel
 date
 echo "Running $parallel out of $filenum GIMIC calculations at a time..."; echo 
 
-nstepsV=$( sed -n -e 's/^.*nstepsV=//p' $wrkdir/calculation.dat | awk '{print $1}' )
-checkIfEmpty nstepsV $nstepsV
-
-for ((col=0; col<$nstepsV; col++))
+for (( row=0; row<$nstepsH; row++ ))
 do
-
-    filesList=$( ( cd $wrkdir && find . -maxdepth 1 -type f -name "*.$col.inp" ) )
+    filesList=$( ( cd $wrkdir/gimic.$row && ls *inp ) )
     checkIfEmpty filesList $filesList
 
     counter=0
-    completed=0
+    completed=1
     for file in $filesList
     do
 	counter=$(( $counter+1 ))
 	idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
 	idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
-	#    echo $file " == gimic.$idxH.$idxV.inp"
-	cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out &
+	cd $wrkdir/gimic.$row && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$row/gimic.$idxH.$idxV.out &
 	if [ $counter -eq $parallel ]
 	then
 	    wait
 	    counter=0
 	    completed=$(( $completed+$parallel ))
 	    date
-	    echo "$completed out of $filenum jobs completed"; echo
+	    echo "$completed out of " $(($filenum*$nstepsH)) " jobs completed"; echo
 	fi
-
     done
-
 done
 
 rm -rf GIMIC* 

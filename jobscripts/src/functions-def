@@ -204,8 +204,9 @@ function calculateFixedCoord() {
     # multiply the vector originating at (0;0;A2z) and ending at the second atom with coords (A2x; A2y; A2z).
 
     # Rotation matrix R(theta):
-    #  | cos(theta) -sin(theta) |
-    #  | sin(theta)  cos(theta) |
+    #  | cos(theta) -sin(theta)  0  |
+    #  | sin(theta)  cos(theta)  0  |
+    #  |     0            0      1  |
 
     # The choice of a rotation angle was arbitrary
 
@@ -215,13 +216,13 @@ function calculateFixedCoord() {
 
 
 #    echo "func arg: " "$@"
-    awk -v A2x="$1" -v A2y="$2" -v A2z="$3" 'BEGIN{ 
-    rotAngleDeg=10 ; 
-    rotAngleRad=0.0174532925*rotAngleDeg;
-    Cos=cos(rotAngleRad);
-    Sin=sin(rotAngleRad);
-
-    print(Cos*A2x-Sin*A2y, Sin*A2x+Cos*A2y);
+    awk -v Ax="$1" -v Ay="$2" -v Az="$3" 'BEGIN{ 
+         rotAngleDeg=10 ; 
+         rotAngleRad=0.0174532925*rotAngleDeg;
+         Cos=cos(rotAngleRad);
+         Sin=sin(rotAngleRad);
+     
+         print(Cos*Ax+Sin*Ay, Sin*Ax-Cos*Ay);
     }'
 }
 

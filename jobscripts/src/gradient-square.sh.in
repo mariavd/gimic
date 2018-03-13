@@ -54,15 +54,15 @@ checkIfEmpty delta $delta
 for ((i=0; i<nstepsH; i++))
 do
     for ((j=0; j<nstepsV; j++))
-    do  
-        awk -v dia="$wrkdir/diatropic.$i.dat" -v para="$wrkdir/paratropic.$i.dat" -v delta=$delta -v out="$wrkdir/current.$i.dat" '/Induced current \(n/ {printf("% .8f\n", $5) >> out}; /Positive cont/ {printf("% .8f\n", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i.$j.out
+    do
+	awk -v dia="$wrkdir/diatropic.$i.dat" -v para="$wrkdir/paratropic.$i.dat" -v delta=$delta -v out="$wrkdir/current.$i.dat" '/Induced current \(n/ {printf("% .8f\n", $5) >> out}; /Positive cont/ {printf("% .8f\n", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i/gimic.$i.$j.out
     done
 done
 
-(cd $wrkdir && files=$(find . -maxdepth 1 -type f -name 'current.*.dat') && paste $files  > $wrkdir/current_profile.dat )
-tac $wrkdir/current_profile.dat > $wrkdir/cr.dat
+#rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
 
-rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
+(cd $wrkdir && files=$(find . -maxdepth 1 -type f -name 'current.*.dat') && paste $files  > $wrkdir/cr.dat )
+tac $wrkdir/cr.dat > $wrkdir/current_profile.dat
 
 printf "\nData saved in current_profile.dat\n\n"
 
@@ -77,7 +77,8 @@ currentRange=$( awk 'NR == 1 {min=$1; max=$1}  {for(i=1;i<=NF;i++) {if ($i < min
 checkIfEmpty currentRange $currentRange
 
 # GNUPLOT:
-gnuplot <<<EOF
+gnuplot << EOF                                                                                   
+#set title "MF || X"
 unset key
 unset xtics
 unset ytics
@@ -87,16 +88,19 @@ set xrange [0:$nstepsH]
 set yrange [0:$nstepsV]
 set rmargin screen 0.8
 set lmargin screen 0.1
-#set palette defined (0 "blue",25 "#00ffff",50 "white",75 "yellow", 100 "red",101 "grey")
-set palette defined (0 "red",25 "yellow",50 "white",75 "#00ffff", 100 "blue",101 "grey")
+set palette defined (0 "blue", 50 "white", 100 "red")
+#set palette defined (0 "blue", 30 "#009bff", 45 "#aaffff", 50 "white", 60 "#ffd154", 67 "#ffaa00", 79 "#ff7200", 100 "red")
+#set palette negative
+#set palette positive 
+#splot "current_profile.dat" matrix with image
 
 set terminal pngcairo enhanced font 'Helvetica, 22' size 800,900
 set output "squares-profile.png"
-splot "cr.dat" matrix with image
+splot "current_profile.dat" matrix with image
 
 set output "squares-profile-interpolate-20,20.png"
 set pm3d map
 set pm3d interpolate 20,20
-splot "cr.dat" matrix notitle
+splot "current_profile.dat" matrix notitle
 EOF
 
