@@ -32,10 +32,7 @@ checkIfEmpty wrkdir $wrkdir
 dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
 checkIfEmpty dirname $dirname
 
-#echo "Working directory:"; echo $wrkdir; echo
-
-#filenum=$(ls $wrkdir/*inp | wc -l)
-filenum=$(ls $wrkdir/gimic.0/*inp | wc -l)  # holds the number of files in a row of the squares
+filenum=$(cd $wrkdir/gimic.0 && find . -maxdepth 1 -type f -name '*.inp' | wc -l) # holds the number of files in a row of the squares
 checkIfEmpty filenum $filenum
 
 # clean up possible previous calculations
@@ -59,7 +56,6 @@ do
 	counter=$(( $counter+1 ))
 	idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
 	idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
-	#    echo $file " == gimic.$idxH.$idxV.inp"
 	cd $wrkdir/gimic.$row && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$row/gimic.$idxH.$idxV.out &
 	if [ $counter -eq $parallel ]
 	then
@@ -72,18 +68,15 @@ do
     done
 done
 
-
-r
-
 rm -rf GIMIC* 
 
 ###################################################################################
 
 # Calculating the gradient:
-(cd $wrkdir && @SCRIPTS_DIR@/gradient.sh)
+(cd $wrkdir && @SCRIPTS_DIR@/gradient-square.sh)
 
 # Find the zeroes on the current profile plot
-@SCRIPTS_DIR@/crit_pts.sh $wrkdir 
+#@SCRIPTS_DIR@/crit_pts.sh $wrkdir 
 
 #######################################################################
 

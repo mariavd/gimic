@@ -8,7 +8,7 @@ checkIfEmpty wrkdir $wrkdir
 
 echo "Running Gimic calculations..."
 
-filenum=$(ls $wrkdir/gimic.0/*inp | wc -l)  # holds the number of files in a row of the squares
+filenum=$(find . -maxdepth 1 -type f -name 'gimic.0/*.inp' | wc -l) # holds the number of files in a row of the squares
 checkIfEmpty filenum $filenum
 
 nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
@@ -32,19 +32,19 @@ echo
 date
 echo "Running $parallel out of $filenum GIMIC calculations at a time..."
 
+completed=0
+
 for (( row=0; row<$nstepsH; row++ ))
 do
-    filesList=$( ( cd $wrkdir/gimic.$row && ls *inp ) )
+    filesList=$( ( cd $wrkdir/gimic.0/ && find . -maxdepth 1 -type f -name "*.$col.inp" ) )
     checkIfEmpty filesList $filesList
 
     counter=0
-    completed=1
     for file in $filesList
     do
 	counter=$(( $counter+1 ))
 	idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
 	idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
-	#    echo $file " == gimic.$idxH.$idxV.inp"
 	cd $wrkdir/gimic.$row && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$row/gimic.$idxH.$idxV.out &
 	if [ $counter -eq $parallel ]
 	then
@@ -56,6 +56,7 @@ do
 	fi
     done
 done
+
 
 
 rm -rf GIMIC* 
