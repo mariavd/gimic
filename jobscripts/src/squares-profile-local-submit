@@ -8,16 +8,15 @@ checkIfEmpty wrkdir $wrkdir
 
 echo "Running Gimic calculations..."
 
-filenum=$(ls $wrkdir/*inp | wc -l)
+filenum=$(ls $wrkdir/gimic.0/*inp | wc -l)  # holds the number of files in a row of the squares
 checkIfEmpty filenum $filenum
 
-#nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
+nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1}')
 #nstepsV=$( sed -n -e 's/^.*nstepsV=//p' $wrkdir/calculation.dat | awk '{print $1}')
-#checkIfEmpty nstepsH $nstepsH
+checkIfEmpty nstepsH $nstepsH
 #checkIfEmpty nstepsV $nstepsV
 
 parallel=4
-
 echo "Enter the number of parallel jobs"
 read parallel
 checkIfEmpty parallel $parallel
@@ -33,27 +32,29 @@ echo
 date
 echo "Running $parallel out of $filenum GIMIC calculations at a time..."
 
-filesList=$( ( cd $wrkdir && ls *inp ) )
-checkIfEmpty filesList $filesList
-
-counter=0
-completed=1
-for file in $filesList
+for (( row=0; row<$nstepsH; row++ ))
 do
-    counter=$(( $counter+1 ))
-    idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
-    idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
-#    echo $file " == gimic.$idxH.$idxV.inp"
-    cd $wrkdir && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$idxH.$idxV.out &
-    if [ $counter -eq $parallel ]
-    then
-	wait
-	counter=0
-	completed=$(( $completed+$parallel ))
-	date
-	echo "$completed out of $filenum jobs completed"; echo
-    fi
+    filesList=$( ( cd $wrkdir/gimic.$row && ls *inp ) )
+    checkIfEmpty filesList $filesList
 
+    counter=0
+    completed=1
+    for file in $filesList
+    do
+	counter=$(( $counter+1 ))
+	idxH=$(echo $file | sed -e "s#\.# #g" | awk '{ print $2}' )
+	idxV=$(echo $file | sed -e "s#\.# #g" | awk '{ print $3}' )
+	#    echo $file " == gimic.$idxH.$idxV.inp"
+	cd $wrkdir/gimic.$row && gimic gimic.$idxH.$idxV.inp > $wrkdir/gimic.$row/gimic.$idxH.$idxV.out &
+	if [ $counter -eq $parallel ]
+	then
+	    wait
+	    counter=0
+	    completed=$(( $completed+$parallel ))
+	    date
+	    echo "$completed out of " $(($filenum*$nstepsH)) " jobs completed"; echo
+	fi
+    done
 done
 
 

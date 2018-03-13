@@ -42,15 +42,15 @@ do
 cat /dev/null > $wrkdir/paratropic.$i.dat #delete if it already exists
 cat /dev/null > $wrkdir/diatropic.$i.dat
 cat /dev/null > $wrkdir/current.$i.dat
+
+cat /dev/null > $wrkdir/paratropic_prime.$i.dat #delete if it already exists
+cat /dev/null > $wrkdir/diatropic_prime.$i.dat
+cat /dev/null > $wrkdir/current_prime.$i.dat
+
+cat /dev/null > $wrkdir/paratropic_second.$i.dat 
+cat /dev/null > $wrkdir/diatropic_second.$i.dat
+cat /dev/null > $wrkdir/current_second.$i.dat
 done
-
-cat /dev/null > $wrkdir/paratropic_prime.dat #delete if it already exists
-cat /dev/null > $wrkdir/diatropic_prime.dat
-cat /dev/null > $wrkdir/current_prime.dat
-
-cat /dev/null > $wrkdir/paratropic_second.dat #delete if it already exists
-cat /dev/null > $wrkdir/diatropic_second.dat
-cat /dev/null > $wrkdir/current_second.dat
 
 start=$( sed -n -e 's/^.*in=//p' $wrkdir/calculation.dat | awk '{print $1}')
 out=$( sed -n -e 's/^.*out=//p' $wrkdir/calculation.dat | awk '{print $1}')
@@ -59,46 +59,50 @@ checkIfEmpty start $start
 checkIfEmpty out $out
 checkIfEmpty delta $delta
 
-for (( i=0; i<$filenum; i++ ))
+for ((i=0; i<nstepsH; i++))
 do
-    awk -v i=$i -v down=$down -v dia="$wrkdir/diatropic.dat" -v para="$wrkdir/paratropic.dat" -v delta=$delta -v out="$wrkdir/current.dat" '/Induced current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $5) >> out}; /Positive cont/ {printf("% .8f\t", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i.out
-
-    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_prime.dat" -v para="$wrkdir/paratropic_prime.dat" -v out="$wrkdir/current_prime.dat" '/Induced j_prime current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_prime/ {printf("% .8f\t", $6) >> dia}; /Negative j_prime/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
-
-    awk -v i=$i -v down=$down -v delta=$delta -v dia="$wrkdir/diatropic_second.dat" -v para="$wrkdir/paratropic_second.dat" -v out="$wrkdir/current_second.dat" '/Induced j_second current \(n/ {printf("%5.2f\t% .8f\n", i*delta, $6) >> out}; /Positive j_second/ {printf("% .8f\t", $6) >> dia}; /Negative j_second/ {printf("% .8f\n", $6) >> para};  ' gimic.$i.out
-
+    for ((j=0; j<nstepsV; j++))
+    do
+	awk -v dia="$wrkdir/diatropic.$i.dat" -v para="$wrkdir/paratropic.$i.dat" -v delta=$delta -v out="$wrkdir/current.$i.dat" '/Induced current \(n/ {printf("% .8f\n", $5) >> out}; /Positive cont/ {printf("% .8f\n", $5) >> dia}; /Negative cont/ {printf("% .8f\n", $5) >> para};  ' gimic.$i/gimic.$i.$j.out
+    done
 done
 
-paste $wrkdir/current.dat $wrkdir/diatropic.dat $wrkdir/paratropic.dat > $wrkdir/current_profile.dat
-rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
+(cd $wrkdir && files=$(ls -v current.*.dat) && paste $files  > $wrkdir/cr.dat )
 
-paste $wrkdir/current_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/paratropic_prime.dat > $wrkdir/current_profile_prime.dat
-rm -f $wrkdir/paratropic_prime.dat $wrkdir/diatropic_prime.dat $wrkdir/current_prime.dat
+#rm -f $wrkdir/paratropic.dat $wrkdir/diatropic.dat $wrkdir/current.dat
 
-paste $wrkdir/current_second.dat $wrkdir/diatropic_second.dat $wrkdir/paratropic_second.dat > $wrkdir/current_profile_second.dat
-rm -f $wrkdir/paratropic_second.dat $wrkdir/diatropic_second.dat $wrkdir/current_second.dat
-
+tac $wrkdir/cr.dat > $wrkdir/current_profile.dat
 
 printf "\nData saved in current_profile.dat\n\n"
 
 echo
 
 
+gnuplot << EOF                                                                                   
+#set title "MF || X"
+unset key
+unset xtics
+unset ytics
+set view map
+set cbrange [-0.05:0.05]
+#set cbrange [-0.1:0.1]
+set xrange [0:$nstepsH]
+set yrange [0:$nstepsV]
+set rmargin screen 0.8
+set lmargin screen 0.1
+set palette defined (0 "blue", 50 "white", 100 "red")
+#set palette defined (0 "blue", 30 "#009bff", 45 "#aaffff", 50 "white", 60 "#ffd154", 67 "#ffaa00", 79 "#ff7200", 100 "red")
+#set palette negative
+#set palette positive 
+#splot "current_profile.dat" matrix with image
 
-# GNUPLOT:
-# unset key
-# set view map
-# set cbrange [-0.2:0.2]
-# #set palette defined (0 "blue",25 "#00ffff",50 "white",75 "yellow", 100 "red",101 "grey")
-# set palette defined (0 "red",25 "yellow",50 "white",75 "#00ffff", 100 "blue",101 "grey")
-# 
-# set terminal pngcairo enhanced font 'Helvetica, 22' size 800,700
-# set output "squares-profile.png"
-# splot "current_profile.dat" matrix with image
-# 
-# 
-# set output "squares-profile-interpolate-20,20.png"
-# set pm3d map
-# set pm3d interpolate 20,20
-# splot "current_profile.dat" matrix notitle
-# 
+set terminal pngcairo enhanced font 'Helvetica, 22' size 800,900
+set output "squares-profile.png"
+splot "current_profile.dat" matrix with image
+
+set output "squares-profile-interpolate-20,20.png"
+set pm3d map
+set pm3d interpolate 20,20
+splot "current_profile.dat" matrix notitle
+
+EOF
