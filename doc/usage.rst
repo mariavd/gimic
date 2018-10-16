@@ -74,6 +74,7 @@ directory the ``turbo2gimic.py`` script (distributed with GIMIC)
 to produce the ``MOL`` and ``XDENS`` files.
 
 ::
+
     $ turbo2gimic.py > MOL
 
 
@@ -107,13 +108,65 @@ Run in the same directory "python lsdalton2gimic.py"
 Running Gausian
 --------------- 
 
+The nuclear shielding calculation on Gaussian needs to be performed by
+including the keyword ``IOp(10/33=2)`` to print the perturbed density matrices
+in the output file. Explicitly specifying ``NMR=GIAO`` is not necessary since
+using GIAO's is the default in G09. The keyword ``Int=NoBasisTransform`` is
+needed in order to prevent Gaussian from transforming the generalized
+contraction basis sets. It ensures that the results will match with the ones
+obtained in Turbomole. 
+
+The general structure of the input file looks like this:
+
+:: 
+
+    %chk=file.chk
+    #P <method>/<basis> nmr pop=regular Int=NoBasisTransform IOp(10/33=2)
+    <empty line> 
+    title 
+    <empty line> 
+    <charge> <multiplicity>
+    <coordinates> 
+    <empty line>
+
+
+In the above, the lines with the ``<`` ``>`` symbols are supposed to be modified. These bracket symbols are not part of the actual input file. 
+
+If the basis set needs to be specified explicitly, the input file is structured as follows:
+
+::
+
+    %chk=file.chk
+    #P <method> nmr pop=regular Int=NoBasisTransform IOp(10/33=2)
+    <empty line> 
+    title 
+    <empty line> 
+    <charge> <multiplicity>
+    <coordinates> 
+    <empty line>
+    <basis set specification>
+    <****>
+    <empty line> 
+
+If ECPs are needed, then the method specification line should like as in the example below.
+
+:: 
+
+#P TPSSTPSS/GenEcp nmr pop=regular Int=NoBasisTransform IOp(10/33=2)
+
+
+It seems there is a small difference between the keywords "nosymmetry"
+and "Symmetry=None". The latter should only be used if "nosymmetry"
+generates an error. 
+
+
+
 The scripts/input needed can be found in ``/tools/g092gimic``. 
 
 This script has been provided by Vincent Liegeois University Namur.
 vincent.liegeois@unamur.be
 
-
-The program is made of two parts: 
+The tool consists of two parts: 
 
 1) Gaussian2gimic.py which is the main program
 
@@ -142,7 +195,6 @@ For example, for a calculation on paranitroaniline with HF/6-311G(2df,2pd), the 
 
 For the same molecule but with HF/cc-pVTZ, the maximum errors are: 4.8e-5, 2.5e-2, 5.4e-2, 7.8e-2.
 
-ATTENTION, to have these agreements with turbomole, one need to specify "int=NoBasisTransform » in the Gaussian NMR calculation in order to prevent Gaussian from transforming the generalized contraction basis sets.
 
 
 At last, the MOL file produced by Gaussian2gimic is slightly different from the one obtained by turbo2gimic.`
@@ -230,13 +282,6 @@ $ Gaussian2gimic.py --input=file.log
 
 For the present example a current strength susceptibility of 8.4 nA/T
 was calculated. 
-
-Note the keyword "Int=NoBasisTransform" is only needed for reproducing
-Turbomole based results. "NMR=GIAO" is not necessarily needed since 
-using GIAO's is the default in G09.  
-It seems there is a small difference between the keywords "nosymmetry"
-and "Symmetry=None". The latter should only be used if "nosymmetry"
-generates an error. 
 
 
 Running GIMIC
