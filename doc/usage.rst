@@ -71,7 +71,7 @@ the ``$gimic`` keyword. When the calculation has finished Turbomole
 writes out two files called ``CAODENS`` (AO density information) and
 ``XCAODEND`` (perturbed density information). In case either of them is 
 missing, ``mpshift`` did not converge. It is necessary to add the 
-``$chmaxiter N`` keyword to the control file, where ``N`` is larger than 
+``$csmaxiter N`` keyword to the control file, where ``N`` is larger than 
 the default value of 30. Afterwards, run in the same directory the 
 ``turbo2gimic.py`` script (distributed with GIMIC) to produce the ``MOL`` 
 and ``XDENS`` files.
