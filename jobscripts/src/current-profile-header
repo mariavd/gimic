@@ -150,12 +150,12 @@ then
     then
 	#RAUL'S PLANE
 	checkPlaneDir=$(command -v normalise_plane)
-	if [ ! -e $checkPlaneDir ]
+	if [ -z $checkPlaneDir ]
 	then
 	    echo "The program for orienting with respect a plane is not found. Switching to manual input of the magnetic field components."
 	else
 	    echo "Enter the indices of the atoms defining a plane perpendicular to the MF"
-	    echo "Due to a known bug, the last atom in the coord file may not be used."
+	    echo "NOTE: indices start from 0!"
 	    read MFatoms
 	    echo $MFatoms > ./$dirname/MF_idx.dat
 	    echo
@@ -240,9 +240,15 @@ then
     #Fy=$(echo $Fcoords | awk '{print $2}')
     #Fz=$(echo $Fcoords | awk '{print $3}')
 
-    Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx=$MFx -v my=$MFy -v mz=$MFz 'BEGIN{ Fx = (my*(A2z-A1z) - mz*(A2y-A1y)); print Fx  }' )
-    Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx=$MFx -v my=$MFy -v mz=$MFz 'BEGIN{ Fy = (mz*(A2x-A1x) - mx*(A2z-A1z)); print Fy  }' )
-    Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx=$MFx -v my=$MFy -v mz=$MFz 'BEGIN{ Fz = (mx*(A2y-A1y) - my*(A2x-A1x)); print Fz  }' )
+#    # cross product of A2-A1 and B, where B is translated by vector A2
+#    Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 + A2x; my = my0 + A2y; mz = mz0 + A2z; Fx = (my*(A2z-A1z) - mz*(A2y-A1y)); print Fx  }' )
+#    Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 + A2x; my = my0 + A2y; mz = mz0 + A2z; Fy = (mz*(A2x-A1x) - mx*(A2z-A1z)); print Fy  }' )
+#    Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 + A2x; my = my0 + A2y; mz = mz0 + A2z; Fz = (mx*(A2y-A1y) - my*(A2x-A1x)); print Fz  }' )
+#
+    # cross product of A2-A1 and B, where F is translated by vector A2
+    Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 ; my = my0 ; mz = mz0 ; Fx = (my*(A2z-A1z) - mz*(A2y-A1y)); print Fx + A2x  }' )
+    Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 ; my = my0 ; mz = mz0 ; Fy = (mz*(A2x-A1x) - mx*(A2z-A1z)); print Fy + A2y }' )
+    Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v mx0=$MFx -v my0=$MFy -v mz0=$MFz 'BEGIN{ mx = mx0 ; my = my0 ; mz = mz0 ; Fz = (mx*(A2y-A1y) - my*(A2x-A1x)); print Fz +A2z }' )
 
     echo
     echo "Fixed coordinate: ($Fx; $Fy; $Fz)"
