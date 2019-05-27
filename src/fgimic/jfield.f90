@@ -198,13 +198,17 @@ contains
         real(DP), dimension(3) :: bar=(/D1,D1,D1/)
         real(DP), dimension(3) :: foobar
         real(DP), parameter :: SC=0.25d0
+        real(4) :: hours_per_sec = 1.0/3600.0
+        real(4) :: days_per_hour = 1.0/24.0
+        real(4) :: hours_per_day = 24.0
+        integer :: no_tests = 100
 
         call get_grid_size(this%grid, p1, p2, p3)
 
         call new_jtensor(jt, mol, xdens)
         call etime(times, tim1)
         tim1=times(1)
-        do i=1,100
+        do i=1,no_tests
             call jtensor(jt, (/i*SC, i*SC, i*SC/), foo, spin_a)
             foobar=matmul(bar,reshape(foo,(/3,3/)))
         end do
@@ -215,10 +219,10 @@ contains
         delta_t=tim2-tim1
         if ( present(fac) ) delta_t=delta_t*fac
         write(str_g, '(a,f11.2,a,a,f6.1,a)') 'Estimated CPU time for single core &
-            &calculation: ', delta_t*real(p1*p2*p3)/100.d0, ' sec', &
-            ' (',  delta_t*real(p1*p2*p3)/3600.d0, ' h )'
-        if ( delta_t*real(p1*p2*p3)/3600.d0 .gt. 48 ) then
-            write(str_g, '(a,f4.1,a)') '(', delta_t*real(p1*p2*p3)/3600.d0/24, ' days )' 
+            calculation: ', delta_t*real(p1*p2*p3)/real(no_tests), ' sec', &
+            ' (',  delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec, ' h )'
+        if ( delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec .gt. 2*hours_per_day ) then ! will take more than two days?
+            write(str_g, '(a,f4.1,a)') '(', delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec*days_per_hour, ' days )' 
         end if
         call msg_info(str_g)
         call nl
@@ -358,16 +362,23 @@ contains
             call acid_vtkplot(this)
           end if
           ! put modulus info on file
-          if (present(tag)) then
-            call jmod2_vtkplot(this, tag)
-          else
-            call jmod2_vtkplot(this)
+          if (settings%jmod) then
+            if (present(tag)) then
+              call jmod2_vtkplot(this, tag)
+            else
+              call jmod2_vtkplot(this)
+            end if
           end if
         end if
+        ! case external 3D grid - numgrid
+        if (settings%prop) then
+            call get_property(this)
+        end if
+
         ! put jvec information on vti file
-        if (this%grid%gauss) then
+        if (this%grid%gauss.or.settings%prop) then
           write(*,*) "VTK files are only printed for even grids"
-        else
+        else 
           if (present(tag)) then
             call write_vtk_vector_imagedata('jvec'// tag // '.vti', this%grid, jval)
           else
@@ -515,6 +526,101 @@ contains
         end do
         call write_vtk_imagedata('acid.vti', this%grid, val)
         deallocate(val)
+    end subroutine
+
+    subroutine get_property(this)
+        ! assume external grid is read in correctly via read grid 
+        ! assume grid_w.grd, coord.au, gridfile.grd are in the same directory
+        type(jfield_t) :: this
+        real(DP), dimension(:,:), pointer :: jtens
+        real(DP), allocatable :: wg(:), coord(:,:), grd(:,:) 
+        real(DP), dimension(3) :: d, bb, jvec, sigma, chi
+        real(DP) :: f, tmp
+        integer :: i, j, k, npts, natoms
+
+        jtens => this%tens
+
+        ! get atom coordinates in bohr
+        open(unit=15, file="coord.au")
+        natoms = getnlines(15)
+        allocate(coord(natoms,3))
+        do i=1, natoms
+          read(15,*) coord(i,1:3)
+        end do
+        close(15)
+
+        ! get weights from numgrid files (external)
+        open(unit=15, file="grid_w.grd")
+        open(unit=16, file="gridfile.grd")
+        npts = getnlines(15)
+        write(*,*) "npts", npts
+        allocate(wg(npts),grd(npts,3))
+
+        do i=1, npts
+          read(15,*) wg(i)
+          read(16,*) grd(i, 1:3)
+        end do
+        close(15)
+        close(16)
+
+        ! assume jtens has been calculated in the same order
+        ! loope atoms
+        do k=1, natoms
+          ! loop grid points
+          sigma = 0.0d0
+          chi = 0.0d0
+          do i=1, npts
+            ! loop xyz
+            do j = 1, 3
+              d(j) = grd(i,j) - coord(k,j)   
+            end do
+            f = -1.0d0/((d(1)*d(1) + d(2)*d(2) + d(3)*d(3))**1.5d0)/(137.0359998d0**2.0d0)
+            ! contract with Bx
+            bb(1) = -1.0d0
+            bb(2) = 0.0d0
+            bb(3) = 0.0d0
+            jvec = matmul(reshape(jtens(:,i),(/3,3/)),bb) 
+            ! sigma_xx
+            sigma(1) = sigma(1) + 1.0d6*wg(i)*f*(d(2)*jvec(3) - d(3)*jvec(2))
+            ! chi_xx
+            chi(1) = chi(1) + wg(i)*0.5d0*(grd(i,2)*jvec(3) - grd(i,3)*jvec(2))
+            ! contract with By
+            bb(1) = 0.0d0
+            bb(2) = -1.0d0
+            bb(3) = 0.0d0
+            jvec = matmul(reshape(jtens(:,i),(/3,3/)),bb) 
+            ! sigma_yy
+            sigma(2) = sigma(2) + 1.0d6*wg(i)*f*(d(3)*jvec(1) - d(1)*jvec(3))
+            ! chi_yy
+            chi(2) = chi(2) + wg(i)*0.5d0*(grd(i,3)*jvec(1) - grd(i,1)*jvec(3))
+            ! contract with Bz
+            bb(1) = 0.0d0
+            bb(2) = 0.0d0
+            bb(3) = -1.0d0
+            jvec = matmul(reshape(jtens(:,i),(/3,3/)),bb) 
+            ! sigma_zz
+            sigma(3) = sigma(3) + 1.0d6*wg(i)*f*(d(1)*jvec(2) - d(2)*jvec(1))
+            ! chi_zz
+            chi(3) = chi(3) + wg(i)*0.5d0*(grd(i,1)*jvec(2) - grd(i,2)*jvec(1))
+          end do
+          write(*,*) "atom ",k 
+          write(*,*) "sigma_xx ", sigma(1) 
+          write(*,*) "sigma_yy ", sigma(2) 
+          write(*,*) "sigma_zz ", sigma(3) 
+          tmp = (sigma(1) + sigma(2) + sigma(3))/3.0d0  
+          write(*,*) "shielding constant sigma = ", tmp 
+
+        end do
+        write(*,*) "" 
+        write(*,*) "chi_xx ", chi(1) 
+        write(*,*) "chi_yy ", chi(2) 
+        write(*,*) "chi_zz ", chi(3) 
+        tmp = (chi(1) + chi(2) + chi(3))/3.0d0  
+        write(*,*) "isotropic magnetizability chi = ", tmp 
+
+        ! clean up 
+        deallocate(wg, coord)
+
     end subroutine
 end module
 

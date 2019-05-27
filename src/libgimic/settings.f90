@@ -25,8 +25,9 @@ module settings_module
         logical :: use_giao=.true.
         logical :: use_diamag=.true.
         logical :: use_paramag=.true.
-        logical :: acid=.true.
-        logical :: jmod=.true.
+        logical :: acid=.false.
+        logical :: jmod=.false.
+        logical :: prop=.false.
         real(DP) :: screen_thrs
         logical :: use_screening
         integer(I4), dimension(2) :: morange
