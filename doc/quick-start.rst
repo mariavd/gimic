@@ -11,7 +11,7 @@ and the basis set data respectively are available, you can start the current
 density analysis. 
 
 .. image:: gimic-steps.jpg
-   :width: 200pt
+   :width: 100pt
 
 Current density analysis should be done both visually and quantitatively. Start
 by doing a visual analysis of the current density field. After choosing the
