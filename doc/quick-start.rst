@@ -4,14 +4,13 @@ GIMIC Quick-start Guide
 
 In order to perform your first GIMIC calculation, you need to obtain the
 unperturbed and the magnetically perturbed density matrices in a quantum
-chemistry program. Refer to
-[url]https://gimic.readthedocs.io/en/latest/usage.html[/url] for more details.
-Assuming that the ``XDENS`` and ``MOL`` files containing the density matrices
-and the basis set data respectively are available, you can start the current
-density analysis. 
+chemistry program. Refer to https://gimic.readthedocs.io/en/latest/usage.html
+for more details.  Assuming that the ``XDENS`` and ``MOL`` files containing the
+density matrices and the basis set data respectively are available, you can
+start the current density analysis. 
 
 .. image:: gimic-steps.jpg
-   :width: 10%
+   :width: 100pt
 
 Current density analysis should be done both visually and quantitatively. Start
 by doing a visual analysis of the current density field. After choosing the
@@ -81,16 +80,16 @@ spatial dimension. The numberical integration is performed using Gauss
 quadrature. This is specified with the keyword ``type=gauss``. The order of the
 Gauss quadrature is given as ``gauss_order=9``. 
 
-Minimal example for the definition of a bond grid:
+A minimal example for the definition of a bond grid:
 
 :: 
 
     Grid(bond) {                    # define grid orthogonal to a bond 
-        type=gauss                  # gauss distribution of grid points for the integration
-        bond=[1,2]                      # the two atoms
+        bond=[1,2]                  # the two atoms
         fixpoint=4                  # the third point defining the plane
         distance=1.32               # place grid 'distance' between atoms
         
+        type=gauss                  # gauss distribution of grid points for the integration
         gauss_order=9               # order for gauss quadrature
         
         height=[-5.0, 5.0]
