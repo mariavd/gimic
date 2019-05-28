@@ -10,7 +10,7 @@ density matrices and the basis set data respectively are available, you can
 start the current density analysis. 
 
 .. image:: gimic-steps.jpg
-   :width: 100pt
+   :width: 500pt
 
 Current density analysis should be done both visually and quantitatively. Start
 by doing a visual analysis of the current density field. After choosing the
@@ -18,7 +18,7 @@ current pathways of interest, you can perform integrations of the current
 strength. 
 
 .. image:: gimic-analysis.jpg
-   :width: 200pt
+   :width: 500pt
 
 Visual analysis 
 ---------------------
