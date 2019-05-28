@@ -11,7 +11,7 @@ and the basis set data respectively are available, you can start the current
 density analysis. 
 
 .. image:: gimic-steps.jpg
-   :width: 100pt
+   :width: 10%
 
 Current density analysis should be done both visually and quantitatively. Start
 by doing a visual analysis of the current density field. After choosing the
@@ -80,23 +80,24 @@ grid points on the integration plane. Three numbers are required, one for each
 spatial dimension. The numberical integration is performed using Gauss
 quadrature. This is specified with the keyword ``type=gauss``. The order of the
 Gauss quadrature is given as ``gauss_order=9``. 
-p
+
 Minimal example for the definition of a bond grid:
 
-```
-Grid(bond) {                    # define grid orthogonal to a bond 
-    type=gauss                  # gauss distribution of grid points for the integration
-    bond=[1,2]                      # the two atoms
-    fixpoint=4                  # the third point defining the plane
-    distance=1.32               # place grid 'distance' between atoms
-    
-    gauss_order=9               # order for gauss quadrature
-    
-    height=[-5.0, 5.0]
-    width=[-2.2, 5.0]
-    
-    spacing=[0.02, 0.02, 0.02]     # spacing of points on grid (i,j,k)
-}
-```
+:: 
+
+    Grid(bond) {                    # define grid orthogonal to a bond 
+        type=gauss                  # gauss distribution of grid points for the integration
+        bond=[1,2]                      # the two atoms
+        fixpoint=4                  # the third point defining the plane
+        distance=1.32               # place grid 'distance' between atoms
+        
+        gauss_order=9               # order for gauss quadrature
+        
+        height=[-5.0, 5.0]
+        width=[-2.2, 5.0]
+        
+        spacing=[0.02, 0.02, 0.02]     # spacing of points on grid (i,j,k)
+    }
+
 
 
