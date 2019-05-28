@@ -39,6 +39,13 @@ the number of threads in your SLURM job script as
 
     export OMP_NUM_THREADS=$SLURM_NPROCS
 
+
+When the calculation has finished, the current density is written to the
+``jvec.vti`` file. It can be visualised in Paraview according to the
+instructions at 
+https://gimic.readthedocs.io/en/latest/scripts.html
+https://gimic.readthedocs.io/en/latest/interpretation.html
+
 Integration of the current strength
 ---------------------------------------
 
