@@ -11,7 +11,7 @@ and the basis set data respectively are available, you can start the current
 density analysis. 
 
 .. image:: gimic-steps.jpg
-   :width: 400pt
+   :width: 200pt
 
 Current density analysis should be done both visually and quantitatively. Start
 by doing a visual analysis of the current density field. After choosing the
@@ -19,15 +19,26 @@ current pathways of interest, you can perform integrations of the current
 strength. 
 
 .. image:: gimic-analysis.jpg
-   :width: 400pt
+   :width: 200pt
 
 Visual analysis 
 ---------------------
 
 A cubical 3D grid is defined around the molecule such that the box extends
 about 8 bohr away from the atoms in the plane perpendicular to the magnetic
-field, and about 4 bohr above and below the molecule. 
+field, and about 4 bohr above and below the molecule. A quick way of generating
+the input file is to employ the script ``3D-run.sh``. Refer to
+https://gimic.readthedocs.io/en/latest/scripts.html for more information on
+setting up the script. It prepares the input file ``gimic.inp`` and calculates
+the suitable position of the box such that the whole molecule is embedded in
+the box. The file is found in the newly created directory called ``3D``. Unless
+there are any further adjustments needed, such as only analysing some part of a
+big molecule, the calculation can be started immediately. Remember to specify
+the number of threads in your SLURM job script as
 
+:: 
+
+    export OMP_NUM_THREADS=$SLURM_NPROCS
 
 Integration of the current strength
 ---------------------------------------
