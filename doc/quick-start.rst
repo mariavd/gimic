@@ -68,7 +68,9 @@ Any plane is defined by three points. Two of them are the atomic coordinates.
 The third point will define one of the infinitely many points which pass
 through the chemical bond. A physically meaningful choice is to specify the
 plane which is perpendicular to the benzene ring. We call this point
-``fixpoint``. 
+``fixpoint``. For a visual representation of the mathematical definition of 
+the fixed point and how the basis vectors for the integration plane are 
+calculated, check out https://youtu.be/m0rL3j0dUYw.
 
 Typically, the plane is placed such that it passes through the midpoint of the
 chemical bond. This is defined through the ``distance`` keyword. With this the
