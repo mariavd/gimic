@@ -149,7 +149,7 @@ The current strength of different peaks on the current profile can be obtained u
 
 ::
 
-   function anprofile() { awk -v lower= -v upper= '{ if (( >= lower) && ( <= upper)) { total+=; dia+=; para+=; } } END { printf(nTotal current: %fnDiatropic: %fnParatropic: %fnn, total, dia, para); } ' current_profile.dat ;  };
+   function anprofile() { awk -v lower=$1 -v upper=$2 '{ if (($1 >= lower) && ($1 <= upper)) { total+=$2; dia+=$3; para+=$4; } } END { printf("\nNet current: %f\nDiatropic: %f\nParatropic: %f\n\n", total, dia, para); } ' current_profile.dat ;  };
 
    # used as:
 
