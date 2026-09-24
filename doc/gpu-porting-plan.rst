@@ -128,6 +128,122 @@ and is one to two orders of magnitude slower per socket. This is why the
 reformulation, not the offload itself, is the heart of the plan.
 
 
+Known defects in the current kernel
+------------------------------------
+
+``jtensor.F90``, ``bfeval.f90`` and ``caos.f90`` have been extended by many
+contributors since 2003 without a corresponding review of robustness, and a
+close reading for this plan turned up defects that go beyond the
+architectural mismatch described above. None of these are hypothetical:
+each is a specific line or omission. They matter to the porting plan for
+two reasons. First, several of them are exactly the kind of thing that a
+literal, line-by-line port would carry into the new kernel unnoticed, which
+is one more argument (beyond the performance case already made) for
+re-deriving the kernel from the equations rather than refactoring the
+existing routines. Second, a few of them should be fixed in the old code
+regardless of the GPU work, because they affect correctness or debuggability
+today.
+
+* **Silent fallthrough on unknown spin case.** ``ctensor`` (``jtensor.F90``)
+  is a ``select case`` on the ``op`` string with no ``case default``. A typo
+  or a future new spin case leaves ``j`` untouched, i.e. containing whatever
+  garbage was in the caller's array, with no warning or error. The
+  reference oracle used in Step 2 must therefore only exercise the four
+  known cases explicitly; it will not detect this class of bug because it
+  is not itself protected against it. The batched kernel's ``spincase``
+  dispatch should have an explicit ``case default`` that stops with a
+  clear message.
+
+* **BLAS and non-BLAS paths agree only by an unstated symmetry argument.**
+  In ``contract``, the ``HAVE_BLAS`` branch computes ``denbf = D * bfvec``
+  with ``dgemv('n', ...)`` while the plain-Fortran branch computes
+  ``denbf = matmul(bfvec, aodens)``, which is ``Dᵗ·bfvec``. These are only
+  the same vector because the AO density matrix ``D`` is symmetric. The
+  same pattern recurs for ``dendb``. This is very likely correct today, but
+  it is correct by an assumption that is never checked and never written
+  down, so a future density source that is not exactly symmetric (e.g. a
+  numerically noisy external density, or a deliberate non-symmetric test)
+  would silently give different answers with and without BLAS. The batched
+  kernel's derivation in this plan states the symmetry of ``D`` and the
+  antisymmetry of ``P_b`` explicitly (see "Batched formulation of the
+  tensor" above); the corresponding assertion should be checked once, at
+  start-up, against the input density matrices.
+
+* **Fixed-size, unchecked screening buffer.** ``filter_screened``
+  (``basis.f90``) writes into ``idxv``, which every caller declares as
+  ``integer(I4), dimension(99)``. There is no check that a given atom has
+  99 or fewer contractions before writing; a sufficiently large basis set
+  (a diffuse or polarised basis on a heavy atom, or a deliberately large
+  contraction) would overflow this buffer and corrupt the stack silently.
+  This is a latent crash or wrong-answer bug independent of the GPU work.
+  The flattened active-set representation in Step 1/Step 3 replaces the
+  fixed buffer with an allocatable index list sized from the actual shell
+  count, which removes the class of bug rather than enlarging the buffer.
+
+* **Screening is applied inconsistently within a single point evaluation.**
+  ``bfeval`` and ``dfdr`` call ``filter_screened`` and only touch the
+  surviving contractions. ``mkdbop``, ``dfdb`` and ``d2fdrdb`` loop over
+  *all* contractions of *all* atoms unconditionally. The result is
+  numerically harmless today, because the unscreened basis-function value
+  ``bfvec`` that ``dfdb``/``d2fdrdb`` multiply against is itself zero for
+  the screened-out functions — but the code does the full ``O(N)`` work for
+  every point regardless of screening, which quietly costs more than the
+  screening is supposed to save, and the inconsistency is easy to
+  reintroduce as a real bug if the zero-multiplies ever get removed as a
+  "redundant" computation by someone who does not realise they are load-
+  bearing. The batched kernel evaluates every derivative from the same
+  active set determined once per tile (Step 3), so this class of
+  inconsistency cannot arise.
+
+* **Scratch pointers with invisible ownership.** ``jtensor_t`` declares
+  ``bfvec``, ``drvec``, ``dbvec``, ``d2fvec``, ``aodens`` and ``pdens`` as
+  ``pointer`` components, but ``new_jtensor`` never allocates them; they
+  are assigned by ``calc_basis``/``get_dens``/``get_pdens`` to alias arrays
+  owned by the ``bfeval_t`` and ``dens_t`` objects. Reading ``jtensor_t`` in
+  isolation gives no indication that these six arrays are borrowed rather
+  than owned, or from where. This is the concrete instance, inside the hot
+  kernel, of the pointer-aliasing concern raised earlier for the basis data
+  model, and it is why Step 1 flattens ownership into plain arrays with a
+  single, explicit owner rather than trying to preserve this aliasing
+  pattern under a GPU-friendly type.
+
+* **A module-level pointer as implicit global state.** ``dens_class``
+  declares ``real(DP), dimension(:,:,:), pointer :: dens`` at module scope,
+  outside any derived type, and half a dozen routines (``read_dens``,
+  ``set_dens``, ``get_pdens``, ``reorder_dens``, ``moco``, ...) reassign it
+  to point at either ``this%da`` or ``this%db`` as a side effect before
+  using it. Two ``dens_t`` objects used concurrently (which OpenMP already
+  does today, one ``jtensor_t``/``dens_t`` pair per thread, since ``xdens``
+  is shared and read-only, but any future write path would race on this
+  module variable) would corrupt each other's view of which spin channel
+  is active. The flattened, per-object density arrays introduced in Step 1
+  remove this variable entirely.
+
+* **Angular part evaluated with real-valued exponentiation.** ``cgto`` and
+  ``dcgto`` (``caos.f90``) compute the Cartesian angular factor as
+  ``product(r**f(:,i))`` where ``f`` holds the angular-momentum exponents
+  as ``real(DP)`` (from ``gtodefs.f90``, e.g. ``D_XY = (/1.0, 1.0, 0.0/)``).
+  A real base raised to a real exponent is evaluated by the compiler as
+  ``exp(exponent * log(base))``, i.e. three transcendental function calls
+  per Cartesian component per point, for a quantity that is always a small
+  non-negative integer power. This is a correctness non-issue (the results
+  are right) but a significant, avoidable performance defect that a
+  literal port would carry straight onto the GPU, where transcendental
+  functions are relatively even more expensive than on a CPU. The batched
+  kernel evaluates these as integer powers built up by repeated
+  multiplication from the per-atom relative coordinates, computed once per
+  tile and shared across all shells on that atom.
+
+None of the above is copied into the new kernel described in this plan; the
+old kernel is used only as the reference oracle for Step 2 (see that
+section), compared against on a fixed, closed set of well-defined inputs,
+and is deleted once the new kernel has passed a release cycle. The two bugs
+that are not merely stylistic — the missing ``case default`` and the
+unchecked 99-entry buffer — are cheap to fix independently of the GPU work
+and are worth fixing on the current ``master`` regardless of whether the
+port proceeds.
+
+
 The target: Roihu GPU partition
 -------------------------------
 
