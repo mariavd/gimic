@@ -198,6 +198,7 @@ contains
         real(4) :: tim1, tim2
         real(4), dimension(2) :: times
         real(DP), dimension(3) :: bar=(/D1,D1,D1/)
+        character(len=16) :: days_str
         real(DP), dimension(3) :: foobar
         real(DP), parameter :: SC=0.25d0
         real(4) :: hours_per_sec = 1.0/3600.0
@@ -221,10 +222,12 @@ contains
         delta_t=tim2-tim1
         if ( present(fac) ) delta_t=delta_t*fac
         write(str_g, '(a,f11.2,a,a,f6.1,a)') 'Estimated CPU time for single core &
-            calculation: ', delta_t*real(p1*p2*p3)/real(no_tests), ' sec', &
+            &calculation: ', delta_t*real(p1*p2*p3)/real(no_tests), ' sec', &
             ' (',  delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec, ' h )'
         if ( delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec .gt. 2*hours_per_day ) then ! will take more than two days?
-            write(str_g, '(a,f4.1,a)') '(', delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec*days_per_hour, ' days )'
+            write(days_str, '(a,f6.1,a)') ' (', &
+                delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec*days_per_hour, ' days )'
+            str_g = trim(str_g) // days_str
         end if
         call msg_info(str_g)
         call nl
@@ -307,12 +310,12 @@ contains
 
         call get_grid_size(this%grid, p1, p2, p3)
 
+        circle_log = .false.
+        bound = 1.d+10
         if(trim(this%grid%mode) == 'bond' .or. trim(this%grid%mode) == 'base' .or. trim(this%grid%mode) == 'std') then ! bond+base only, not file
           ! this is for cdens visualization when radius option is used
           call grid_center(this%grid,center)
-          bound=1.d+10
           bound=this%grid%radius
-          circle_log = .false.
           ! this only applies for grid base
           if (grid_is_3d(this%grid)) then
               circle_log = .false.
