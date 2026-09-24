@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import os, sys,string, re
 
@@ -37,46 +36,46 @@ class Atomizer(object):
         self.refined_data = dict()
     
     def xdensfile(self):
-    	try:
-	    filecao=open('CAODENS', 'r')
-	    filexcao=open('XCAODENS', 'r')
-    	    cao=filecao.read()
-    	    xcao=filexcao.read()
-    	    filecao.close()
-    	    filexcao.close()
-    	    xdensfile=open('XDENS','w')
-    	    xdensfile.write(cao)
-    	    xdensfile.write(xcao)
-    	    xdensfile.close()
-    	except:
-	    print('Error in producing XDENS file')
-	    sys.exit(0)
+        try:
+            filecao=open('CAODENS', 'r')
+            filexcao=open('XCAODENS', 'r')
+            cao=filecao.read()
+            xcao=filexcao.read()
+            filecao.close()
+            filexcao.close()
+            xdensfile=open('XDENS','w')
+            xdensfile.write(cao)
+            xdensfile.write(xcao)
+            xdensfile.close()
+        except:
+            print('Error in producing XDENS file')
+            sys.exit(0)
     def xyz_reader(self):
-	    def checker(words):
-		    if len(words) ==4:
-			    try:
-				coordinates = [float(k) for k in words[1:]]
-				coordinate_x = words[1]
-				coordinate_y = words[2]
-				coordinate_z = words[3]
-				atom=words[0]
-#			    	if atom in self.periodic and atom not in self.atoms:
-			    	if atom in self.periodic:
-				    self.atoms.append(atom)
-				    self.coordinates.append(coordinates)
-				    self.coordinate_x.append(coordinate_x)
-				    self.coordinate_y.append(coordinate_y)
-				    self.coordinate_z.append(coordinate_z)
-			    except:
-				return 
-		    else:
-			    return
-	    with open(self.xyz_file,'r') as xyz_file:
-		for line in xyz_file.readlines():
-			checker(line.split())
-	    if not len(self.atoms):
-		print('No atoms')
-		sys.exit()
+            def checker(words):
+                    if len(words) ==4:
+                            try:
+                                coordinates = [float(k) for k in words[1:]]
+                                coordinate_x = words[1]
+                                coordinate_y = words[2]
+                                coordinate_z = words[3]
+                                atom=words[0]
+#                               if atom in self.periodic and atom not in self.atoms:
+                                if atom in self.periodic:
+                                    self.atoms.append(atom)
+                                    self.coordinates.append(coordinates)
+                                    self.coordinate_x.append(coordinate_x)
+                                    self.coordinate_y.append(coordinate_y)
+                                    self.coordinate_z.append(coordinate_z)
+                            except:
+                                return 
+                    else:
+                            return
+            with open(self.xyz_file,'r') as xyz_file:
+                for line in xyz_file.readlines():
+                        checker(line.split())
+            if not len(self.atoms):
+                print('No atoms')
+                sys.exit()
 
 
     def basis_set_reader(self):
@@ -120,9 +119,9 @@ class Atomizer(object):
         self.raw_data = data
 
     def converter(self):
-        for a, atom in self.raw_data.iteritems():
+        for a, atom in self.raw_data.items():
             self.refined_data[a] = dict()
-            for o, orbital in atom.iteritems():
+            for o, orbital in atom.items():
                 self.refined_data[a][o] = {0: list()}
                 idx = 2
                 for i, w in enumerate(orbital[1:]):
@@ -132,108 +131,108 @@ class Atomizer(object):
                     self.refined_data[a][o][idx-2].append('  ' + w[0] + '   ' + w[idx-1])
 
     def writefile(self,filename):
-	newfile=open(filename,'w')
-	newfile.write("%s %s" %(header % (len(self.atoms)),'\n'))
-	for i in range(0,len(self.atoms)):
-	    x=i
+        newfile=open(filename,'w')
+        newfile.write("%s %s" %(header % (len(self.atoms)),'\n'))
+        for i in range(0,len(self.atoms)):
+            x=i
             for atom in self.atoms[i]:
-            	if atom in self.refined_data.keys():
-			anumber=self.periodic.index(atom)+1
-			value_of_dict=self.refined_data.get(atom)	
-			lmax=len(value_of_dict)
+                if atom in self.refined_data:
+                        anumber=self.periodic.index(atom)+1
+                        value_of_dict=self.refined_data.get(atom)       
+                        lmax=len(value_of_dict)
 
-	        	A = self.refined_data[atom]
-			print('atom')
-			print(atom)
-			s_orbital='S'
-			p_orbital='P'
-			d_orbital='D'
-			f_orbital='F'
-			g_orbital='G'
-			h_orbital='H'
-			if lmax==1:
-				length_of_S=len(self.refined_data[atom]['S'])
-				print(length_of_S)
-                		newfile.write("%s  %s %s %s %s %s" %(anumber,'    ', '1 ', lmax, length_of_S,  '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			elif lmax==2:
-				length_of_S=len(self.refined_data[atom]['S'])
-				print(length_of_S)
-				length_of_P=len(self.refined_data[atom]['P'])
-				print(length_of_P)
-                		newfile.write("%s  %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax, length_of_S,length_of_P,  '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			elif lmax==3:
-				length_of_S=len(self.refined_data[atom]['S'])
-				print(length_of_S)
-				length_of_P=len(self.refined_data[atom]['P'])
-				print(length_of_P)
-				length_of_D=len(self.refined_data[atom]['D'])
-				print(length_of_D)
-                		newfile.write("%s  %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D,  '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			elif lmax==4:
-				length_of_S=len(self.refined_data[atom]['S'])
-				length_of_P=len(self.refined_data[atom]['P'])
-				length_of_D=len(self.refined_data[atom]['D'])
-				length_of_F=len(self.refined_data[atom]['F'])
-                		newfile.write("%s  %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F, '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			elif lmax==5:
-				length_of_S=len(self.refined_data[atom]['S'])
-				length_of_P=len(self.refined_data[atom]['P'])
-				length_of_D=len(self.refined_data[atom]['D'])
-				length_of_F=len(self.refined_data[atom]['F'])
-				length_of_G=len(self.refined_data[atom]['G'])
-                		newfile.write("%s  %s %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F,length_of_G, '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			elif lmax==6:
-				length_of_S=len(self.refined_data[atom]['S'])
-				length_of_P=len(self.refined_data[atom]['P'])
-				length_of_D=len(self.refined_data[atom]['D'])
-				length_of_F=len(self.refined_data[atom]['F'])
-				length_of_G=len(self.refined_data[atom]['G'])
-				length_of_H=len(self.refined_data[atom]['H'])
-                		newfile.write("%s  %s %s %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F,length_of_G,length_of_H, '\n'))
-                		newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
-            			for orbital in self.orbitals:
-               	    			if orbital in A.keys():
-                    				chunk = A[orbital]
-                    				for local in chunk.values():
-                            				newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
-                            				newfile.write('\n'.join(local)+'  '+'\n')
-			else:
-				print('Error')
+                        A = self.refined_data[atom]
+                        print('atom')
+                        print(atom)
+                        s_orbital='S'
+                        p_orbital='P'
+                        d_orbital='D'
+                        f_orbital='F'
+                        g_orbital='G'
+                        h_orbital='H'
+                        if lmax==1:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                print(length_of_S)
+                                newfile.write("%s  %s %s %s %s %s" %(anumber,'    ', '1 ', lmax, length_of_S,  '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        elif lmax==2:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                print(length_of_S)
+                                length_of_P=len(self.refined_data[atom]['P'])
+                                print(length_of_P)
+                                newfile.write("%s  %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax, length_of_S,length_of_P,  '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        elif lmax==3:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                print(length_of_S)
+                                length_of_P=len(self.refined_data[atom]['P'])
+                                print(length_of_P)
+                                length_of_D=len(self.refined_data[atom]['D'])
+                                print(length_of_D)
+                                newfile.write("%s  %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D,  '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        elif lmax==4:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                length_of_P=len(self.refined_data[atom]['P'])
+                                length_of_D=len(self.refined_data[atom]['D'])
+                                length_of_F=len(self.refined_data[atom]['F'])
+                                newfile.write("%s  %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F, '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        elif lmax==5:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                length_of_P=len(self.refined_data[atom]['P'])
+                                length_of_D=len(self.refined_data[atom]['D'])
+                                length_of_F=len(self.refined_data[atom]['F'])
+                                length_of_G=len(self.refined_data[atom]['G'])
+                                newfile.write("%s  %s %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F,length_of_G, '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        elif lmax==6:
+                                length_of_S=len(self.refined_data[atom]['S'])
+                                length_of_P=len(self.refined_data[atom]['P'])
+                                length_of_D=len(self.refined_data[atom]['D'])
+                                length_of_F=len(self.refined_data[atom]['F'])
+                                length_of_G=len(self.refined_data[atom]['G'])
+                                length_of_H=len(self.refined_data[atom]['H'])
+                                newfile.write("%s  %s %s %s %s %s %s %s %s %s %s" %(anumber,'    ', '1 ', lmax,length_of_S, length_of_P,length_of_D, length_of_F,length_of_G,length_of_H, '\n'))
+                                newfile.write("%s %s  %s %s %s %s %s %s" %(atom, '1 ',self.coordinate_x[x],'     ',self.coordinate_y[x],'      ',self.coordinate_z[x], '\n'))
+                                for orbital in self.orbitals:
+                                        if orbital in A:
+                                                chunk = A[orbital]
+                                                for local in chunk.values():
+                                                        newfile.write("%s  %s  %s  %s" %(' ', len(local), 1, '\n'))
+                                                        newfile.write('\n'.join(local)+'  '+'\n')
+                        else:
+                                print('Error')
 
 
 

@@ -47,10 +47,12 @@ program gimic
 
     call stockas_klocka()
     call msg_out('Hello World! (tm)')
-    call program_footer()
+    call nl
+    call msg_out('done.')
+    call nl
 
-    if (bert_is_evil) then
-        call msg_error('Bert is evil, and your results are wicked.')
+    if (your_results_are_questionable) then
+        call msg_error('Your results are questionable.')
         call nl
     end if
 
@@ -202,7 +204,7 @@ contains
         if (settings%dryrun) return
 
         call calc_jvectors(jf, mol, xdens)
-        call jvector_plots(jf,'')
+        call jvector_plots(jf)
 
         if (settings%is_uhf) then
             call calc_jvectors(jf, mol, xdens, 'alpha')
@@ -259,53 +261,20 @@ contains
     end subroutine
 
     subroutine program_header
-        integer(I4) :: i,j,sz
-        integer(I4), dimension(3) :: iti
-        integer(I4), dimension(:), allocatable :: seed
-
-        call random_seed(size=sz)
-        allocate(seed(sz))
-        call random_seed(get=seed)
-        call itime(iti)
-        j=sum(iti)
-        do i=1,sz
-            seed(i)=seed(i)*j
-        end do
-        call random_seed(put=seed)
-        deallocate(seed)
-
 call nl
 call msg_out('****************************************************************')
 call msg_out('***                                                          ***')
 call msg_out('***           GIMIC '// PROJECT_VERSION // &
-                       ' (' // GIT_HASH // ')                              ***')
-call msg_out('***              Written by Jonas Juselius                   ***')
+                       ' (' // GIT_HASH // ')                          ***')
+call msg_out('***           Written by Jonas Juselius and co-authors       ***')
 call msg_out('***                                                          ***')
-call msg_out('***  This software is copyright (c) 2003-2011 by             ***')
-call msg_out('***  Jonas Juselius,  University of Tromso.                  ***')
+call msg_out('***  This software is copyright (c) 2003-2023 by             ***')
+call msg_out('***  GIMIC authors.                                          ***')
 call msg_out('***                                                          ***')
 call msg_out('***  You are free to distribute this software under the      ***')
 call msg_out('***  terms of the GNU General Public License                 ***')
-call msg_out('***                                                          ***')
-call msg_out('***  A Pretty Advanced ''Hello World!'' Program                ***')
 call msg_out('****************************************************************')
 call nl
-    end subroutine
-
-    subroutine program_footer
-        real(DP) :: rnd
-        character(*), dimension(5), parameter :: raboof=(/ &
-            'GIMIC - Grossly Irrelevant Magnetically Induced Currents', &
-            'GIMIC - Gone Interrailing, My Inspiration Croaked       ', &
-            'GIMIC - Galenskap I Miniatyr, Ingen Censur              ', &
-            'GIMIC - Gone Insane, My Indifferent Cosmos              ', &
-            'GIMIC - Give Idiots More Ice-Coffee                     '/)
-
-        call random_number(rnd)
-        call nl
-        !call msg_out(raboof(nint(rnd*5.d0)))
-        call msg_out('done.')
-        call nl
     end subroutine
 
 end program
