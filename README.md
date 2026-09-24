@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/qmcurrents/gimic.svg?branch=master)](https://travis-ci.org/qmcurrents/gimic/builds)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8180434.svg)](https://doi.org/10.5281/zenodo.8180434)
+[![test status](https://github.com/qmcurrents/gimic/workflows/Test/badge.svg)](https://github.com/qmcurrents/gimic/actions)
 
 
 # GIMIC: gauge-including magnetically induced currents
@@ -22,7 +23,12 @@ matrices.
 
 There is an annotated example input in the [examples](examples) directory.
 
+
 ## Citation
+
+For a **recommended code citation**, please check the at the bottom-right of
+https://zenodo.org/record/8180434 (on that page, search for "Cite as").
+Also the DOI badge on top of the README links to that page.
 
 When using GIMIC please cite: 
 
@@ -49,4 +55,13 @@ When using the G09 interface:
 When using the NumGrid libary:
 
 * https://github.com/dftlibs/numgrid#citation
+
+NMR shielding constants based on the current density:
+
+* RK Jinger, H Fliegl, R Bast, M Dimitrova, S Lehtola, D Sundholm, Spatial contributions to nuclear magnetic shieldings, J. Phys. Chem. A, 125, 1778-1786 
+
+Magnetizability based on the current density:
+
+* S Lehtola, M Dimitrova, H Fliegl, D Sundholm, Benchmarking magnetizabilities with recent density functionals, J. Chem. Theo. Comp., 17, 1457-1468
+
 
