@@ -12,6 +12,7 @@ GIMIC: gauge-including magnetically induced currents
    testing.rst
    formula.rst
    development.rst
+   gpu-porting-plan.rst
    usage.rst
    input.rst
    grids.rst
