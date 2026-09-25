@@ -102,6 +102,28 @@ include(autocmake_cxx)
 include(autocmake_GNU.CXX)
 include(autocmake_Intel.CXX)
 include(autocmake_omp)
+
+# GPU offload of the current-tensor evaluation (OpenMP target regions in
+# src/libgimic/jtensor_offload.F90). Requires OpenMP; the flags are known
+# for GNU, other compilers need them in EXTRA_FCFLAGS.
+option(ENABLE_OFFLOAD "Compile the OpenMP target regions for a GPU" OFF)
+set(OFFLOAD_TARGET "nvptx-none" CACHE STRING "OpenMP offload target (nvptx-none or amdgcn-amdhsa)")
+if(ENABLE_OFFLOAD)
+    if(NOT ENABLE_OPENMP)
+        message(FATAL_ERROR "ENABLE_OFFLOAD requires OpenMP (do not pass --no-omp)")
+    endif()
+    if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+        # -lm for the device: exp() in the kernels
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -foffload=${OFFLOAD_TARGET} -foffload-options=-lm")
+    else()
+        message(WARNING "ENABLE_OFFLOAD: offload flags are only known for GNU compilers; pass them with --extra-fc-flags")
+    endif()
+elseif(ENABLE_OPENMP AND CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+    # with an offload compiler installed, gfortran would otherwise compile the
+    # target regions for the accelerator by default
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -foffload=disable")
+endif()
+
 include(autocmake_mpi)
 include(autocmake_code_coverage)
 include(autocmake_safeguards)

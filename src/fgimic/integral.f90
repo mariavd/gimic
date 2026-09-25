@@ -11,6 +11,7 @@ module integral_class
     use jfield_class
     use dens_class
     use jtensor_class
+    use jtensor_offload
     use gaussint_module
     use lip_module
     use teletype_module
@@ -61,7 +62,8 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP), dimension(3) :: jvec
         real(DP), dimension(9) :: tt
-        real(DP), dimension(:,:), allocatable :: coords, ttb
+        real(DP), dimension(:,:), allocatable :: coords, ttb, tt_all
+        logical :: use_off
         type(jtensor_t) :: jt
 
         if (present(spinn)) spin = spinn
@@ -105,10 +107,13 @@ contains
         psum3=0.d0
         nsum3=0.d0
 
+        use_off=offload_active()
+        if (use_off) call offload_grid_tensors(this%grid, spin, tt_all)
+
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
-!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
+!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound,use_off,tt_all) &
 !$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
@@ -125,7 +130,11 @@ contains
                 do i=1,p1
                     coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
-                call ctensor_batch(jt, coords, ttb, spin)
+                if (use_off) then
+                    ttb=tt_all(:,(k-1)*p1*p2+(j-1)*p1+1:(k-1)*p1*p2+j*p1)
+                else
+                    call ctensor_batch(jt, coords, ttb, spin)
+                end if
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
@@ -170,6 +179,7 @@ contains
         deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
+        if (use_off) deallocate(tt_all)
 
         call nl
         call msg_out(repeat('*', 60))
@@ -208,7 +218,8 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP), dimension(3) :: jvec
         real(DP), dimension(9) :: tt
-        real(DP), dimension(:,:), allocatable :: coords, ttb
+        real(DP), dimension(:,:), allocatable :: coords, ttb, tt_all
+        logical :: use_off
         type(jtensor_t) :: jt
 
         if (present(spinn)) spin = spinn
@@ -250,10 +261,13 @@ contains
         psum3=0.d0
         nsum3=0.d0
 
+        use_off=offload_active()
+        if (use_off) call offload_grid_tensors(this%grid, spin, tt_all)
+
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
-!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,lo,hi,bound,xdens,mol) &
+!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,lo,hi,bound,xdens,mol,use_off,tt_all) &
 !$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
@@ -270,7 +284,11 @@ contains
                 do i=1,p1
                     coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
-                call ctensor_batch(jt, coords, ttb, spin)
+                if (use_off) then
+                    ttb=tt_all(:,(k-1)*p1*p2+(j-1)*p1+1:(k-1)*p1*p2+j*p1)
+                else
+                    call ctensor_batch(jt, coords, ttb, spin)
+                end if
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
@@ -316,6 +334,7 @@ contains
         deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
+        if (use_off) deallocate(tt_all)
 
         call nl
         call msg_out(repeat('*', 60))
@@ -344,7 +363,8 @@ contains
 
         integer(I4) :: i, j, k, p1, p2, p3
         real(DP), dimension(9) :: xsum
-        real(DP), dimension(:,:), allocatable  :: jt1, jt2, jt3, coords
+        real(DP), dimension(:,:), allocatable  :: jt1, jt2, jt3, coords, tt_all
+        logical :: use_off
         type(jtensor_t) :: jt
 
         !call jfield_eta(this%jf)
@@ -355,13 +375,19 @@ contains
         allocate(jt2(9,p2))
         allocate(jt3(9,p3))
         allocate(coords(3,p1))
+        use_off=offload_active()
+        if (use_off) call offload_grid_tensors(this%grid, 'total', tt_all)
 
         do k=1,p3
             do j=1,p2
-                do i=1,p1
-                    coords(:,i)=gridpoint(this%grid, i, j, k)
-                end do
-                call ctensor_batch(jt, coords, jt1, 'total')
+                if (use_off) then
+                    jt1=tt_all(:,(k-1)*p1*p2+(j-1)*p1+1:(k-1)*p1*p2+j*p1)
+                else
+                    do i=1,p1
+                        coords(:,i)=gridpoint(this%grid, i, j, k)
+                    end do
+                    call ctensor_batch(jt, coords, jt1, 'total')
+                end if
                 jt2(:,j)=int_t_1d(jt1,this%grid,1)
             end do
             jt3(:,k)=int_t_1d(jt2,this%grid,2)
@@ -371,6 +397,32 @@ contains
         call print_tensor_int(xsum)
         call del_jtensor(jt)
         deallocate(jt1, jt2, jt3, coords)
+        if (use_off) deallocate(tt_all)
+    end subroutine
+
+    ! current tensors for every point of the grid, point (i,j,k) at column
+    ! i+(j-1)*p1+(k-1)*p1*p2, computed with the offload path
+    subroutine offload_grid_tensors(grid, spinn, tt_all)
+        type(grid_t), intent(in) :: grid
+        character(*), intent(in) :: spinn
+        real(DP), dimension(:,:), allocatable, intent(out) :: tt_all
+
+        integer(I4) :: i, j, k, p1, p2, p3, n
+        real(DP), dimension(:,:), allocatable :: coords
+
+        call get_grid_size(grid, p1, p2, p3)
+        allocate(coords(3,p1*p2*p3), tt_all(9,p1*p2*p3))
+        n=0
+        do k=1,p3
+            do j=1,p2
+                do i=1,p1
+                    n=n+1
+                    coords(:,n)=gridpoint(grid, i, j, k)
+                end do
+            end do
+        end do
+        call ctensor_offload(coords, tt_all, spinn)
+        deallocate(coords)
     end subroutine
 
     function int_t_1d(jt, grid, axis) result(xsum)
@@ -438,7 +490,8 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP) :: val, acid_val
         real(DP), dimension(9) :: tt
-        real(DP), dimension(:,:), allocatable :: coords, ttb
+        real(DP), dimension(:,:), allocatable :: coords, ttb, tt_all
+        logical :: use_off
         type(jtensor_t) :: jt
 
         if (settings%is_uhf) then
@@ -474,10 +527,13 @@ contains
 
         xsum3=0.d0
 
+        use_off=offload_active()
+        if (use_off) call offload_grid_tensors(this%grid, spin, tt_all)
+
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,xsum) &
 !$OMP PRIVATE(jt,w,tt,val,coords,ttb) &
-!$OMP SHARED(p1,p2,p3,this,center,spin,mol,xdens,lo,hi,bound) &
+!$OMP SHARED(p1,p2,p3,this,center,spin,mol,xdens,lo,hi,bound,use_off,tt_all) &
 !$OMP REDUCTION(+:xsum3,xsum2)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
@@ -490,7 +546,11 @@ contains
                 do i=1,p1
                     coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
-                call ctensor_batch(jt, coords, ttb, spin)
+                if (use_off) then
+                    ttb=tt_all(:,(k-1)*p1*p2+(j-1)*p1+1:(k-1)*p1*p2+j*p1)
+                else
+                    call ctensor_batch(jt, coords, ttb, spin)
+                end if
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
@@ -518,6 +578,7 @@ contains
         deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
+        if (use_off) deallocate(tt_all)
         acid_val = dsqrt(xsum3)
 
         call nl
