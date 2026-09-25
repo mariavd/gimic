@@ -156,7 +156,27 @@ contains
         real(DP) :: ppd                ! paramagnetic probability density
         real(DP), dimension(3) :: dpd  ! diamagnetic probability density
         real(DP) :: diapam
-        real(DP) :: ddot
+#ifdef HAVE_BLAS
+        ! Explicit interfaces: the calls below pass array elements
+        ! (sequence association), which gfortran >= 10 rejects for an
+        ! implicit interface.
+        interface
+            function ddot(n, x, incx, y, incy)
+                import :: DP
+                integer, intent(in) :: n, incx, incy
+                real(DP), intent(in) :: x(*), y(*)
+                real(DP) :: ddot
+            end function
+            subroutine dgemv(trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
+                import :: DP
+                character, intent(in) :: trans
+                integer, intent(in) :: m, n, lda, incx, incy
+                real(DP), intent(in) :: alpha, beta
+                real(DP), intent(in) :: a(lda, *), x(*)
+                real(DP), intent(inout) :: y(*)
+            end subroutine
+        end interface
+#endif
 
         call get_dens(this%xdens, this%aodens, spin)
 #ifdef HAVE_BLAS
@@ -194,15 +214,15 @@ contains
               if (settings%use_giao) then
 #ifdef HAVE_BLAS
                 ! (-i)**2 = -1
-                prsp1 = -ddot(vec_size, this%dendb, 1, this%drvec(1, m), 1)
-                prsp2 = ddot(vec_size, this%denbf, 1, this%d2fvec(1, k), 1)
+                prsp1 = -ddot(vec_size, this%dendb, 1, this%drvec(:, m), 1)
+                prsp2 = ddot(vec_size, this%denbf, 1, this%d2fvec(:, k), 1)
 #else
                 prsp1=-dot_product(this%dendb, this%drvec(:,m)) ! (-i)**2=-1
                 prsp2=dot_product(this%denbf, this%d2fvec(:,k))
 #endif
               end if
 #ifdef HAVE_BLAS
-              ppd = ddot(vec_size, this%pdbf, 1, this%drvec(1, m), 1)
+              ppd = ddot(vec_size, this%pdbf, 1, this%drvec(:, m), 1)
 #else
               ppd=dot_product(this%pdbf, this%drvec(:,m))
 #endif
