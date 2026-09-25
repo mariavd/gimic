@@ -61,6 +61,7 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP), dimension(3) :: jvec
         real(DP), dimension(9) :: tt
+        real(DP), dimension(:,:), allocatable :: coords, ttb
         type(jtensor_t) :: jt
 
         if (present(spinn)) spin = spinn
@@ -106,10 +107,11 @@ contains
 
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum) &
-!$OMP PRIVATE(jt,w,jp,tt,jvec) &
+!$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
 !$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
         call new_jtensor(jt, mol, xdens)
+        allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
             xsum2=0.d0
             psum2=0.d0
@@ -121,9 +123,13 @@ contains
                 psum=0.d0
                 nsum=0.d0
                 do i=1,p1
-                    rr=gridpoint(this%grid, i, j, k)
+                    coords(:,i)=gridpoint(this%grid, i, j, k)
+                end do
+                call ctensor_batch(jt, coords, ttb, spin)
+                do i=1,p1
+                    rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
-                    call ctensor(jt, rr, tt, spin)
+                    tt=ttb(:,i)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
                     if ( r > bound ) then
                         w=0.d0
@@ -161,6 +167,7 @@ contains
 !           call collect_sum(nsum2, nsum)
 
         end do
+        deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
 
@@ -201,6 +208,7 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP), dimension(3) :: jvec
         real(DP), dimension(9) :: tt
+        real(DP), dimension(:,:), allocatable :: coords, ttb
         type(jtensor_t) :: jt
 
         if (present(spinn)) spin = spinn
@@ -244,10 +252,11 @@ contains
 
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum) &
-!$OMP PRIVATE(jt,w,jp,tt,jvec) &
+!$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,lo,hi,bound,xdens,mol) &
 !$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
         call new_jtensor(jt, mol, xdens)
+        allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
             xsum2=0.d0
             psum2=0.d0
@@ -259,9 +268,13 @@ contains
                 psum=0.d0
                 nsum=0.d0
                 do i=1,p1
-                    rr=gridpoint(this%grid, i, j, k)
+                    coords(:,i)=gridpoint(this%grid, i, j, k)
+                end do
+                call ctensor_batch(jt, coords, ttb, spin)
+                do i=1,p1
+                    rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
-                    call ctensor(jt, rr, tt, spin)
+                    tt=ttb(:,i)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
                     if ( r > bound ) then
                         w=0.d0
@@ -300,6 +313,7 @@ contains
             ! this will be needed for MPI
 
         end do
+        deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
 
@@ -329,9 +343,8 @@ contains
         type(dens_t) :: xdens
 
         integer(I4) :: i, j, k, p1, p2, p3
-        real(DP), dimension(3) :: rr
         real(DP), dimension(9) :: xsum
-        real(DP), dimension(:,:), allocatable  :: jt1, jt2, jt3
+        real(DP), dimension(:,:), allocatable  :: jt1, jt2, jt3, coords
         type(jtensor_t) :: jt
 
         !call jfield_eta(this%jf)
@@ -341,13 +354,14 @@ contains
         allocate(jt1(9,p1))
         allocate(jt2(9,p2))
         allocate(jt3(9,p3))
+        allocate(coords(3,p1))
 
         do k=1,p3
             do j=1,p2
                 do i=1,p1
-                    rr=gridpoint(this%grid, i, j, k)
-                    call ctensor(jt, rr, jt1(:,i), 'total')
+                    coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
+                call ctensor_batch(jt, coords, jt1, 'total')
                 jt2(:,j)=int_t_1d(jt1,this%grid,1)
             end do
             jt3(:,k)=int_t_1d(jt2,this%grid,2)
@@ -356,7 +370,7 @@ contains
 
         call print_tensor_int(xsum)
         call del_jtensor(jt)
-        deallocate(jt1, jt2, jt3)
+        deallocate(jt1, jt2, jt3, coords)
     end subroutine
 
     function int_t_1d(jt, grid, axis) result(xsum)
@@ -424,6 +438,7 @@ contains
         real(DP) :: xsum, xsum2, xsum3
         real(DP) :: val, acid_val
         real(DP), dimension(9) :: tt
+        real(DP), dimension(:,:), allocatable :: coords, ttb
         type(jtensor_t) :: jt
 
         if (settings%is_uhf) then
@@ -461,10 +476,11 @@ contains
 
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,xsum) &
-!$OMP PRIVATE(jt,w,tt,val) &
+!$OMP PRIVATE(jt,w,tt,val,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,mol,xdens,lo,hi,bound) &
 !$OMP REDUCTION(+:xsum3,xsum2)
         call new_jtensor(jt, mol, xdens)
+        allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
             xsum2=0.d0
 
@@ -472,9 +488,13 @@ contains
             do j=lo,hi
                 xsum=0.d0
                 do i=1,p1
-                    rr=gridpoint(this%grid, i, j, k)
+                    coords(:,i)=gridpoint(this%grid, i, j, k)
+                end do
+                call ctensor_batch(jt, coords, ttb, spin)
+                do i=1,p1
+                    rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
-                    call ctensor(jt, rr, tt, spin)
+                    tt=ttb(:,i)
                     ! attention: output of get_acid is in au !
                     val = get_acid(tt)
                     if ( r > bound ) then
@@ -495,6 +515,7 @@ contains
             ! TODO old code used collect_sum
             ! this will be needed for MPI
         end do
+        deallocate(coords, ttb)
         call del_jtensor(jt)
 !$OMP END PARALLEL
         acid_val = dsqrt(xsum3)

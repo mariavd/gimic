@@ -25,14 +25,51 @@ module jtensor_class
         real(DP), dimension(:), pointer :: bfvec
         real(DP), dimension(:,:), pointer :: dbvec, drvec, d2fvec, dbop
         real(DP), dimension(:,:), pointer :: aodens, pdens
+        ! block scratch for ctensor_batch: basis functions and their
+        ! derivatives for up to JT_BLOCK grid points side by side, so that
+        ! the density matrices are applied with one matrix-matrix product
+        ! per block instead of one matrix-vector product per point
+        integer(I4) :: nv
+        real(DP), dimension(:,:), allocatable :: bfm, denbfm, pdbfm, dendbm
+        real(DP), dimension(:,:,:), allocatable :: drm, dbm, d2m
     end type
 
     public new_jtensor, del_jtensor, jtensor, get_jvector
-    public ctensor, jvector
-    public jtensor_t
+    public ctensor, ctensor_batch, jvector
+    public jtensor_t, JT_BLOCK
 
     private
     integer(I4), parameter :: NOTIFICATION=1000
+    ! number of grid points contracted per matrix-matrix product
+    integer(I4), parameter :: JT_BLOCK=64
+
+#ifdef HAVE_BLAS
+    ! Explicit interfaces (assumed-size dummies, as in reference BLAS).
+    interface
+        function ddot(n, x, incx, y, incy)
+            import :: DP
+            integer, intent(in) :: n, incx, incy
+            real(DP), intent(in) :: x(*), y(*)
+            real(DP) :: ddot
+        end function
+        subroutine dgemv(trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
+            import :: DP
+            character, intent(in) :: trans
+            integer, intent(in) :: m, n, lda, incx, incy
+            real(DP), intent(in) :: alpha, beta
+            real(DP), intent(in) :: a(lda, *), x(*)
+            real(DP), intent(inout) :: y(*)
+        end subroutine
+        subroutine dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+            import :: DP
+            character, intent(in) :: transa, transb
+            integer, intent(in) :: m, n, k, lda, ldb, ldc
+            real(DP), intent(in) :: alpha, beta
+            real(DP), intent(in) :: a(lda, *), b(ldb, *)
+            real(DP), intent(inout) :: c(ldc, *)
+        end subroutine
+    end interface
+#endif
 
 contains
     ! set up memory (once) for the different components
@@ -40,9 +77,10 @@ contains
         type(jtensor_t) :: this
         type(molecule_t), target :: mol
         type(dens_t), target :: xdens
-        integer(I4) ::  ncgto
+        integer(I4) ::  ncgto, nccgto
 
         ncgto=get_ncgto(mol)
+        nccgto=get_nccgto(mol)
 
         this%mol=>mol
         this%xdens=>xdens
@@ -52,6 +90,18 @@ contains
         allocate(this%denbf(ncgto))
         allocate(this%dendb(ncgto))
         allocate(this%pdbf(ncgto))
+
+        ! block scratch (sizes mirror those in new_bfeval)
+        this%nv=0
+        allocate(this%bfm(ncgto,JT_BLOCK))
+        allocate(this%denbfm(ncgto,JT_BLOCK))
+        allocate(this%pdbfm(ncgto,JT_BLOCK))
+        allocate(this%drm(nccgto,3,JT_BLOCK))
+        if (settings%use_giao) then
+            allocate(this%dendbm(ncgto,JT_BLOCK))
+            allocate(this%dbm(ncgto,JT_BLOCK,3))
+            allocate(this%d2m(ncgto,9,JT_BLOCK))
+        end if
     end subroutine
 
     subroutine del_jtensor(this)
@@ -61,6 +111,170 @@ contains
         deallocate(this%denbf)
         deallocate(this%pdbf)
         deallocate(this%dendb)
+        deallocate(this%bfm, this%denbfm, this%pdbfm, this%drm)
+        if (allocated(this%dendbm)) deallocate(this%dendbm, this%dbm, this%d2m)
+    end subroutine
+
+!
+! Same as ctensor, for a batch of points r(3,npts) -> j(9,npts).
+! Points are processed JT_BLOCK at a time; see contract_batch.
+!
+    subroutine ctensor_batch(this, r, j, op)
+        type(jtensor_t) :: this
+        real(DP), dimension(:,:), intent(in) :: r
+        real(DP), dimension(:,:), intent(out) :: j
+        character(*) :: op
+
+        integer(I4) :: i0, i1, n, npts
+        real(DP), dimension(9,JT_BLOCK) :: jt2
+
+        npts=size(r,2)
+        do i0=1,npts,JT_BLOCK
+            n=min(JT_BLOCK, npts-i0+1)
+            i1=i0+n-1
+            call eval_basis_block(this, n, r(:,i0:i1))
+            select case (op)
+                case ('alpha')
+                    call contract_batch(this, n, r(:,i0:i1), j(:,i0:i1), spin_a)
+                case ('beta')
+                    if (settings%is_uhf) then
+                        call contract_batch(this, n, r(:,i0:i1), j(:,i0:i1), spin_b)
+                    else
+                        call msg_error('ctensor_batch(): &
+                        &beta current requested, but not open-shell system!')
+                        stop
+                    end if
+                case ('total')
+                    call contract_batch(this, n, r(:,i0:i1), j(:,i0:i1), spin_a)
+                    if (settings%is_uhf) then
+                        call contract_batch(this, n, r(:,i0:i1), jt2(:,1:n), spin_b)
+                        j(:,i0:i1)=j(:,i0:i1)+jt2(:,1:n)
+                    end if
+                case ('spindens')
+                    if (.not.settings%is_uhf) then
+                        call msg_error('ctensor_batch(): &
+                        &spindens requested, but not open-shell system!')
+                        stop
+                    end if
+                    call contract_batch(this, n, r(:,i0:i1), j(:,i0:i1), spin_a)
+                    call contract_batch(this, n, r(:,i0:i1), jt2(:,1:n), spin_b)
+                    j(:,i0:i1)=j(:,i0:i1)-jt2(:,1:n)
+            end select
+        end do
+    end subroutine
+
+    ! evaluate basis functions and derivatives for n points into the
+    ! block scratch arrays
+    subroutine eval_basis_block(this, n, r)
+        type(jtensor_t) :: this
+        integer(I4), intent(in) :: n
+        real(DP), dimension(:,:), intent(in) :: r
+
+        integer(I4) :: ip, nv
+
+        do ip=1,n
+            if (settings%use_giao) then
+                call calc_basis(this%basv, r(:,ip), this%bfvec, this%drvec, &
+                this%dbvec, this%d2fvec)
+            else
+                call calc_basis(this%basv, r(:,ip), this%bfvec, this%drvec)
+            end if
+            nv=size(this%bfvec)
+            this%nv=nv
+            this%bfm(1:nv,ip)=this%bfvec
+            this%drm(1:nv,:,ip)=this%drvec(1:nv,:)
+            if (settings%use_giao) then
+                this%dbm(1:nv,ip,:)=this%dbvec(1:nv,:)
+                this%d2m(1:nv,:,ip)=this%d2fvec(1:nv,:)
+            end if
+        end do
+    end subroutine
+
+!
+! Batched version of contract(): the same contractions for n points at
+! once. The three density-matrix products, which dominate the cost, become
+! matrix-matrix products so that each density matrix is read once per
+! block rather than once per point. Results equal contract() up to
+! summation order.
+!
+    subroutine contract_batch(this, n, r, ct, spin)
+        type(jtensor_t) :: this
+        integer(I4), intent(in) :: n
+        real(DP), dimension(:,:), intent(in) :: r
+        real(DP), dimension(:,:), intent(out) :: ct
+        integer(I4), intent(in) :: spin
+
+        integer(I4) :: b, m, k, ip, nv, lda, ldm
+        real(DP) :: prsp1, prsp2, ppd
+        real(DP), dimension(JT_BLOCK) :: diapam
+        real(DP), dimension(3,JT_BLOCK) :: dpd
+
+        nv=this%nv
+        call get_dens(this%xdens, this%aodens, spin)
+        lda=size(this%aodens,1)
+        ldm=size(this%bfm,1)
+#ifdef HAVE_BLAS
+        call dgemm('n', 'n', nv, n, nv, 1.0d0, this%aodens, lda, &
+            this%bfm, ldm, 0.0d0, this%denbfm, ldm)
+#else
+        this%denbfm(1:nv,1:n)=matmul(this%aodens(1:nv,1:nv), this%bfm(1:nv,1:n))
+#endif
+        do ip=1,n
+            diapam(ip)=dot_product(this%denbfm(1:nv,ip), this%bfm(1:nv,ip))
+        end do
+
+        do b=1,3 ! dB <x,y,z>
+            call get_pdens(this%xdens, b, this%pdens, spin)
+#ifdef HAVE_BLAS
+            call dgemm('t', 'n', nv, n, nv, 1.0d0, this%pdens, lda, &
+                this%bfm, ldm, 0.0d0, this%pdbfm, ldm)
+#else
+            this%pdbfm(1:nv,1:n)=matmul(transpose(this%pdens(1:nv,1:nv)), this%bfm(1:nv,1:n))
+#endif
+            if (settings%use_giao) then
+#ifdef HAVE_BLAS
+                call dgemm('n', 'n', nv, n, nv, 1.0d0, this%aodens, lda, &
+                    this%dbm(:,:,b), ldm, 0.0d0, this%dendbm, ldm)
+#else
+                this%dendbm(1:nv,1:n)=matmul(this%aodens(1:nv,1:nv), this%dbm(1:nv,1:n,b))
+#endif
+            end if
+            do ip=1,n
+                dpd(b,ip)=diapam(ip)*DP50*r(b,ip) ! diamag. contr. to J
+                do m=1,3 ! dm <x,y,z>
+                    k=(b-1)*3+m
+                    ppd=dot_product(this%pdbfm(1:nv,ip), this%drm(1:nv,m,ip))
+                    ct(k,ip)=ZETA*ppd
+                    if (settings%use_giao) then
+                        prsp1=-dot_product(this%dendbm(1:nv,ip), this%drm(1:nv,m,ip)) ! (-i)**2=-1
+                        prsp2=dot_product(this%denbfm(1:nv,ip), this%d2m(1:nv,k,ip))
+                        ct(k,ip)=ct(k,ip)+ZETA*(prsp1+prsp2)
+                    end if
+                end do
+            end do
+        end do
+
+        ! annihilate paramagnetic contribution
+        if (.not.settings%use_paramag) then
+            ct(:,1:n)=D0
+            your_results_are_questionable = .true.
+        end if
+        ! annihilate diamagnetic  contribution
+        if (.not.settings%use_diamag) then
+            dpd=D0
+            your_results_are_questionable = .true.
+        end if
+
+        ! the diamagnetic probability density only contributes off-diagonal;
+        ! ct(m,b) is stored at ct(m+3*(b-1)), as in contract()
+        do ip=1,n
+            ct(4,ip)=ct(4,ip)+dpd(3,ip) ! (1,2)
+            ct(7,ip)=ct(7,ip)-dpd(2,ip) ! (1,3)
+            ct(2,ip)=ct(2,ip)-dpd(3,ip) ! (2,1)
+            ct(8,ip)=ct(8,ip)+dpd(1,ip) ! (2,3)
+            ct(3,ip)=ct(3,ip)+dpd(2,ip) ! (3,1)
+            ct(6,ip)=ct(6,ip)-dpd(1,ip) ! (3,2)
+        end do
     end subroutine
 
     subroutine ctensor(this, r, j, op)
@@ -156,27 +370,6 @@ contains
         real(DP) :: ppd                ! paramagnetic probability density
         real(DP), dimension(3) :: dpd  ! diamagnetic probability density
         real(DP) :: diapam
-#ifdef HAVE_BLAS
-        ! Explicit interfaces: the calls below pass array elements
-        ! (sequence association), which gfortran >= 10 rejects for an
-        ! implicit interface.
-        interface
-            function ddot(n, x, incx, y, incy)
-                import :: DP
-                integer, intent(in) :: n, incx, incy
-                real(DP), intent(in) :: x(*), y(*)
-                real(DP) :: ddot
-            end function
-            subroutine dgemv(trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
-                import :: DP
-                character, intent(in) :: trans
-                integer, intent(in) :: m, n, lda, incx, incy
-                real(DP), intent(in) :: alpha, beta
-                real(DP), intent(in) :: a(lda, *), x(*)
-                real(DP), intent(inout) :: y(*)
-            end subroutine
-        end interface
-#endif
 
         call get_dens(this%xdens, this%aodens, spin)
 #ifdef HAVE_BLAS

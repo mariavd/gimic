@@ -67,8 +67,8 @@ contains
         integer, optional :: z
 
         integer(I4) :: i, j, k, p1, p2, p3
-        integer :: n, m
-        real(DP), dimension(3) :: coord
+        integer :: n, m, nn, ip
+        real(DP), dimension(:,:), allocatable :: coords
         real(DP), dimension(:,:), pointer :: tens
         character(8) :: spincase
         integer(I4) :: lo, hi, npts, first, last, fd2
@@ -112,19 +112,25 @@ contains
         call jfield_eta(this, mol, xdens)
 
         !$omp parallel default(none) &
-        !$omp private(jt,coord,n,i,j,k) &
+        !$omp private(jt,coords,n,nn,ip,i,j,k) &
         !$omp shared(this,mol,xdens,spincase,tens,lo,hi)
         call new_jtensor(jt, mol, xdens)
+        allocate(coords(3,JT_BLOCK))
 
+        ! JT_BLOCK points at a time, see ctensor_batch
         !$omp do schedule(static)
-        do n=lo,hi
-            call get_grid_index(this%grid, n, i, j, k)
-            coord = gridpoint(this%grid, i, j, k)
+        do n=lo,hi,JT_BLOCK
+            nn=min(JT_BLOCK, hi-n+1)
+            do ip=1,nn
+                call get_grid_index(this%grid, n+ip-1, i, j, k)
+                coords(:,ip) = gridpoint(this%grid, i, j, k)
+            end do
             ! here the ACID T tensor is calculated and put on tens
-            call ctensor(jt, coord, tens(:,n-lo+1), spincase)
+            call ctensor_batch(jt, coords(:,1:nn), tens(:,n-lo+1:n-lo+nn), spincase)
         end do
         !$omp end do
 
+        deallocate(coords)
         call del_jtensor(jt)
         !$omp end parallel
 

@@ -79,12 +79,16 @@ Installation on Stallo supercomputer
   $ make install
 
 
-Using BLAS1 and BLAS2 routines
-------------------------------
+Using BLAS routines
+-------------------
 
-With GNU compilers use::
+The density-matrix contractions, which dominate the run time, use BLAS
+(``dgemm``) when a BLAS library is found at configure time; this is the
+default. Without one the code falls back to the ``matmul`` intrinsic,
+which is several times slower, and ``./setup`` prints a warning. To
+build without BLAS deliberately::
 
-  $ ./setup --blas
+  $ ./setup --no-blas
 
 With Intel compilers and MKL use::
 
