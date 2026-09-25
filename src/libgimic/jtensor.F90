@@ -32,6 +32,13 @@ module jtensor_class
         integer(I4) :: nv
         real(DP), dimension(:,:), allocatable :: bfm, denbfm, pdbfm, dendbm
         real(DP), dimension(:,:,:), allocatable :: drm, dbm, d2m
+        ! Screening: only the basis functions whose value or gradient is
+        ! non-zero somewhere in the block ("active") take part in the
+        ! products. act(1:na) lists them; the slabs are compacted to those
+        ! rows and dsub holds the corresponding sub-matrix of a density.
+        integer(I4) :: na
+        integer(I4), dimension(:), allocatable :: act
+        real(DP), dimension(:,:), allocatable :: dsub, psub
     end type
 
     public new_jtensor, del_jtensor, jtensor, get_jvector
@@ -93,6 +100,10 @@ contains
 
         ! block scratch (sizes mirror those in new_bfeval)
         this%nv=0
+        this%na=0
+        allocate(this%act(ncgto))
+        allocate(this%dsub(ncgto,ncgto))
+        allocate(this%psub(ncgto,ncgto))
         allocate(this%bfm(ncgto,JT_BLOCK))
         allocate(this%denbfm(ncgto,JT_BLOCK))
         allocate(this%pdbfm(ncgto,JT_BLOCK))
@@ -112,6 +123,7 @@ contains
         deallocate(this%pdbf)
         deallocate(this%dendb)
         deallocate(this%bfm, this%denbfm, this%pdbfm, this%drm)
+        deallocate(this%act, this%dsub, this%psub)
         if (allocated(this%dendbm)) deallocate(this%dendbm, this%dbm, this%d2m)
     end subroutine
 
@@ -188,6 +200,81 @@ contains
                 this%d2m(1:nv,:,ip)=this%d2fvec(1:nv,:)
             end if
         end do
+        call compact_block(this, n)
+    end subroutine
+
+    ! find the functions with a non-zero value or gradient anywhere in the
+    ! block and move their rows to the front of the slabs (act is increasing,
+    ! so this is safe in place). The GIAO slabs are built from value and
+    ! gradient, so they vanish on the same rows.
+    subroutine compact_block(this, n)
+        type(jtensor_t) :: this
+        integer(I4), intent(in) :: n
+
+        integer(I4) :: i, k, na, nv
+
+        nv=this%nv
+        na=0
+        do i=1,nv
+            if (any(this%bfm(i,1:n) /= D0) .or. any(this%drm(i,:,1:n) /= D0)) then
+                na=na+1
+                this%act(na)=i
+            end if
+        end do
+        this%na=na
+        if (na == nv) return
+
+        do k=1,na
+            i=this%act(k)
+            if (i == k) cycle
+            this%bfm(k,1:n)=this%bfm(i,1:n)
+            this%drm(k,:,1:n)=this%drm(i,:,1:n)
+            if (settings%use_giao) then
+                this%dbm(k,1:n,:)=this%dbm(i,1:n,:)
+                this%d2m(k,:,1:n)=this%d2m(i,:,1:n)
+            end if
+        end do
+    end subroutine
+
+    ! sub(1:na,1:na) = d(act,act)
+    subroutine gather_sub(this, d, sub)
+        type(jtensor_t) :: this
+        real(DP), dimension(:,:), intent(in) :: d
+        real(DP), dimension(:,:), intent(out) :: sub
+
+        integer(I4) :: k, l, jl
+
+        do l=1,this%na
+            jl=this%act(l)
+            do k=1,this%na
+                sub(k,l)=d(this%act(k),jl)
+            end do
+        end do
+    end subroutine
+
+    ! y(1:na,1:n) = op(d) x(1:na,1:n) over the active functions, where
+    ! d is the density matrix restricted to them (dsub, or the full matrix
+    ! when nothing is screened)
+    subroutine dens_times(this, trans, d, x, y, n)
+        type(jtensor_t) :: this
+        character, intent(in) :: trans
+        real(DP), dimension(:,:), intent(in) :: d, x
+        real(DP), dimension(:,:), intent(inout) :: y
+        integer(I4), intent(in) :: n
+
+        integer(I4) :: na
+
+        na=this%na
+#ifdef HAVE_BLAS
+        call dgemm(trans, 'n', na, n, na, 1.0d0, d, size(d,1), &
+            x, size(x,1), 0.0d0, y, size(y,1))
+#else
+        if (trans == 't') then
+            y(1:na,1:n)=matmul(transpose(d(1:na,1:na)), x(1:na,1:n))
+        else
+            y(1:na,1:n)=matmul(d(1:na,1:na), x(1:na,1:n))
+        end if
+#endif
     end subroutine
 
 !
@@ -204,40 +291,39 @@ contains
         real(DP), dimension(:,:), intent(out) :: ct
         integer(I4), intent(in) :: spin
 
-        integer(I4) :: b, m, k, ip, nv, lda, ldm
+        integer(I4) :: b, m, k, ip, nv
+        logical :: screened
         real(DP) :: prsp1, prsp2, ppd
         real(DP), dimension(JT_BLOCK) :: diapam
         real(DP), dimension(3,JT_BLOCK) :: dpd
 
-        nv=this%nv
+        nv=this%na
+        screened = (this%na < this%nv)
         call get_dens(this%xdens, this%aodens, spin)
-        lda=size(this%aodens,1)
-        ldm=size(this%bfm,1)
-#ifdef HAVE_BLAS
-        call dgemm('n', 'n', nv, n, nv, 1.0d0, this%aodens, lda, &
-            this%bfm, ldm, 0.0d0, this%denbfm, ldm)
-#else
-        this%denbfm(1:nv,1:n)=matmul(this%aodens(1:nv,1:nv), this%bfm(1:nv,1:n))
-#endif
+        if (screened) then
+            call gather_sub(this, this%aodens, this%dsub)
+            call dens_times(this, 'n', this%dsub, this%bfm, this%denbfm, n)
+        else
+            call dens_times(this, 'n', this%aodens, this%bfm, this%denbfm, n)
+        end if
         do ip=1,n
             diapam(ip)=dot_product(this%denbfm(1:nv,ip), this%bfm(1:nv,ip))
         end do
 
         do b=1,3 ! dB <x,y,z>
-            call get_pdens(this%xdens, b, this%pdens, spin)
-#ifdef HAVE_BLAS
-            call dgemm('t', 'n', nv, n, nv, 1.0d0, this%pdens, lda, &
-                this%bfm, ldm, 0.0d0, this%pdbfm, ldm)
-#else
-            this%pdbfm(1:nv,1:n)=matmul(transpose(this%pdens(1:nv,1:nv)), this%bfm(1:nv,1:n))
-#endif
             if (settings%use_giao) then
-#ifdef HAVE_BLAS
-                call dgemm('n', 'n', nv, n, nv, 1.0d0, this%aodens, lda, &
-                    this%dbm(:,:,b), ldm, 0.0d0, this%dendbm, ldm)
-#else
-                this%dendbm(1:nv,1:n)=matmul(this%aodens(1:nv,1:nv), this%dbm(1:nv,1:n,b))
-#endif
+                if (screened) then
+                    call dens_times(this, 'n', this%dsub, this%dbm(:,:,b), this%dendbm, n)
+                else
+                    call dens_times(this, 'n', this%aodens, this%dbm(:,:,b), this%dendbm, n)
+                end if
+            end if
+            call get_pdens(this%xdens, b, this%pdens, spin)
+            if (screened) then
+                call gather_sub(this, this%pdens, this%psub)
+                call dens_times(this, 't', this%psub, this%bfm, this%pdbfm, n)
+            else
+                call dens_times(this, 't', this%pdens, this%bfm, this%pdbfm, n)
             end if
             do ip=1,n
                 dpd(b,ip)=diapam(ip)*DP50*r(b,ip) ! diamag. contr. to J
