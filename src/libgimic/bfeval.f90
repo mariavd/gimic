@@ -65,9 +65,10 @@ contains
         real(DP), dimension(:,:), pointer, optional :: dr
         real(DP), dimension(:,:), pointer, optional :: db, d2
 
-        call bfeval(this, r, bf)
         if (present(dr)) then
-            call dfdr(this, r, dr)
+            call bfeval_dr(this, r, bf, dr)
+        else
+            call bfeval(this, r, bf)
         endif
         if (present(db)) then
             call mkdbop(this, r)
@@ -118,6 +119,54 @@ contains
             ans=>this%sbf
         else
             ans=>this%bf
+        end if
+    end subroutine
+
+    ! bfeval and dfdr in a single pass over the contractions, see cgto_dr
+    subroutine bfeval_dr(this, r, ans, drv)
+        type(bfeval_t) :: this
+        real(DP), dimension(3), intent(in) :: r
+        real(DP), dimension(:), pointer :: ans
+        real(DP), dimension(:,:), pointer :: drv
+
+        integer(I4), dimension(99) :: posvec
+        integer(I4) :: idx2
+
+        integer(I4) :: i, j, k, natoms, nctr, idx, axis
+        type(atom_t), pointer :: atom
+        type(basis_t), pointer :: basis
+        type(contraction_t), pointer :: ctr
+        real(DP), dimension(3) :: rr, coord
+
+        natoms=get_natoms(this%mol)
+
+        idx2=0
+        this%bf=0.d0
+        this%dr=0.d0
+        do i=1,natoms
+            call get_atom(this%mol,i,atom)
+            call get_coord(atom, coord)
+            call get_basis(atom, basis)
+            rr=r-coord
+            call filter_screened(basis, rr, posvec, nctr)
+            do k=1,nctr
+                j=posvec(k)
+                call get_contraction(atom, j, ctr)
+                idx=idx2+get_ctridx(basis, j)
+                call cgto_dr(rr, ctr, this%bf(idx:), this%dr(idx:, :))
+            end do
+            idx2=idx2+get_ncgto(basis)
+        end do
+        if (settings%use_spherical) then
+            call cao2sao(this%mol%c2s, this%bf, this%sbf)
+            ans=>this%sbf
+            do axis=1,3
+                call cao2sao(this%mol%c2s, this%dr(:, axis), this%sdr(:,axis))
+            end do
+            drv=>this%sdr
+        else
+            ans=>this%bf
+            drv=>this%dr
         end if
     end subroutine
 

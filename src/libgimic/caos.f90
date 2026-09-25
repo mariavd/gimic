@@ -10,9 +10,52 @@ module caos_module
     use cao2sao_class
     implicit none
 
-    public  cgto, dcgto
+    public  cgto, dcgto, cgto_dr
     private
 contains
+
+    ! Evaluate one contracted CAO and its gradient in one go: the
+    ! exponentials are computed once (cgto + 3 x dcgto compute them four
+    ! times) and the Cartesian powers by multiplication rather than pow().
+    ! val(i) and dval(i,1:3) equal what cgto and dcgto return.
+    subroutine cgto_dr(r, ctr, val, dval)
+        real(DP), dimension(3), intent(in) :: r
+        type(contraction_t), intent(in), target :: ctr
+        real(DP), dimension(:), intent(out) :: val
+        real(DP), dimension(:,:), intent(out) :: dval
+
+        real(DP), dimension(:,:), pointer :: f
+        real(DP), dimension(0:MAX_L,3) :: rp   ! rp(n,ax) = r(ax)**n
+        real(DP) :: bfval, dbfval, p, q
+        integer(I4), dimension(3) :: n, m
+        integer(I4) :: i, ax, l
+
+        l=ctr%l
+        call get_gto_nlm(l, f)
+        call cao2(ctr, sum(r**2), bfval, dbfval)
+
+        rp(0,:)=D1
+        do i=1,l
+            rp(i,:)=rp(i-1,:)*r
+        end do
+
+        do i=1,ctr%nccomp
+            n=nint(f(:,i))
+            p=rp(n(1),1)*rp(n(2),2)*rp(n(3),3)
+            val(i)=p*bfval
+            ! d/dr_ax = n_ax r_ax**(n_ax-1) (...) bfval - 2 r_ax r**n dbfval
+            do ax=1,3
+                if (n(ax) > 0) then
+                    m=n
+                    m(ax)=m(ax)-1
+                    q=rp(m(1),1)*rp(m(2),2)*rp(m(3),3)
+                    dval(i,ax)=n(ax)*q*bfval-2.d0*r(ax)*p*dbfval
+                else
+                    dval(i,ax)=-2.d0*r(ax)*p*dbfval
+                end if
+            end do
+        end do
+    end subroutine
 
     subroutine cgto(r, ctr, val)
         real(DP), dimension(:), intent(in) :: r
