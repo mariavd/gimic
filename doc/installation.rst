@@ -54,9 +54,11 @@ other tests pass.
 Parallelization
 ---------------
 
-OpenMP parallelization is available::
+OpenMP parallelization is enabled by default. To build without it::
 
-  $ ./setup --omp
+  $ ./setup --no-omp
+
+At run time the number of threads is controlled by ``OMP_NUM_THREADS``.
 
 MPI parallelization is in the works.
 

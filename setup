@@ -24,7 +24,8 @@ Options:
   --extra-cc-flags=<EXTRA_CFLAGS>        Extra C compiler flags [default: ''].
   --cxx=<CXX>                            C++ compiler [default: g++].
   --extra-cxx-flags=<EXTRA_CXXFLAGS>     Extra C++ compiler flags [default: ''].
-  --omp                                  Enable OpenMP parallelization [default: False].
+  --no-omp                               Disable OpenMP parallelization (default: enabled).
+  --omp                                  Deprecated no-op; OpenMP is enabled by default.
   --mpi                                  Enable MPI parallelization [default: False].
   --coverage                             Enable code coverage [default: OFF].
   --no-blas                              Do not look for a BLAS library (default: use BLAS if found).
@@ -50,7 +51,7 @@ def gen_cmake_command(options, arguments):
     command.append('-DCMAKE_Fortran_COMPILER={0} -DEXTRA_FCFLAGS="{1}"'.format(arguments['--fc'], arguments['--extra-fc-flags']))
     command.append('-DCMAKE_C_COMPILER={0} -DEXTRA_CFLAGS="{1}"'.format(arguments['--cc'], arguments['--extra-cc-flags']))
     command.append('-DCMAKE_CXX_COMPILER={0} -DEXTRA_CXXFLAGS="{1}"'.format(arguments['--cxx'], arguments['--extra-cxx-flags']))
-    command.append('-DENABLE_OPENMP={0}'.format(arguments['--omp']))
+    command.append('-DENABLE_OPENMP={0}'.format(not arguments['--no-omp']))
     command.append('-DENABLE_MPI={0}'.format(arguments['--mpi']))
     command.append('-DENABLE_CODE_COVERAGE={0}'.format(arguments['--coverage']))
     command.append('-DENABLE_BLAS={0}'.format(not arguments['--no-blas']))
