@@ -27,7 +27,8 @@ Options:
   --omp                                  Enable OpenMP parallelization [default: False].
   --mpi                                  Enable MPI parallelization [default: False].
   --coverage                             Enable code coverage [default: OFF].
-  --blas                                 Find and link to BLAS [default: False].
+  --no-blas                              Do not look for a BLAS library (default: use BLAS if found).
+  --blas                                 Deprecated no-op; BLAS is used by default.
   --lapack                               Find and link to LAPACK [default: False].
   --type=<TYPE>                          Set the CMake build type (debug, release, relwithdebinfo, minsizerel) [default: release].
   --generator=<STRING>                   Set the CMake build system generator [default: Unix Makefiles].
@@ -52,7 +53,7 @@ def gen_cmake_command(options, arguments):
     command.append('-DENABLE_OPENMP={0}'.format(arguments['--omp']))
     command.append('-DENABLE_MPI={0}'.format(arguments['--mpi']))
     command.append('-DENABLE_CODE_COVERAGE={0}'.format(arguments['--coverage']))
-    command.append('-DENABLE_BLAS={0}'.format(arguments['--blas']))
+    command.append('-DENABLE_BLAS={0}'.format(not arguments['--no-blas']))
     command.append('-DENABLE_LAPACK={0}'.format(arguments['--lapack']))
     command.append('-DCMAKE_BUILD_TYPE={0}'.format(arguments['--type']))
     command.append('-G"{0}"'.format(arguments['--generator']))

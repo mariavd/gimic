@@ -25,6 +25,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install Python dependencies
       run: pip install -r requirements.txt
+    - name: Install OpenBLAS
+      run: sudo apt-get install --yes libopenblas-dev
 
     - name: Build
       run: |
