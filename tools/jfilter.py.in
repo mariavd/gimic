@@ -1,4 +1,4 @@
-#!@Python3_EXECUTABLE@
+#!@PYTHON_SHEBANG@
 
 import string, math, sys, re
 from getopt import getopt
