@@ -1,7 +1,6 @@
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src/pygimic)
+    ${CMAKE_BINARY_DIR})
 
 set(sources
     globals.f90
@@ -23,13 +22,6 @@ set(sources
     teletype.f90
     tensor.f90
     timer.f90
-    gausspoints.f90
-    gausspoints.c
-    gausspoints.h
-    gimic_interface.f90
-    gimic_interface.h
-    GimicInterface.cpp
-    GimicInterface.h
     acid.f90
     )
 
@@ -56,41 +48,9 @@ if(ENABLE_MKL_FLAG)
         )
 endif()
 
-if (CYTHON_FOUND)
-    set_source_files_properties(
-        ${CMAKE_CURRENT_SOURCE_DIR}/gimic.pxd
-        ${CMAKE_CURRENT_SOURCE_DIR}/gimic.pyx
-        PROPERTIES CYTHON_IS_CXX TRUE
-        )
-
-cython_add_module(gimic
-    gimic.pxd
-    gimic.pyx
-    )
-target_link_libraries(gimic
-    gimic2 ${PYTHON_LIBRARIES}
-    )
-
-cython_add_module(gengauss
-    gengauss.pxd
-    gengauss.pyx
-    )
-target_link_libraries(gengauss
-    gimic2 ${PYTHON_LIBRARIES}
-    )
-install(TARGETS gimic gengauss
-    ARCHIVE DESTINATION ${PYTHON_SITE_INSTALL_DIR}
-    LIBRARY DESTINATION ${PYTHON_SITE_INSTALL_DIR}
-    )
-endif()
-
 install(TARGETS gimic2
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    )
-
-install(FILES GimicInterface.h gimic_interface.h gimic.pxd
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 

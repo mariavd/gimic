@@ -5,8 +5,7 @@
 channels:
   - conda-forge
 dependencies:
-  - cython=0.29.36
-  - numpy<2.5          # NumPy >= 2.5 Cython headers need Cython >= 3
+  - numpy              # not needed to build or run gimic; used by some tools
   - pyparsing=2.4.7
   - pyyaml
   - sphinx
