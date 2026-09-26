@@ -1,5 +1,5 @@
 cython == 0.29.36
-numpy
+numpy < 2.5  # NumPy >= 2.5 Cython headers need Cython >= 3, see cython pin
 pyparsing == 2.4.7
 pyyaml
 sphinx
