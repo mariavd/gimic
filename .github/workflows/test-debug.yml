@@ -29,7 +29,10 @@ jobs:
     - name: Build
       run: |
         sudo apt-get install --yes valgrind
-        ./setup --cmake-options="-DENABLE_VALGRIND_TESTS=ON" --type=debug
+        # --no-omp: the OpenMP runtime (libgomp) keeps its thread stacks and
+        # state until exit, which valgrind reports as possibly lost / still
+        # reachable although GIMIC frees everything it allocates
+        ./setup --no-omp --cmake-options="-DENABLE_VALGRIND_TESTS=ON" --type=debug
         cd build
         make
         make install
