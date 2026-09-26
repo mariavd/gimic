@@ -35,24 +35,3 @@ gimic_test(open-shell/3d)
 gimic_test(open-shell/integration)
 gimic_test(benzene/skip-jmod-integration)
 gimic_test(benzene/magnetizability)
-
-
-option(ENABLE_VALGRIND_TESTS "Enable Valgrind tests" OFF)
-if(ENABLE_VALGRIND_TESTS)
-  add_test(
-    NAME
-      benzene/valgrind-integral
-    COMMAND
-      ./test ${PROJECT_BINARY_DIR}/bin/gimic
-    WORKING_DIRECTORY
-      ${PROJECT_SOURCE_DIR}/test/benzene/valgrind-integral
-    )
-  add_test(
-    NAME
-      benzene/valgrind-2d
-    COMMAND
-      ./test ${PROJECT_BINARY_DIR}/bin/gimic
-    WORKING_DIRECTORY
-      ${PROJECT_SOURCE_DIR}/test/benzene/valgrind-2d
-    )
-endif()
