@@ -45,10 +45,6 @@ Test the installation with::
   $ cd build
   $ make test
 
-Note, some tests may require Valgrind and will fail if this
-debugger is not available. However, this is no need to worry if all
-other tests pass. 
-
 
 Parallelization
 ---------------

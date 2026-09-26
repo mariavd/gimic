@@ -45,4 +45,4 @@ Stage: build
     $ ../container.sif cmake ..
     $ ../container.sif make
     $ ../container.sif make install
-    $ ../container.sif ctest --output-on-failure -E valgrind
+    $ ../container.sif ctest --output-on-failure
