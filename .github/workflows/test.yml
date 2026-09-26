@@ -34,4 +34,8 @@ jobs:
         cd build
         make
         make install
-        ctest --output-on-failure -E valgrind
+        ctest --output-on-failure
+    - name: Test the GPU offload code path on the host
+      run: |
+        cd build
+        GIMIC_OFFLOAD=host ctest --output-on-failure

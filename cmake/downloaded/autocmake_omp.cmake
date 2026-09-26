@@ -21,7 +21,8 @@
 #   docopt: "--omp Enable OpenMP parallelization [default: False]."
 #   define: "'-DENABLE_OPENMP={0}'.format(arguments['--omp'])"
 
-option(ENABLE_OPENMP "Enable OpenMP parallelization" OFF)
+# GIMIC: OpenMP is on by default.
+option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
 
 if(ENABLE_OPENMP)
 

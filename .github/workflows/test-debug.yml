@@ -28,9 +28,9 @@ jobs:
 
     - name: Build
       run: |
-        sudo apt-get install --yes valgrind
-        ./setup --cmake-options="-DENABLE_VALGRIND_TESTS=ON" --type=debug
+        # debug build without BLAS: covers the matmul fallback
+        ./setup --no-blas --type=debug
         cd build
         make
         make install
-        ctest --output-on-failure -R valgrind
+        ctest --output-on-failure

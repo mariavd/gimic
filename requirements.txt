@@ -1,5 +1,4 @@
-cython == 0.29.36
-numpy
+numpy  # not needed to build or run gimic; used by some tools
 pyparsing == 2.4.7
 pyyaml
 sphinx

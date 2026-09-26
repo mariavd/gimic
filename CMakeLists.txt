@@ -90,9 +90,15 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/downloaded)
 # use the first suitable Python on PATH (e.g. an activated environment)
 # rather than the newest one installed on the system
 set(Python3_FIND_STRATEGY LOCATION)
-find_package(Python3 COMPONENTS Interpreter Development NumPy)
-include_directories(${Python3_INCLUDE_DIRS})
-include_directories(${Python3_NumPy_INCLUDE_DIRS})
+find_package(Python3 COMPONENTS Interpreter)
+
+# Interpreter written into the first line of the gimic launcher and the
+# Python tools. Defaults to the Python found above; override it when that
+# path is not valid where GIMIC is run, e.g. when building inside a
+# container (CSC Tykky: point it to the wrapper in <install dir>/bin), or
+# use "/usr/bin/env python3" to take python3 from PATH at run time.
+set(PYTHON_SHEBANG "${Python3_EXECUTABLE}" CACHE STRING
+    "Interpreter for the first line of the installed Python scripts")
 
 # included cmake modules
 include(rpath-workaround)
@@ -102,6 +108,28 @@ include(autocmake_cxx)
 include(autocmake_GNU.CXX)
 include(autocmake_Intel.CXX)
 include(autocmake_omp)
+
+# GPU offload of the current-tensor evaluation (OpenMP target regions in
+# src/libgimic/jtensor_offload.F90). Requires OpenMP; the flags are known
+# for GNU, other compilers need them in EXTRA_FCFLAGS.
+option(ENABLE_OFFLOAD "Compile the OpenMP target regions for a GPU" OFF)
+set(OFFLOAD_TARGET "nvptx-none" CACHE STRING "OpenMP offload target (nvptx-none or amdgcn-amdhsa)")
+if(ENABLE_OFFLOAD)
+    if(NOT ENABLE_OPENMP)
+        message(FATAL_ERROR "ENABLE_OFFLOAD requires OpenMP (do not pass --no-omp)")
+    endif()
+    if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+        # -lm for the device: exp() in the kernels
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -foffload=${OFFLOAD_TARGET} -foffload-options=-lm")
+    else()
+        message(WARNING "ENABLE_OFFLOAD: offload flags are only known for GNU compilers; pass them with --extra-fc-flags")
+    endif()
+elseif(ENABLE_OPENMP AND CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+    # with an offload compiler installed, gfortran would otherwise compile the
+    # target regions for the accelerator by default
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -foffload=disable")
+endif()
+
 include(autocmake_mpi)
 include(autocmake_code_coverage)
 include(autocmake_safeguards)
