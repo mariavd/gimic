@@ -87,8 +87,7 @@ endmacro()
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/custom)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/downloaded)
 
-find_package(Python3 COMPONENTS Interpreter Development NumPy)
-include_directories(${Python3_INCLUDE_DIRS})
+find_package(Python3 COMPONENTS Interpreter)
 
 # Interpreter written into the first line of the gimic launcher and the
 # Python tools. Defaults to the Python found above; override it when that
@@ -97,7 +96,6 @@ include_directories(${Python3_INCLUDE_DIRS})
 # use "/usr/bin/env python3" to take python3 from PATH at run time.
 set(PYTHON_SHEBANG "${Python3_EXECUTABLE}" CACHE STRING
     "Interpreter for the first line of the installed Python scripts")
-include_directories(${Python3_NumPy_INCLUDE_DIRS})
 
 # included cmake modules
 include(rpath-workaround)

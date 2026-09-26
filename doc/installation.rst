@@ -6,11 +6,10 @@ Installation
 Before compiling GIMIC you need to make sure that you have installed
 ideally all of the packages collected in
 the ``requirements.txt`` file.
-You need minimum the ones listed below. ::
-
-* cython
-* numpy
-* runtest == 2.3.2
+To build and run GIMIC you need Python 3 with ``pyparsing == 2.4.7`` and
+``pyyaml``; the tests need ``runtest``; ``numpy`` is used by some of the
+tools. Cython and the Python development headers are no longer needed
+(the experimental Python backend that used them was removed).
 
 A convenient way to install the packages listed in ``requirements.txt``
 is to install the 
