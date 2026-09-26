@@ -1,4 +1,4 @@
-#!@Python3_EXECUTABLE@
+#!@PYTHON_SHEBANG@
 #
 
 import sys, string, re

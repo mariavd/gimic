@@ -1,4 +1,4 @@
-#!@Python3_EXECUTABLE@
+#!@PYTHON_SHEBANG@
 # vim:ft=python:
 #
 # jonas juselius <jonas.juselius@uit.no>

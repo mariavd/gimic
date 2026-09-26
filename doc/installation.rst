@@ -92,6 +92,49 @@ a GPU build, ``tools/offload-check.sh`` runs the benzene 3D test case on
 the CPU and on the GPU and compares the results.
 
 
+Clusters with containerised conda (CSC Tykky)
+---------------------------------------------
+
+Some clusters provide conda only inside a container, for example CSC's
+Tykky tool on Roihu (and formerly Puhti). ``conda-containerize`` builds
+the environment into a container image and puts wrapper scripts for its
+programs in ``<install dir>/bin``; running a wrapper starts the program
+inside the container.
+
+This affects GIMIC's ``gimic`` launcher, which is a Python script. When
+GIMIC is built inside the container, CMake finds the container's own
+Python, a path such as ``/CSC_TYKKY_xxxxxx/miniforge/envs/env1/bin/python3.12``,
+and writes it into the first line of ``bin/gimic``. That path exists
+only inside the container, so running ``gimic`` from the login shell or
+a batch job fails. Pass the wrapper instead with ``--python-shebang``::
+
+  $ ./setup --python-shebang=<install dir>/bin/python3
+
+This sets the first line of ``bin/gimic`` and of the Python tools. If the
+wrapper directory is always on ``PATH`` when GIMIC runs,
+``--python-shebang="/usr/bin/env python3"`` works as well. (Older builds
+without this option need the first line of ``build/bin/gimic`` edited by
+hand to point to the wrapper; the edit is lost when GIMIC is rebuilt.)
+
+Example files for the whole procedure are in ``container/tykky/``:
+``gimic.yml`` (the conda environment, the same packages as
+``requirements.txt``) and ``post-install.txt`` (clones and builds GIMIC
+inside the container, in the installation directory). In
+``post-install.txt``, replace ``INSTALL_DIR`` with the absolute path of the
+installation directory, load the compiler, CMake and BLAS modules you want
+to build with, then::
+
+  $ module load tykky
+  $ mkdir <install dir>
+  $ conda-containerize new --prefix <install dir> container/tykky/gimic.yml
+  $ conda-containerize update <install dir> --post-install container/tykky/post-install.txt
+  $ export PATH="<install dir>/bin:$PATH"
+
+GIMIC is then run as ``<install dir>/gimic/build/bin/gimic``. Check the
+cluster's documentation for current module names; CSC recommends
+installing into the project application directory (``/projappl``).
+
+
 Installation on Stallo supercomputer
 ------------------------------------
 

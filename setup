@@ -36,6 +36,7 @@ Options:
   --generator=<STRING>                   Set the CMake build system generator [default: Unix Makefiles].
   --show                                 Show CMake command and exit.
   --cmake-executable=<CMAKE_EXECUTABLE>  Set the CMake executable [default: cmake].
+  --python-shebang=<INTERP>              Interpreter for the first line of the installed Python scripts (default: the Python found by CMake).
   --cmake-options=<STRING>               Define options to CMake [default: ''].
   --prefix=<PATH>                        Set the install path for make install.
   <builddir>                             Build directory.
@@ -60,6 +61,8 @@ def gen_cmake_command(options, arguments):
     command.append('-DENABLE_LAPACK={0}'.format(arguments['--lapack']))
     command.append('-DCMAKE_BUILD_TYPE={0}'.format(arguments['--type']))
     command.append('-G"{0}"'.format(arguments['--generator']))
+    if arguments['--python-shebang']:
+        command.append('-DPYTHON_SHEBANG="{0}"'.format(arguments['--python-shebang']))
     if arguments['--cmake-options'] != "''":
         command.append(arguments['--cmake-options'])
     if arguments['--prefix']:

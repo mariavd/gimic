@@ -1,0 +1,17 @@
+# Conda environment for building GIMIC with a containerised conda, e.g.
+# CSC's Tykky (conda-containerize). Mirrors requirements.txt. Compilers,
+# CMake and BLAS come from the cluster's modules, not from this file.
+# See doc/installation.rst, "Clusters with containerised conda".
+channels:
+  - conda-forge
+dependencies:
+  - cython=0.29.36
+  - numpy<2.5          # NumPy >= 2.5 Cython headers need Cython >= 3
+  - pyparsing=2.4.7
+  - pyyaml
+  - sphinx
+  - sphinx_rtd_theme
+  - cffconvert
+  - pip
+  - pip:
+    - runtest==2.3.4
