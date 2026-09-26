@@ -57,3 +57,10 @@ alias gimic="path_to/gimic.sif"
 alias 3D-run.sh="apptainer exec path_to/gimic.sif 3D-run.sh"
 # etc.
 ```
+## Containerised conda (CSC Tykky)
+
+`tykky/` has an example conda environment (`gimic.yml`) and build script
+(`post-install.txt`) for clusters where conda runs inside a container,
+such as CSC's Tykky on Roihu. See "Clusters with containerised conda" in
+`doc/installation.rst` for the procedure, including the `--python-shebang`
+option that makes the `gimic` launcher work outside the container.
