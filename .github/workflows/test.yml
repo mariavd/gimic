@@ -34,4 +34,4 @@ jobs:
         cd build
         make
         make install
-        ctest --output-on-failure -E valgrind
+        ctest --output-on-failure
