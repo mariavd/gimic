@@ -10,6 +10,7 @@ module jfield_class
     use globals_module
     use settings_module
     use jtensor_class
+    use timer_module
     use dens_class
     use grid_class
     use basis_class
@@ -189,53 +190,49 @@ contains
         !$omp end parallel
     end subroutine
 
-! Make a rough estimate of how long the calculation will take
-! (using one core)
+! Estimate the run time from the cost of one block of grid points, evaluated
+! exactly as in the main loop (ctensor_batch), with the wall clock.
     subroutine jfield_eta(this, mol, xdens, fac)
+        !$ use omp_lib
         type(jfield_t) :: this
         type(molecule_t) :: mol
         type(dens_t) :: xdens
         real(DP), intent(in), optional :: fac
 
-        integer(I4) :: i, j, p1, p2, p3
-        real(DP), dimension(9) :: foo
+        integer(I4) :: i, j, k, ip, nn, p1, p2, p3, nthreads
+        integer(8) :: t0, t1, rate
+        real(DP) :: delta_t, cpu_est
+        real(DP), dimension(:,:), allocatable :: coords, tens
         type(jtensor_t) :: jt
-        real(DP) :: delta_t
-        real(4) :: tim1, tim2
-        real(4), dimension(2) :: times
-        real(DP), dimension(3) :: bar=(/D1,D1,D1/)
-        character(len=16) :: days_str
-        real(DP), dimension(3) :: foobar
-        real(DP), parameter :: SC=0.25d0
-        real(4) :: hours_per_sec = 1.0/3600.0
-        real(4) :: days_per_hour = 1.0/24.0
-        real(4) :: hours_per_day = 24.0
-        integer :: no_tests = 100
 
         call get_grid_size(this%grid, p1, p2, p3)
+        nn=min(JT_BLOCK, p1*p2*p3)
+        if (nn < 1) return
+
+        allocate(coords(3,nn), tens(9,nn))
+        do ip=1,nn
+            call get_grid_index(this%grid, ip, i, j, k)
+            coords(:,ip)=gridpoint(this%grid, i, j, k)
+        end do
 
         call new_jtensor(jt, mol, xdens)
-        call etime(times, tim1)
-        tim1=times(1)
-        do i=1,no_tests
-            call jtensor(jt, (/i*SC, i*SC, i*SC/), foo, spin_a)
-            foobar=matmul(bar,reshape(foo,(/3,3/)))
-        end do
-        call etime(times, tim2)
-        tim2=times(1)
+        call system_clock(t0, rate)
+        call ctensor_batch(jt, coords, tens, 'total')
+        call system_clock(t1)
         call del_jtensor(jt)
+        deallocate(coords, tens)
 
-        delta_t=tim2-tim1
-        if ( present(fac) ) delta_t=delta_t*fac
-        write(str_g, '(a,f11.2,a,a,f6.1,a)') 'Estimated CPU time for single core &
-            &calculation: ', delta_t*real(p1*p2*p3)/real(no_tests), ' sec', &
-            ' (',  delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec, ' h )'
-        if ( delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec .gt. 2*hours_per_day ) then ! will take more than two days?
-            write(days_str, '(a,f6.1,a)') ' (', &
-                delta_t*real(p1*p2*p3)/real(no_tests) * hours_per_sec*days_per_hour, ' days )'
-            str_g = trim(str_g) // days_str
+        delta_t=real(t1-t0, DP)/real(rate, DP)
+        if (present(fac)) delta_t=delta_t*fac
+        cpu_est=delta_t*real(p1*p2*p3, DP)/real(nn, DP)
+
+        call msg_info(time_string('Estimated CPU time for single core calculation: ', cpu_est))
+        nthreads=1
+        !$ nthreads=omp_get_max_threads()
+        if (nthreads > 1) then
+            write(str_g, '(a,i0,a)') 'Estimated wall time on ', nthreads, ' threads: '
+            call msg_info(time_string(trim(str_g), cpu_est/real(nthreads, DP)))
         end if
-        call msg_info(str_g)
         call nl
     end subroutine
 

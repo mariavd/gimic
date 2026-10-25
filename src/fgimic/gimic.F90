@@ -35,6 +35,7 @@ program gimic
 
     character(BUFLEN) :: buf
 
+    call start_klocka()
     call new_getkw(input)
     call set_debug_level(3)
 
