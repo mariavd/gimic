@@ -87,10 +87,11 @@ hand to point to the wrapper; the edit is lost when GIMIC is rebuilt.)
 Example files for the whole procedure are in ``container/tykky/``:
 ``gimic.yml`` (the conda environment, the same packages as
 ``requirements.txt``) and ``post-install.txt`` (clones and builds GIMIC
-inside the container, in the installation directory). In
-``post-install.txt``, replace ``INSTALL_DIR`` with the absolute path of the
-installation directory, load the compiler, CMake and BLAS modules you want
-to build with, then::
+inside the container, in the installation directory). At the top of
+``post-install.txt``, set ``INSTALL_DIR`` to the absolute path of the
+installation directory (and ``GIMIC_REPO``/``GIMIC_REF`` to build a fork or
+a branch), load the compiler, CMake and BLAS modules you want to build
+with, then::
 
   $ module load tykky
   $ mkdir <install dir>
@@ -98,9 +99,13 @@ to build with, then::
   $ conda-containerize update <install dir> --post-install container/tykky/post-install.txt
   $ export PATH="<install dir>/bin:$PATH"
 
-GIMIC is then run as ``<install dir>/gimic/build/bin/gimic``. Check the
-cluster's documentation for current module names; CSC recommends
-installing into the project application directory (``/projappl``).
+GIMIC is then run as ``<install dir>/gimic/build/bin/gimic``. The compiler
+module used for the build must also be loaded when GIMIC runs, for
+example in the batch script: ``gimic.bin`` is linked against that
+compiler's run-time library (``libgfortran``), which is not part of the
+container. Check the cluster's documentation for current module names;
+CSC recommends installing into the project application directory
+(``/projappl``).
 
 
 Installation on Stallo supercomputer

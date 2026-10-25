@@ -20,7 +20,6 @@ Stage: build
 
     python3 -m pip install --upgrade pip
 
-    python3 -m pip install cython==0.29.36
     python3 -m pip install numpy
     python3 -m pip install pyparsing==2.4.7
     python3 -m pip install pyyaml
