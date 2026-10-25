@@ -1,6 +1,20 @@
-git clone https://github.com/qmcurrents/gimic.git
-cd gimic
-./setup --python-shebang=INSTALL_DIR/bin/python3
+# Build GIMIC inside a Tykky container (conda-containerize update --post-install).
+# Set INSTALL_DIR to the absolute path given to --prefix. To build a fork or a
+# branch instead of the main repository, change GIMIC_REPO and GIMIC_REF.
+set -e
+INSTALL_DIR=/path/to/install/dir
+GIMIC_REPO=https://github.com/qmcurrents/gimic.git
+GIMIC_REF=master
+
+# A checkout left over from an earlier attempt would make "git clone" fail
+# and the build run against the old tree, so always start from a clean one.
+rm -rf "$INSTALL_DIR/gimic"
+git clone --branch "$GIMIC_REF" "$GIMIC_REPO" "$INSTALL_DIR/gimic"
+cd "$INSTALL_DIR/gimic"
+
+# Add --blas if a BLAS module is loaded. GIMIC installs into its own build/
+# directory regardless of any install prefix.
+./setup --omp --python-shebang="$INSTALL_DIR/bin/python3"
 cd build
 make
 make install
