@@ -66,6 +66,7 @@ contains
         this%basv=0.0
         this%l=0.0
         this%ortho=0.d0
+        this%radius=1.d10   ! no cut-off unless Grid.radius is given (set for bond grids only)
         call getkw(input, 'Grid', this%mode)
 
         ! first figure out where and how to place the grid

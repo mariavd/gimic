@@ -1,0 +1,31 @@
+# Integration over a plane given by its corners (Grid(std) with Gauss points),
+# the same plane as in integration-gauss: corner P0, "up" edge P0->P1 along B,
+# "out" edge P0->P2 along the profile direction. Must give the same current.
+
+calc=integral
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet=[0.0, 0.0, -1.0]
+
+Grid(std) {
+    type=gauss
+    origin=[7.277078, 0.0, -5.0]    # corner P0
+    ivec=[0.0, 0.0, 1.0]            # P0 -> P1 (height, along B)
+    jvec=[-1.0, 0.0, 0.0]           # P0 -> P2 (width)
+    lengths=[10.0, 7.2, 0.0]        # |P1-P0|, |P2-P0|
+    gauss_order=9
+    grid_points=[36, 36, 0]
+}
+
+Advanced {
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}

@@ -174,6 +174,8 @@ Not fixed, for the record:
   calls are commented out with a TODO on lines 163 to 167), so with
   `mpirun -np N` rank 0 prints its own share as the total. Per-column arrays
   (section 3.3) make the reduction a single `MPI_Reduce`.
+* `grid.f90`: `radius` was uninitialised for `std` grids, so integration over
+  a std grid gave zero (fixed, see 3.6).
 * `settings%magnet` is not normalised in `get_magnet`, so `magnet=[0,0,-2]`
   doubles the current. The scripts always write unit vectors; the port should
   normalise.
@@ -375,50 +377,56 @@ plain integral.
   `schedule(dynamic)` only approximately, so write completed blocks when all
   their columns are done) and add `--resume` later if anyone asks.
 
-### 3.6 Planes defined by points instead of bond, fix point and rotation
+### 3.6 Planes in arbitrary positions, given by their corners
 
-This already works in the current code, and it removes the need to rotate a
-bond plane until it passes through the wanted place. `coord1`/`coord2` in
-`Grid(bond)` are arbitrary points, not atoms. With `coord1 = P`,
-`coord2 = P + n` and `distance = 0` the plane passes exactly through P with
-normal n; the fix point (or `towards`) picks the side the integration starts
-from. Verified: the benzene reference plane written this way
+The request: define the integration rectangle directly by points in space,
+e.g. a corner at the origin, "up" to (0, 0, h) and "out" to (l, 0, 0), with no
+bond, fix point or rotation involved. GIMIC's `Grid(std)` is exactly this
+description: `origin` is the corner P0, `ivec` and `jvec` are the directions
+of the two edges, `lengths` their lengths, and `type=gauss` is accepted for
+it. `integrate_current` works on any grid, with the normal `ivec x jvec`.
+It did not work, though: `setup_bond_grid` initialises the cut-off `radius`
+to 1e10 but `setup_std_grid` never set it, so for a std grid every point was
+outside the (undefined) radius and the integral was silently **zero**. Fixed
+in `new_grid` (`grid.f90`, default `radius = 1.d10` for all grid types) and
+covered by the new test `benzene/int-grid-std-gauss`: the reference plane
+rebuilt from its corners
 
 ```
-Grid(bond) {
-    coord1=[2.277078, 0.0, 0.0]     # a point P on the plane
-    coord2=[2.277078, -1.0, 0.0]    # P + n, n = normal of the plane
-    distance=0.0
-    fixcoord=[0.0, 0.0, 0.0]        # the side the integration starts from
-    width=[-2.2, 5.0]
-    height=[-5.0, 5.0]
-    ...
+Grid(std) {
+    type=gauss
+    origin=[7.277078, 0.0, -5.0]    # corner P0
+    ivec=[0.0, 0.0, 1.0]            # P0 -> P1: the "up" edge, along B
+    jvec=[-1.0, 0.0, 0.0]           # P0 -> P2: the "out" edge, along the profile
+    lengths=[10.0, 7.2, 0.0]        # |P1 - P0|, |P2 - P0|
+    gauss_order=9
+    grid_points=[36, 36, 0]
 }
 ```
 
-gives the same grid frame and 11.802 nA/T. For the port, the natural
-specification of a profile is the path along which the current is resolved,
-not the bond:
+gives 11.802083 nA/T (bond grid: 11.802134; the 5e-5 is the rounded corner
+coordinates). Listing the corners in the other order (P2 on the other side)
+gives -11.802083: for a std grid the sign is the flux along `ivec x jvec`,
+nothing else, which is also the clean statement of the sign problem.
 
-```
-Grid(profile) {
-    from=[0.0, 0.0, 0.0]        # start of the profile (or from_atoms=[1,2,3,4,5,6]: their centroid)
-    to=[10.28, 0.0, 0.0]        # end of the profile (or to_atoms=[...], or direction=[...] + length=10.28)
-    height=[-8.0, 8.0]          # extent along B (the "up" axis)
-    slices=0.02
-}
-```
+For the port this means the profile machinery should be built on the grid
+axes, not on the bond grid:
 
-Geometry: `basv2` is the unit vector from `to` to `from`, `basv1` is B
-projected perpendicular to it, `basv3 = basv1 x basv2` is the plane normal,
-the reporting normal follows the rule of 3.3 with C = `from`. The plane
-contains the line `from`-`to` and the field direction. This covers every case
-the bond grid covers (a bond plane is `from` = ring centre, `to` = ring centre
-plus the direction perpendicular to the bond, through the bond midpoint), plus
-planes through chosen points for non-planar molecules, with no fix point, no
-atom order and no rotation. `Grid(bond)` stays as it is. Specifying four
-corners is not needed: a rectangle in a plane is three points, and the third
-is fixed by B and `height`.
+* `slices` applies to axis 2 (and 1) of any grid type.
+* `towards=[atoms]` or `towards_coord=[x,y,z]` applies to any grid type and
+  defines the reporting normal as `sign((B x r) . basv3) * basv3`, with `r`
+  from the reference centre C to the plane centre. For a bond grid with F on
+  the ring side this is identical to the `B . n` rule of 2.2 (because
+  `n` is parallel to `r x d` there); for a std grid it is the only way to get
+  "diatropic positive" independent of the corner order.
+* Convenience syntax in the parser: `corners=[P0, P1, P2]` (nine numbers) for
+  `Grid(std)`, from which origin, ivec, jvec and lengths follow; and
+  `from`/`to` points with `height` for a plane that contains a chosen line
+  and B. Both are sugar on top of `Grid(std)`; `Grid(bond)` stays for the
+  bond-centred workflow.
+* The existing `coord1`/`coord2` route (`coord1 = P`, `coord2 = P + n`,
+  `distance = 0`, verified to reproduce the reference plane) remains the way
+  to ask for "a plane through P with normal n" within `Grid(bond)`.
 
 ### 3.7 Phases
 

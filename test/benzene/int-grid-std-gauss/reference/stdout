@@ -1,0 +1,71 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (c5e1b3c)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ Mon Oct 26 10:18:03 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+ Grid mode = std
+ INFO: Integration grid selected.
+   Number of grid points <v1,v2>:   36   36    1
+   Total number of grid points  :      1296
+
+ *** Grid plot in grid.xyz
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ Jmod integration skipped.
+ *** Integrating current
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+
+ ************************************************************
+    Induced current (au)    :     0.418819
+       Positive contribution:     0.595167  (  16.771449 )
+       Negative contribution:    -0.176347  (  -4.969367 )
+
+    Induced current (nA/T)  :    11.802083
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       0.32sec (   0.0 h )
+     cpu time:       0.41sec (   0.0 h )
+         user:       0.39sec (   0.0 h )
+          sys:       0.02sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Mon Oct 26 10:18:03 2026
+ Hello World! (tm)
+
+ done.
+
