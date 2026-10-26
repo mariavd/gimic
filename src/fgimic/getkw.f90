@@ -1678,13 +1678,9 @@ contains
         type(kword_t) :: kw
         integer(SP) :: n
 
-!        if (n > 1) then
-            allocate(kw%lvec(n))
-            memtrack=memtrack+1
-            read(lun,*) kw%lvec
-!        else
-            read(lun,*) kw%bool
-!        end if
+        allocate(kw%lvec(n))
+        memtrack=memtrack+1
+        read(lun,*) kw%lvec
     end subroutine
 
     function sane(str1, str2) result(err)
