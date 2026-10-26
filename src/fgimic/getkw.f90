@@ -862,6 +862,7 @@ contains
         integer(SP) :: idx
         type(section_t), pointer :: ptr
         nullify(ptr)
+        nullify(kw)
 
         ok=.false.
         arg=.false.
