@@ -777,7 +777,7 @@ contains
 !                call getkw_errundef(ptr%id)
                 return
             end if
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 val=>ptr%key%str
@@ -1313,7 +1313,7 @@ contains
 
         ok=findkw(this%active, path, ptr)
         if (ok) then
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 if (associated(ptr%key%str)) then
