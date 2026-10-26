@@ -106,10 +106,10 @@ contains
         nsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum) &
+!$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum,xsum2,psum2,nsum2) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
-!$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
+!$OMP REDUCTION(+:xsum3,psum3,nsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
@@ -250,10 +250,10 @@ contains
         nsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum) &
+!$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum,xsum2,psum2,nsum2) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,lo,hi,bound,xdens,mol) &
-!$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
+!$OMP REDUCTION(+:xsum3,psum3,nsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
@@ -473,10 +473,10 @@ contains
         xsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,xsum) &
+!$OMP PRIVATE(i,j,k,r,rr,xsum,xsum2) &
 !$OMP PRIVATE(jt,w,tt,val,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,mol,xdens,lo,hi,bound) &
-!$OMP REDUCTION(+:xsum3,xsum2)
+!$OMP REDUCTION(+:xsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
