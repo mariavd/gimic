@@ -245,7 +245,6 @@ contains
             lo = 1
         end if
 
-        sgn=1.d0
         xsum3=0.d0
         psum3=0.d0
         nsum3=0.d0
@@ -274,20 +273,19 @@ contains
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
+                    ! points outside the integration radius do not contribute;
+                    ! skip them before touching their tensor
+                    if (r > bound) cycle
                     tt=ttb(:,i)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
-                    if ( r > bound ) then
-                        w=0.d0
+                    w=get_weight(this%grid, i, 1)
+                    jp=dot_product(normal,jvec)
+                    if (abs(jp) < 1.d-12) then ! prob. parallel component
+                        sgn=0.d0
+                    else if (jp > 0) then
+                        sgn=1.d0
                     else
-                        w=get_weight(this%grid, i, 1)
-                        jp=dot_product(normal,jvec)
-                        if (abs(jp) < 1.d-12) then ! prob. parallel component
-                            sgn=0.d0
-                        else if (jp > 0) then
-                            sgn=1.d0
-                        else
-                            sgn=-1.d0
-                        end if
+                        sgn=-1.d0
                     end if
                     jp=sgn*sqrt(sum(jvec**2))
                     xsum=xsum+jp*w
