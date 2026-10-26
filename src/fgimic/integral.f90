@@ -382,7 +382,7 @@ contains
         integer(I4) :: i, pts
         real(DP) :: w
 
-        pts=size(jt)
+        pts=size(jt,2)
 
         xsum=0.d0
         do i=1,pts
