@@ -1427,6 +1427,7 @@ contains
         integer(SP) :: index, idx, i, nkw
 
         nullify(ptr)
+        if (present(ptr2)) nullify(ptr2)
 
         ok=.false.
 
@@ -1442,7 +1443,6 @@ contains
             end do
         else
             ptr=>cur%kw
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
@@ -1497,6 +1497,7 @@ contains
         integer(SP) :: index, idx, i
 
         ok=.false.
+        if (present(ptr2)) nullify(ptr2)
         idx=index(path, '.')
         ptr=>cur%sects
         if (idx > 0) then
@@ -1511,7 +1512,6 @@ contains
                 ptr=>next_section(ptr)
             end do
         else
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
