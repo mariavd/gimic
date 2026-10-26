@@ -189,10 +189,39 @@ Not fixed, for the record:
   | 2 | 1 | 3.3 s |
 
   The `dgemm` calls in `ctensor_batch` are small (64 points per block), so
-  BLAS threading buys nothing and oversubscription is severe. The launcher
+  BLAS threading buys nothing and oversubscription is severe. No thread
+  pinning exists in this checkout or on any branch of `mariavd/gimic`
+  (checked with `git grep` and `git log --all`); if it was done elsewhere
+  it has not reached this fork. The launcher
   (`src/fgimic/gimic.py.in`) should set `OPENBLAS_NUM_THREADS=1` and
   `MKL_NUM_THREADS=1` unless the user set them, or the code should call
   `openblas_set_num_threads(1)` when built with OpenMP.
+
+### 2.5 Should the default field be (0, 0, +1) instead of (0, 0, -1)?
+
+No. Reversing B reverses J everywhere (`J(-B) = -J(B)`), so it flips the sign
+of the flux through a plane with a fixed normal, but it does not change which
+side of the bond the integration starts on and it does not change the value
+of the diatropic current. The convention "diatropic positive" is a statement
+about the sense of circulation *relative to B*, and the scripts now impose it
+by choosing the bond direction from `B . n`, so the sign of B has become
+irrelevant for the profile. There are two reasons to keep (0, 0, -1):
+
+* It is what `magnet_axis=X` produces for the documented benzene example
+  (bond 1-2, fixpoint 4): `n = (A1 - F) x (A2 - F) = (0, 0, -1)`. That is
+  almost certainly where the habit comes from: people copied the field GIMIC
+  printed for that example into their explicit inputs. With that F the
+  explicit (0, 0, -1) and `magnet_axis=X` are the same calculation.
+* All `cdens` visualisations and the viewing rule in `doc/interpretation.rst`
+  ("look along the field, diatropic is clockwise") assume it. Changing the
+  default would mirror every new vector plot with respect to the published
+  ones.
+
+With the old scripts, (0, 0, +1) together with the documented counter-clockwise
+atom order would indeed have given positive results, which is probably why
+workflows that "always worked" differ from ones that "always came out
+flipped". Both were relying on an accident. What does matter for non-planar
+molecules is that B is perpendicular to the ring plane; its sign does not.
 
 ## 3. Porting the profile to Fortran
 
@@ -346,7 +375,52 @@ plain integral.
   `schedule(dynamic)` only approximately, so write completed blocks when all
   their columns are done) and add `--resume` later if anyone asks.
 
-### 3.6 Phases
+### 3.6 Planes defined by points instead of bond, fix point and rotation
+
+This already works in the current code, and it removes the need to rotate a
+bond plane until it passes through the wanted place. `coord1`/`coord2` in
+`Grid(bond)` are arbitrary points, not atoms. With `coord1 = P`,
+`coord2 = P + n` and `distance = 0` the plane passes exactly through P with
+normal n; the fix point (or `towards`) picks the side the integration starts
+from. Verified: the benzene reference plane written this way
+
+```
+Grid(bond) {
+    coord1=[2.277078, 0.0, 0.0]     # a point P on the plane
+    coord2=[2.277078, -1.0, 0.0]    # P + n, n = normal of the plane
+    distance=0.0
+    fixcoord=[0.0, 0.0, 0.0]        # the side the integration starts from
+    width=[-2.2, 5.0]
+    height=[-5.0, 5.0]
+    ...
+}
+```
+
+gives the same grid frame and 11.802 nA/T. For the port, the natural
+specification of a profile is the path along which the current is resolved,
+not the bond:
+
+```
+Grid(profile) {
+    from=[0.0, 0.0, 0.0]        # start of the profile (or from_atoms=[1,2,3,4,5,6]: their centroid)
+    to=[10.28, 0.0, 0.0]        # end of the profile (or to_atoms=[...], or direction=[...] + length=10.28)
+    height=[-8.0, 8.0]          # extent along B (the "up" axis)
+    slices=0.02
+}
+```
+
+Geometry: `basv2` is the unit vector from `to` to `from`, `basv1` is B
+projected perpendicular to it, `basv3 = basv1 x basv2` is the plane normal,
+the reporting normal follows the rule of 3.3 with C = `from`. The plane
+contains the line `from`-`to` and the field direction. This covers every case
+the bond grid covers (a bond plane is `from` = ring centre, `to` = ring centre
+plus the direction perpendicular to the bond, through the bond midpoint), plus
+planes through chosen points for non-planar molecules, with no fix point, no
+atom order and no rotation. `Grid(bond)` stays as it is. Specifying four
+corners is not needed: a rectangle in a plane is three points, and the third
+is fixed by B and `height`.
+
+### 3.7 Phases
 
 1. `gimic.py.in` BLAS pinning; `check_field` flip becomes a warning. Half a
    day, independent of the rest.
