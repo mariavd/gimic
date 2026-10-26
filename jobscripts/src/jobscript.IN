@@ -42,8 +42,8 @@ checkIfEmpty dirname $dirname
 filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l))
 checkIfEmpty filenum $filenum
 
-# clean up possible previous calculations
-rm -rf *eps GIMIC.*
+# clean up possible previous calculations (only inside the work directory)
+rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps
 
 parallel=$2
 checkIfEmpty parallel $parallel
@@ -100,12 +100,13 @@ if [[ "$remain" -gt 0 ]]; then
 	    cd $wrkdir && gimic gimic.$index.inp > $wrkdir/gimic.$index.out & 
 	fi
     done
+    wait   # the gradient must not be evaluated before the last slices have finished
 fi
 echo "$filenum of $filenum completed"
 echo
 
 
-rm -rf GIMIC* 
+rm -f "$wrkdir"/GIMIC.*
 
 ###################################################################################
 

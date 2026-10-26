@@ -8,7 +8,8 @@ function createInpTemplate()
     # create the template file gimic.Inp -> everything but up, down, in, out
     cp @SCRIPTS_DIR@/src/gimic.Inp ./$dirname/gimic.Inp
 
-    string1="s/@bond@/$bond/; s/@distance@/$distance/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/ "
+    bondInput   # sets bondInp and distanceInp (bond direction may be reversed, see functions-def)
+    string1="s/@bond@/$bondInp/; s/@distance@/$distanceInp/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/ "
     string2="s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; s/@origX@/$origX/; s/@origY@/$origY/; s/@origZ@/$origZ/ "
     string3="s/@Bx@/$Bx/; s/@By@/$By/; s/@Bz@/$Bz/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/; s/@fixed@/$fixed/;"
 
@@ -16,15 +17,14 @@ function createInpTemplate()
     sed -i -e "$string2" ./$dirname/gimic.Inp
     sed -i -e "$string3" ./$dirname/gimic.Inp
 
-    if [ ! -z $enableRotationerigin ] &&  [ $enableRotationerigin == "y" ]
+    if [ "$useRotationOrigin" == "y" ]
     then
-	sed -i -e 's/#rotation_origin*/rotation_origin/' ./$dirname/gimic.Inp
+	sed -i -e 's/^ *#rotation_origin/     rotation_origin/' ./$dirname/gimic.Inp
     fi
 
-    if [ ! -z $enableMF_X ] &&  [ $enableMF_X == "y" ]
+    if [ "$enableMF_X" == "y" ]
     then
-	sed -i -e '/s/magnet=/#magnet=/' ./$dirname/gimic.Inp
-	sed -i -e '/s/#magnet_axis=/magnet_axis=X/' ./$dirname/gimic.Inp
+	sed -i -e 's/^magnet=/#magnet=/; s/^#magnet_axis=X/magnet_axis=X/' ./$dirname/gimic.Inp
     fi
 }
 
@@ -35,6 +35,8 @@ echo atom2=$atom2 >> ./$dirname/calculation.dat
 echo distance=$distance >> ./$dirname/calculation.dat
 echo in=$start out=$out up=$up down=$down  >> ./$dirname/calculation.dat
 echo fixed point: Fx=$Fx Fy=$Fy Fz=$Fz  >> ./$dirname/calculation.dat
+bondInput
+echo gimic input: bond=[$bondInp] distance=$distanceInp reversed=$swapBond >> ./$dirname/calculation.dat
 echo delta=$delta nsteps=$nsteps >> ./$dirname/calculation.dat
 #echo spacing: spacingX=$spacingX spacingY=$spacingY spacingZ=$spacingZ  >> ./$dirname/calculation.dat
 echo magnetic field: Bx=$Bx By=$By Bz=$Bz  >> ./$dirname/calculation.dat
@@ -44,7 +46,12 @@ echo rotation angles: rotX=$rotX rotY=$rotY rotZ=$rotZ >> ./$dirname/calculation
 ################################################################################
 
 printf "\n\n*****************************************************************************\n\nSUMMARY\n\n"
-printf "Bond: ["$bond"], distance = $distance\n\n"
+printf "Bond: ["$bond"], distance = $distance\n"
+if [ "$swapBond" == "1" ]
+then
+    printf "GIMIC input: bond=[$bondInp], distance = $distanceInp (direction reversed so that diatropic currents are positive)\n"
+fi
+printf "\n"
 echo "Integration plane coordinates"
 printf "in = $start  out = $out  up = $up  down = $down \n"
 printf "Split into $nsteps slices with width $delta and grid spacing [$spacingX; $spacingY] \n"
@@ -111,11 +118,14 @@ bz=$( echo $BOND | awk '{print $3} ' )
 #echo
 
 printf "\n\nSTARTING POINT OF THE INTEGRATION\n"
+unset Cx Cy Cz
 userInp start $start
 while [ -z "$start" ]
 do 
     userInp start $start
 done
+# centroid of the atoms defining the start (empty if a value was typed); used for the fixed point
+inCx=$Cx; inCy=$Cy; inCz=$Cz
 
 printf "\nEND POINT OF THE INTEGRATION\n"
 out=8
@@ -223,96 +233,48 @@ fi
 if [ ! -z $accept ] && [ $accept == "X" ]
 then
     enableMF_X="y"
-    sed -i '/s/magnet=/#magnet=/' ./$dirname/gimic.Inp
-    sed -i '/s/#magnet_axis=/magnet_axis=X/' ./$dirname/gimic.Inp
 fi
 
-printf "\nFIXED COORDINATE\n"
+printf "\nFIXED POINT AND ORIENTATION OF THE INTEGRATION PLANE\n\n"
 
-# Calculating the fixed point depends on the B direction. If X is selected, then there is no B defined.
-if [ ! -z $enableMF_X ] && [ $enableMF_X == "n" ]
-then
+# The integration plane is always perpendicular to the bond. The fixed point F
+# only decides on which side of the bond the integration starts and, together
+# with the magnetic field, the sign of the integrated current (see
+# fixPointAndOrientation in functions-def). F is the centroid of the atoms that
+# define the start of the integration when they were given, otherwise the bond
+# midpoint displaced by 1 bohr along B x (A2-A1).
+fixedByUser="n"
+setFixPoint $Bx $By $Bz
 
-    # fixed point (Ax, Ay and Az are the coords of the bond atoms 1 and 2)
-    #Fx=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $1}')
-    #Fy=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $2}')
-
-
-    #Fz=$( awk -v A1z=$A1z -v A2z=$A2z 'BEGIN{ print (A1z+A2z)*0.5 }')
-    #Fz=$( awk -v A1z=$A1z -v A2z=$A2z 'BEGIN{ print A2z }')
-
-    # use the coords of atom 1 and the B vector
-    # vector OA and OF defined with the coords of atom1 and the fixed point
-    # vector AB.B = 0
-    #Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ print( ( (bx*(A2x-A1x) + by*(A2y-A1y) + mz*(A2z-A1z) ))) }')
-    # previous HEAD
-    #Fz=$( awk -v Ax=$A2x -v Fx=$Fx -v Ay=$A2y -v Fy=$Fy -v Az=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ print( ( (bx*(Fx-Ax) + by*(Fy-Ay)) / mz) + Az )}')
-    #Fz=$( awk -v Ax=$A2x -v Fx=$Fx -v Ay=$A2y -v Fy=$Fy -v Az=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ print( ( (bx*(Fx-Ax) + by*(Fy-Ay)) / mz) + Az )}')
-    #
-    # eq of a plane: a*(x-x0) + b*(y-y0) + c*(z-z0) = 0
-    #	<=>	ax + by + cz - (a*x0 + b*y0 + c*z0) = 0
-    #		ax + by + cz = D
-    # where the normal to the plane n(a,b,c) = A1 - B (vectors)
-    # and P(x0,y0,z0) = A2
-    # Fx and Fy are any two points and Fz is what fixes the "fixed point" onto the plane
-    #Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v Fx=$Fx -v A1y=$A1y -v A2y=$A2y -v Fy=$Fy -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Bx = bx + A1x; By = by + A1y; Bz = mz + A1z;  a = A1x - Bx; b = A1y - By; c = A1z - Bz; D = a*A2x + b*A2y + c*A2z; Fz = D/(a*Fx + b*Fy ); print Fz }')
-    #
-    # Plane defined by A1, A2 and B
-    # Vectors u = A1B and v = A1A2
-    # Use: n = u x v
-    # The fixed point is the normal 
-    #Fcoords=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz -v by=$By -v mz=$Bz 'BEGIN{ Bx = A1x + bx; By = A1y + by; Bz = A1z + mz; ux = Bx - A1x; uy = By - A1y; uz = Bz - A1z; vx = A2x - A1x; vy = A2y - A1y; vz = A2z - A1z; nx = uy*vz - uz*vy; ny = uz*vx - ux*vz; nz = ux*vy - uy*vx; print nx + A2x, ny + A2y, nz + A2z }' )
-    #Fx=$(echo $Fcoords | awk '{print $1}')
-    #Fy=$(echo $Fcoords | awk '{print $2}')
-    #Fz=$(echo $Fcoords | awk '{print $3}')
-
-    # cross product of the basis vectors v3 and v1 (we want v1 colinear to B)
-    # beware the sign! v1 ~ -B
-    # v3 = A1 - A2
-    #Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Fx = (by*(A2z-A1z) - mz*(A2y-A1y)); print -(Fx)+A2x  }' )
-    #Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Fy = (mz*(A2x-A1x) - bx*(A2z-A1z)); print -(Fy)+A2y  }' )
-    #Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Fz = (bx*(A2y-A1y) - by*(A2x-A1x)); print -(Fz)+A2z  }' )
-
-    ## cross product but set Fz as the average of the z coords of A1 and A2 
-    #Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Fx = (by*(A2z-A1z) - mz*(A2y-A1y)); print -(Fx)+A1x  }' )
-    #Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Fy = (mz*(A2x-A1x) - bx*(A2z-A1z)); print -(Fy)+A1y  }' )
-    #Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ av_z = 0.5*(A1z+A2z); Fz = (bx*(A2y-A1y) - by*(A2x-A1x)); print -(Fz)+av_z }' )
-
-    # use average z coords for A1 and A2 for the calculation of the cross product
-    Fx=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Az = 0.5*(A1z+A2z); A1z = Az; A2z = Az; Fx = (by*(A2z-A1z) - mz*(A2y-A1y)); print -(Fx) + Ax }' )
-    Fy=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Az = 0.5*(A1z+A2z); A1z = Az; A2z = Az; Fy = (mz*(A2x-A1x) - bx*(A2z-A1z)); print -(Fy) + Ay }' )
-    Fz=$( awk -v A1x=$A1x -v A2x=$A2x -v A1y=$A1y -v A2y=$A2y -v A1z=$A1z -v A2z=$A2z -v bx=$Bx -v by=$By -v mz=$Bz 'BEGIN{ Az = 0.5*(A1z+A2z); A1z = Az; A2z = Az; Fz = (bx*(A2y-A1y) - by*(A2x-A1x)); print -(Fz) + Az }' )
-
-    echo
-    echo "Fixed coordinate: ($Fx; $Fy; $Fz)"
-
-    echo "Do you want to modify the coordinates of the fixed point?"
-
-fi 
-
-echo "Press [a] to enter an atomic index or [c] enter Cartesian coordinates" 
-
+echo
+echo "Press [a] to use an atom as the fixed point instead, [c] to enter Cartesian coordinates,"
+echo "or [ENTER] to accept the automatic choice."
 read accept;
 if [ ! -z $accept ] && [ $accept == "a" ]
 then
     echo "Enter the index of the fixed atom: "
     read fixed_atom
     validateInput fixed_atom $fixed_atom
-
-    # Read the coordinates of the fixed atom
     Fx=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $1} }' coord  )
     Fy=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $2} }' coord  )
     Fz=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $3} }' coord  )
-    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+    fixedByUser="y"
 elif [ ! -z $accept ] && [ $accept == "c" ]
 then
     valueDimInp Fx $Fx "bohr"
     valueDimInp Fy $Fy "bohr"
     valueDimInp Fz $Fz "bohr"
-
-    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+    fixedByUser="y"
 fi
-
+if [ $fixedByUser == "y" ]
+then
+    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+    setBondOrientation $Bx $By $Bz
+fi
+if [ "$enableMF_X" == "y" ]
+then
+    swapBond=0   # with magnet_axis=X the field follows the plane normal and the sign is independent of the bond direction
+fi
 
 printf "\nROTATION OF THE PLANE\n\n"
 
@@ -325,7 +287,7 @@ origX=0.0
 origY=0.0
 origZ=0.0
 
-enableRotationerigin="n"
+useRotationOrigin="n"
 
 echo "Do you want to rotate the integration plane?"
 echo "Press [y] to enter rotation angles and origin" 
@@ -342,9 +304,10 @@ then
     printf "\nDo you accept the rotation origin to be at the bond midpoint?\n"
     echo "Press [n] to enter Cartesian coordinates." 
 
-    read enableRotationerigin;
-    if [ ! -z $enableRotationOrigin ] && [ $enableRotationOrigin == "n" ]
+    read accept;
+    if [ ! -z $accept ] && [ $accept == "n" ]
     then
+	useRotationOrigin="y"
 	valueDimInp origX $origX "bohr" 
 	valueDimInp origY $origY "bohr"
 	valueDimInp origZ $origZ "bohr"
@@ -442,11 +405,18 @@ do
 		valueDimInp distance $distance "bohr"
 	    elif  [ $entry == "2" ]
 	    then
+		unset Cx Cy Cz
 		userInp start $start
 		while [ -z "$start" ]
 		do 
 		    userInp start $start
 		done
+		inCx=$Cx; inCy=$Cy; inCz=$Cz
+		if [ $fixedByUser == "n" ]
+		then
+		    setFixPoint $Bx $By $Bz
+		    if [ "$enableMF_X" == "y" ]; then swapBond=0; fi
+		fi
 	    elif [ $entry == "3" ]
 	    then
 		userInp out $out
@@ -469,6 +439,9 @@ do
 		Fy=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $2} }' coord  )
 		Fz=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $3} }' coord  )
 		echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+		fixedByUser="y"
+		setBondOrientation $Bx $By $Bz
+		if [ "$enableMF_X" == "y" ]; then swapBond=0; fi
 
 		doDryRun=1
 	    elif [ $entry == "7" ]
@@ -483,9 +456,10 @@ do
 		printf "\nDo you accept the rotation origin to be at the bond midpoint?\n"
 		echo "Press [n] to enter Cartesian coordinates." 
 
-		read enableRotationerigin;
-		if [ ! -z $enableRotationOrigin ] && [ $enableRotationOrigin == "n" ]
+		read accept;
+		if [ ! -z $accept ] && [ $accept == "n" ]
 		then
+		    useRotationOrigin="y"
 		    valueDimInp origX $origX "bohr" 
 		    valueDimInp origY $origY "bohr"
 		    valueDimInp origZ $origZ "bohr"

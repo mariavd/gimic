@@ -23,11 +23,11 @@ valueDimInp parallel $parallel "tasks"
 # check if too many parallel tasks are called
 if [ $parallel -gt $nsteps ]
 then
-    $parallel=$($nsteps)
+    parallel=$nsteps
 fi
 
-# clean up possible previous calculations
-rm -rf *dat *eps GIMIC.*
+# clean up results of a possible previous calculation (only inside the work directory)
+rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps "$wrkdir"/current_profile.dat "$wrkdir"/current.dat "$wrkdir"/diatropic.dat "$wrkdir"/paratropic.dat
 
 date
 echo "Running $parallel out of $filenum GIMIC calculations at a time..."; echo 
@@ -67,13 +67,23 @@ done
 if [ "$remain" -gt 0 ]; then
     for ((i=0; i<$remain; i++))
     do  
-        (cd $wrkdir && gimic $wrkdir/gimic.$(($parallel*$whole+$i)).inp >  $wrkdir/gimic.$(($parallel*$whole+$i)).out &) 
+        index=$(($parallel*$whole+$i))
+        grepstring=""
+        if [ -f "$wrkdir/gimic.$index.out" ]
+        then
+            grepstring=$(grep "wall" $wrkdir/gimic.$index.out)
+        fi
+        if [ -z "$grepstring" ]
+        then
+            (cd $wrkdir && gimic gimic.$index.inp > $wrkdir/gimic.$index.out) &
+        fi
     done
+    wait   # the gradient must not be evaluated before the last slices have finished
 fi
 echo "$filenum of $filenum completed"
 echo
 
-rm -rf GIMIC* 
+rm -f "$wrkdir"/GIMIC.*
 
 ###################################################################################
 

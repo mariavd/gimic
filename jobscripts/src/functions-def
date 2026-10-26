@@ -572,6 +572,100 @@ function dotProduct() {
 }
 
 
+###############################################################################
+# Fixed point and orientation of the integration plane
+#
+# GIMIC (src/fgimic/grid.f90, setup_bond_grid) builds the plane from the two
+# bond atoms A1, A2 and the fixed point F:
+#     d  = A2 - A1                 normal of the integration plane (bond direction)
+#     n  = (A1 - F) x (A2 - F)     normal of the plane (A1, A2, F); the "up" axis of the grid is -n
+#     in = n x d                   direction in which the first component of "width" is measured
+# The plane is therefore always perpendicular to the bond, whatever F is. F only
+# decides on which side of the bond the integration starts: F must lie on the
+# same side as the point the integration starts from (e.g. the ring centre).
+# The integrated current is the flux of J along d. With an explicit magnetic
+# field B it is positive for a diatropic current only if B.n > 0 (verified
+# numerically on benzene, see doc/current-profile-port-plan.md). Otherwise the
+# bond direction is reversed in the GIMIC input (bond=[A2,A1]), which changes
+# only the sign, not the position of the plane.
 
+function fixPointAndOrientation() {
+# usage: fixPointAndOrientation atom1 atom2 Bx By Bz [Cx Cy Cz]
+# Prints "Fx Fy Fz swap" where F is the fixed point (bohr) and swap=1 means that
+# the bond direction must be reversed. F is the point C if given (it must not
+# lie on the bond axis), otherwise the bond midpoint displaced by 1 bohr along
+# B x d, i.e. within the plane perpendicular to B.
+    awk -v a1="$1" -v a2="$2" -v Bx="$3" -v By="$4" -v Bz="$5" -v Cx="$6" -v Cy="$7" -v Cz="$8" '
+    function cross(ax,ay,az, bx,by,bz) { cx = ay*bz - az*by; cy = az*bx - ax*bz; cz = ax*by - ay*bx }
+    NR == a1+1 { A1x=$1; A1y=$2; A1z=$3 }
+    NR == a2+1 { A2x=$1; A2y=$2; A2z=$3 }
+    END {
+        dx = A2x-A1x; dy = A2y-A1y; dz = A2z-A1z; dl = sqrt(dx*dx+dy*dy+dz*dz);
+        Mx = 0.5*(A1x+A2x); My = 0.5*(A1y+A2y); Mz = 0.5*(A1z+A2z);
+        nl = 0;
+        if (Cx != "" && Cy != "" && Cz != "") {
+            Fx = Cx; Fy = Cy; Fz = Cz;
+            cross(A1x-Fx, A1y-Fy, A1z-Fz, A2x-Fx, A2y-Fy, A2z-Fz); nl = sqrt(cx*cx+cy*cy+cz*cz);
+        }
+        if (nl < 1e-6*dl*dl) {   # no centre given, or it lies on the bond axis
+            cross(Bx,By,Bz, dx,dy,dz); ul = sqrt(cx*cx+cy*cy+cz*cz);
+            if (ul < 1e-8*dl) { cross(dx,dy,dz, 1,0,0); ul = sqrt(cx*cx+cy*cy+cz*cz); }
+            if (ul < 1e-8*dl) { cross(dx,dy,dz, 0,1,0); ul = sqrt(cx*cx+cy*cy+cz*cz); }
+            Fx = Mx + cx/ul; Fy = My + cy/ul; Fz = Mz + cz/ul;
+            cross(A1x-Fx, A1y-Fy, A1z-Fz, A2x-Fx, A2y-Fy, A2z-Fz);
+        }
+        swap = (Bx*cx + By*cy + Bz*cz < 0) ? 1 : 0;
+        printf("%.6f %.6f %.6f %d\n", Fx, Fy, Fz, swap);
+    }' coord
+}
 
+function reportBondOrientation() {
+    if [ "$swapBond" == "1" ]
+    then
+        echo "The bond direction is reversed in the GIMIC input (bond=[$atom2,$atom1]) so that"
+        echo "diatropic currents are positive. The position of the plane is not affected."
+    fi
+}
 
+function setFixPoint() {
+# usage: setFixPoint Bx By Bz
+# Uses atom1, atom2 and the centroid inCx inCy inCz of the atoms defining the
+# start of the integration (may be empty). Sets Fx Fy Fz swapBond.
+    read Fx Fy Fz swapBond <<< "$(fixPointAndOrientation $atom1 $atom2 $1 $2 $3 $inCx $inCy $inCz)"
+    checkIfEmpty Fx $Fx
+    checkIfEmpty Fy $Fy
+    checkIfEmpty Fz $Fz
+    checkIfEmpty swapBond $swapBond
+    echo "Fixed point: ($Fx; $Fy; $Fz)"
+    if [ ! -z "$inCx" ]
+    then
+        echo "(centroid of the atoms that define the start of the integration)"
+    else
+        echo "(bond midpoint displaced by 1 bohr along B x bond; enter atom indices for the"
+        echo " start of the integration to use their centroid instead)"
+    fi
+    reportBondOrientation
+}
+
+function setBondOrientation() {
+# usage: setBondOrientation Bx By Bz
+# Recomputes swapBond for the current (user-chosen) fixed point Fx Fy Fz.
+    read dummyX dummyY dummyZ swapBond <<< "$(fixPointAndOrientation $atom1 $atom2 $1 $2 $3 $Fx $Fy $Fz)"
+    checkIfEmpty swapBond $swapBond
+    reportBondOrientation
+}
+
+function bondInput() {
+# usage: bondInput
+# Sets bondInp and distanceInp (the values written to the GIMIC input) from
+# atom1, atom2, distance and swapBond. GIMIC measures "distance" from the first
+# atom of the bond, so it is mirrored when the bond direction is reversed.
+    if [ "$swapBond" == "1" ]
+    then
+        bondInp="$atom2,$atom1"
+        distanceInp=$( awk -v L=$(calcDistance $atom1 $atom2) -v d=$distance 'BEGIN{ printf "%.6f", L-d }' )
+    else
+        bondInp="$atom1,$atom2"
+        distanceInp=$distance
+    fi
+}

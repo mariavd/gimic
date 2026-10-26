@@ -40,8 +40,8 @@ nstepsH=$( sed -n -e 's/^.*nstepsH=//p' $wrkdir/calculation.dat | awk '{print $1
 checkIfEmpty nstepsH $nstepsH
 #checkIfEmpty nstepsV $nstepsV
 
-# clean up possible previous calculations
-rm -rf *eps GIMIC.*
+# clean up possible previous calculations (only inside the work directory)
+rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps
 
 parallel=$2
 checkIfEmpty parallel $parallel
@@ -73,7 +73,8 @@ do
 done
 
 
-rm -rf GIMIC* 
+wait   # the last row of squares may still be running
+rm -f "$wrkdir"/GIMIC.*
 
 ###################################################################################
 

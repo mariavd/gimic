@@ -29,7 +29,7 @@ checkIfEmpty nsteps $nsteps
 # check if too many parallel tasks are called
 if [ $parallel -gt $nsteps ]
 then
-    $parallel=$($nsteps)
+    parallel=$nsteps
 fi
 
 # job duration:

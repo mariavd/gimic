@@ -13,7 +13,7 @@ magnet=[ @Bx@, @By@, @Bz@ ]   # magnet vector
 
 Grid(bond) {                    # define grid orthogonal to a bond 
      type=gauss                  # gauss distribution of grid points
-     bond=[@bond@]           
+     bond=[@bond@]               # atom order chosen by the script so that diatropic currents are positive
 #     coord1=[@COORD1@]
 #     coord2=[@COORD2@]
 #     fixpoint=@fixed@

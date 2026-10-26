@@ -48,20 +48,23 @@ valueInp distance $distance
 bond=$atom1","$atom2
 BOND=$(centroid $atom1 $atom2)
 
-Bx=$( echo $BOND | awk '{print $1} ' )
-By=$( echo $BOND | awk '{print $2} ' )
-Bz=$( echo $BOND | awk '{print $3} ' )
+bx=$( echo $BOND | awk '{print $1} ' )
+by=$( echo $BOND | awk '{print $2} ' )
+bz=$( echo $BOND | awk '{print $3} ' )
 
 #echo "Bond centre coordinates:"
 #printf "("$Bx";"$By";"$Bz")\n"
 #echo
 
 printf "\n\nSTARTING POINT OF THE INTEGRATION\n"
+unset Cx Cy Cz
 userInp start $start
 while [ -z "$start" ]
 do 
     userInp start $start
 done
+# centroid of the atoms defining the start (empty if a value was typed); used for the fixed point
+inCx=$Cx; inCy=$Cy; inCz=$Cz
 
 printf "\nEND POINT OF THE INTEGRATION\n"
 out=10
@@ -90,7 +93,7 @@ valueDimInp up $up "bohr"
 valueDimInp down $down "bohr"
 
 # Check if up and down are valid (we don't want height = 0)
-smaller=$(awk -v up=$up -v down=$down 'BEGIN{ diff = up - down; if (diff == 0) {print "2"} else if (diff < 0) {print "1"} else {print "0"} }')
+smaller=$(awk -v up=$up -v down=$down 'BEGIN{ diff = up + down; if (diff == 0) {print "2"} else if (diff < 0) {print "1"} else {print "0"} }')
 checkIfEmpty smaller $smaller
 if [ $smaller -eq 1 ]
 then
@@ -174,34 +177,43 @@ echo "Magnetic field vector coordinates: ($MFx; $MFy; $MFz)"
 echo
 
 
-printf "\nFIXED COORDINATE\n"
+printf "\nFIXED POINT AND ORIENTATION OF THE INTEGRATION PLANE\n\n"
 
-# fixed point (Ax, Ay and Az are the coords of the bond atoms 1 and 2)
-Fx=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $1}')
-Fy=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $2}')
-#Fz=$( awk -v A1z=$A1z -v A2z=$A2z 'BEGIN{ print (A1z+A2z)*0.5 }')
-#Fz=$( awk -v A1z=$A1z -v A2z=$A2z 'BEGIN{ print A2z }')
+# The integration plane is always perpendicular to the bond. The fixed point F
+# only decides on which side of the bond the integration starts and, together
+# with the magnetic field, the sign of the integrated current (see
+# fixPointAndOrientation in functions-def). F is the centroid of the atoms that
+# define the start of the integration when they were given, otherwise the bond
+# midpoint displaced by 1 bohr along B x (A2-A1).
+fixedByUser="n"
+setFixPoint $MFx $MFy $MFz
 
-# use the coords of atom 1 and the MF vector
-# vector OA and OF defined with the coords of atom1 and the fixed point
-# vector AF.MF = 0
-Fz=$( awk -v Ax=$A1x -v Fx=$Fx -v Ay=$A1y -v Fy=$Fy -v Az=$A1z -v mx=$MFx -v my=$MFy -v mz=$MFz 'BEGIN{ print( ( (mx*(Fx-Ax) + my*(Fy-Ay)) / mz) + Az )}')
 echo
-echo "Fixed coordinate: ($Fx; $Fy; $Fz)"
-
-echo "Do you want to modify the coordinates of the fixed point?"
-echo "Press [y] enter Cartesian coordinates" 
-
+echo "Press [a] to use an atom as the fixed point instead, [c] to enter Cartesian coordinates,"
+echo "or [ENTER] to accept the automatic choice."
 read accept;
-if [ ! -z $accept ] && [ $accept == "y" ]
+if [ ! -z $accept ] && [ $accept == "a" ]
+then
+    echo "Enter the index of the fixed atom: "
+    read fixed_atom
+    validateInput fixed_atom $fixed_atom
+    Fx=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $1} }' coord  )
+    Fy=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $2} }' coord  )
+    Fz=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $3} }' coord  )
+    fixedByUser="y"
+elif [ ! -z $accept ] && [ $accept == "c" ]
 then
     valueDimInp Fx $Fx "bohr"
     valueDimInp Fy $Fy "bohr"
     valueDimInp Fz $Fz "bohr"
-
-    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+    fixedByUser="y"
 fi
-
+if [ $fixedByUser == "y" ]
+then
+    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+    setBondOrientation $MFx $MFy $MFz
+fi
+bondInput
 
 printf "\nROTATION OF THE PLANE\n\n"
 
@@ -255,6 +267,7 @@ echo atom2=$atom2 >> ./$dirname/calculation.dat
 echo distance=$distance >> ./$dirname/calculation.dat
 echo in=$start out=$out up=$up down=$down  >> ./$dirname/calculation.dat
 echo fixed point: Fx=$Fx, Fy=$Fy, Fz=$Fz  >> ./$dirname/calculation.dat
+echo gimic input: bond=[$bondInp] distance=$distanceInp reversed=$swapBond >> ./$dirname/calculation.dat
 echo nstepsH=$nstepsH nstepsV=$nstepsV >> ./$dirname/calculation.dat
 echo delta=$delta >> ./$dirname/calculation.dat
 echo spacing: spacingX=$spacingX, spacingY=$spacingY, spacingZ=$spacingZ  >> ./$dirname/calculation.dat
@@ -277,7 +290,7 @@ printf "\n**********************************************************************
 
 # Preparing the input files
 
-string="s/@bond@/$bond/; s/@fixed@/$fixed/; s/@distance@/$distance/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/;  s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; s/@origX@/$origX/; s/@origY@/$origY/; s/@origZ@/$origZ/; s/@MFx@/$MFx/; s/@MFy@/$MFy/; s/@MFz@/$MFz/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/ ;"
+string="s/@bond@/$bondInp/; s/@fixed@/$fixed/; s/@distance@/$distanceInp/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/;  s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; s/@origX@/$origX/; s/@origY@/$origY/; s/@origZ@/$origZ/; s/@Bx@/$MFx/; s/@By@/$MFy/; s/@Bz@/$MFz/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/ ;"
 sed -i "$string" ./$dirname/gimic.Inp
 
 # Perform the dry run in a square larger by 1, so that for the actual loop, the numbers start from what the user requested

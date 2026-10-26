@@ -24,10 +24,10 @@ checkIfEmpty parallel $parallel
 # check if too many parallel tasks are called
 if [ $parallel -gt $filenum ]
 then
-    $parallel=$(echo $filenum)
+    parallel=$filenum
 fi
 
-rm -rf *out *dat *eps GIMIC.*
+rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps "$wrkdir"/current_profile.dat "$wrkdir"/cr.dat
 echo
 
 date
@@ -57,7 +57,8 @@ do
     done
 done
 
-rm -rf GIMIC* 
+wait   # the last row of squares may still be running
+rm -f "$wrkdir"/GIMIC.*
 
 
 #######################################################################

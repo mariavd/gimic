@@ -23,7 +23,7 @@ checkIfEmpty parallel $parallel
 # check if too many parallel tasks are called
 if [ $parallel -gt $filenum ]
 then
-    $parallel=$(echo $filenum)
+    parallel=$filenum
 fi
 
 
