@@ -8,11 +8,18 @@ requires:
     across runs: each grid point is computed independently of how the
     points are distributed over threads, so nothing but the arithmetic
     order of the integrals may depend on the thread count;
-  * integrated quantities in stdout to agree to a relative tolerance,
-    since OpenMP reductions sum in a thread-dependent order;
+  * integrated quantities in stdout to agree to one unit in the last
+    printed digit (they are printed with six decimals, so two correctly
+    rounded values of internally different sums can differ by exactly
+    that much; OpenMP reductions sum in a thread-dependent order);
   * all other numeric output in stdout to be textually identical;
   * no non-finite value anywhere;
+  * the OpenMP team size gimic reports (measured inside a parallel region)
+    to equal the requested count, so a serial executable or a runtime that
+    shrinks the team cannot pass by accident;
   * at least two cores, so that the multithreaded runs are real.
+
+BLAS threads are pinned to one and OMP_DYNAMIC is disabled for every run.
 
 Usage: test --binary-dir=DIR --work-dir=DIR --case=DIR --threads=1,4,16
 """
@@ -27,9 +34,13 @@ import sys
 INTEGRAL_RE = re.compile(r'Induced|contribution')
 NONFINITE_RE = re.compile(r'\b(nan|inf|infinity)\b', re.IGNORECASE)
 # lines that legitimately differ between runs (timings, dates, estimates)
-VOLATILE_RE = re.compile(r'wall time|cpu time|user:|sys:|Estimated|'
+VOLATILE_RE = re.compile(r'wall time|cpu time|user:|sys:|Estimated|OpenMP threads|'
                          r'^\s*[A-Z][a-z]{2} [A-Z][a-z]{2} +\d+ \d\d:\d\d:\d\d')
 NUMBER_RE = re.compile(r'[-+]?\d+\.\d+(?:[eEdD][-+]?\d+)?')
+TEAM_RE = re.compile(r'OpenMP threads:\s*(\d+)')
+# the integrals are printed with six decimals: allow one unit in the last
+# printed digit plus a relative part that only matters for large values
+ABS_TOL = 1.0e-6
 REL_TOL = 1.0e-10
 
 
@@ -59,7 +70,11 @@ def prepare(case, work):
 
 
 def run(binary_dir, work, nthreads):
-    env = dict(os.environ, OMP_NUM_THREADS=str(nthreads))
+    env = dict(os.environ,
+               OMP_NUM_THREADS=str(nthreads),
+               OMP_DYNAMIC='FALSE',          # the runtime may not shrink the team
+               OPENBLAS_NUM_THREADS='1',     # only OpenMP threads, no BLAS threads
+               MKL_NUM_THREADS='1')
     with open(os.path.join(work, 'stdout'), 'w') as out, \
             open(os.path.join(work, 'stderr'), 'w') as err:
         rc = subprocess.call([os.path.join(binary_dir, 'gimic'), 'gimic.inp'],
@@ -67,6 +82,13 @@ def run(binary_dir, work, nthreads):
     if rc != 0:
         fail('gimic exited with status {0} for OMP_NUM_THREADS={1}; see {2}'
              .format(rc, nthreads, os.path.join(work, 'stderr')))
+    with open(os.path.join(work, 'stdout')) as f:
+        teams = [int(m.group(1)) for m in map(TEAM_RE.search, f) if m]
+    if not teams:
+        fail('gimic did not report its OpenMP team size (serial build?)')
+    if teams[0] != nthreads:
+        fail('requested OMP_NUM_THREADS={0} but gimic ran with a team of {1}'
+             .format(nthreads, teams[0]))
 
 
 def outputs(work, inputs):
@@ -101,10 +123,9 @@ def compare_stdout(ref_path, path, label):
             fail('{0}: different number of values:\n  {1}\n  {2}'.format(label, a, b))
         for sa, sb in zip(xa, xb):
             va, vb = float(sa.replace('d', 'e').replace('D', 'e')), float(sb.replace('d', 'e').replace('D', 'e'))
-            scale = max(abs(va), abs(vb), 1.0e-300)
-            if abs(va - vb) > REL_TOL * scale:
-                fail('{0}: integral differs beyond {1:g}:\n  {2}\n  {3}'
-                     .format(label, REL_TOL, a, b))
+            if abs(va - vb) > ABS_TOL + REL_TOL * max(abs(va), abs(vb)):
+                fail('{0}: integral differs by more than {1:g} (+{2:g} rel.):\n  {3}\n  {4}'
+                     .format(label, ABS_TOL, REL_TOL, a, b))
 
 
 def main():
@@ -120,6 +141,8 @@ def main():
     if cores < 2:
         fail('only {0} core available; the multithreaded runs would not be real'.format(cores))
     print('cores available: {0}; thread counts: {1}'.format(cores, threads))
+    if max(threads) > cores:
+        print('note: {0} threads oversubscribe {1} cores on purpose'.format(max(threads), cores))
 
     inputs = set(n for n in os.listdir(args.case) if n not in ('reference', 'test'))
     works = {}

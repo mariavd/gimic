@@ -23,6 +23,7 @@ program gimic
     use gaussint_module
     ! acid and jav stuff
     use acid_module
+    !$ use omp_lib
     implicit none
 
     type(molecule_t) :: mol
@@ -34,6 +35,7 @@ program gimic
     real(DP), dimension(3) :: magnet
 
     character(BUFLEN) :: buf
+    integer(I4) :: nthreads
 
     call start_klocka()
     call new_getkw(input)
@@ -42,6 +44,15 @@ program gimic
     mpi_rank = init_mpi(settings%is_mpirun)
 
     call program_header
+    ! the team size actually obtained, not the requested maximum
+    nthreads=1
+    !$omp parallel
+    !$omp master
+    !$ nthreads=omp_get_num_threads()
+    !$omp end master
+    !$omp end parallel
+    !$ write(str_g, '(a,i0)') 'OpenMP threads: ', nthreads
+    !$ call msg_out(str_g)
     call initialize()
     call driver()
     call finalize()
