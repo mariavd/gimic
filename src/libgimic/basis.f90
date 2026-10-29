@@ -32,7 +32,6 @@ contains
         real(DP), optional :: screening_thrs
 
         integer(I4) :: i, natoms
-        logical :: screen=.true.
         type(atom_t), dimension(:), pointer :: atoms
         real(DP) :: screening = SCREEN_THRS
 
@@ -82,7 +81,6 @@ contains
         end if
 
         call write_xyz(this, 'mol.xyz')
-77              format(a,i4)
     end subroutine
 !
 ! Loop over ctr and set up screening thresholds
@@ -216,7 +214,7 @@ contains
     subroutine calc_basdim(this)
         type(molecule_t), intent(inout) :: this
 
-        integer(I4) :: k, l, n
+        integer(I4) :: k, n
         type(basis_t), pointer :: basis
         type(contraction_t), pointer :: ctr
 
@@ -290,7 +288,6 @@ contains
         end do
         call nl
 
-55      format(i3,a,i3,a,a1,a)
 66              format(a,i3,a2,2a1)
 77              format(a,f8.4)
 88              format(a,i4,a,a2,a)
@@ -489,7 +486,7 @@ contains
         character(*), intent(in) :: fname
 
         integer(I4) :: natoms, i
-        real(DP), dimension(3) :: r, coord
+        real(DP), dimension(3) :: coord
         character(2) :: symbol
         type(atom_t), pointer :: atom
 

@@ -116,7 +116,7 @@ contains
         integer(I4), intent(in) :: n
         real(DP), intent(out) :: y
 
-        real(DP) :: c1, c2, c4, ym, yp, dym, dyp, d2ym, d2yp
+        real(DP) :: c1, c2, c4, ym, yp
         integer(I4) :: i
 
         if ( n < 0 .or. abs(x) > 1.0 ) then
@@ -147,7 +147,7 @@ contains
         real(DP), intent(out) :: y
         real(DP), intent(out) :: dy
 
-        real(DP) :: c1, c2, c4, ym, yp, dym, dyp, d2ym, d2yp
+        real(DP) :: c1, c2, c4, ym, yp, dym, dyp
         integer(I4) :: i
 
         if ( n < 0 .or. abs(x) > 1.0 ) then
@@ -270,10 +270,9 @@ contains
         type(gdata_t), intent(inout) :: gdata
         character(*), intent(in) :: quadr
 
-        integer(I4) :: nblock, i, ngau, npts, foo
+        integer(I4) :: nblock, i, npts, foo
         real(DP), dimension(:), allocatable :: tpts, twgt
         real(DP) :: xl, step
-        logical :: lobatto
 
         npts=size(gdata%pts)
 

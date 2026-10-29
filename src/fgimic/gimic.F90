@@ -30,11 +30,9 @@ program gimic
     type(getkw_t) :: input
     type(grid_t) :: grid
     type(jfield_t) :: jf
-    type(jtensor_t) :: jt
     type(dens_t) :: xdens
     real(DP), dimension(3) :: magnet
 
-    character(BUFLEN) :: buf
     integer(I4) :: nthreads
 
     call start_klocka()
@@ -70,12 +68,9 @@ program gimic
 
 contains
     subroutine initialize()
-        integer(I4) :: i, hostnm, ierr
-        integer(I4) :: chdir, system
-        character(BUFLEN) :: title, fdate, sys
-        real(DP), dimension(3) :: magnet
+        integer(I4) :: hostnm, ierr
+        character(BUFLEN) :: fdate, sys
 
-        logical :: screen
 
         call getkw(input, 'debug', debug_level)
         call set_debug_level(debug_level)

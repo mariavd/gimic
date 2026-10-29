@@ -32,8 +32,6 @@ module jfield_class
     public jfield_t, jvector_plots, jfield_eta, compute_jvectors
     private
 
-    real(DP) :: vec_scale=D1
-    character(BUFLEN) :: jmod_plt, jvec_plt
 
 contains
 
@@ -72,7 +70,7 @@ contains
         real(DP), dimension(:,:), allocatable :: coords
         real(DP), dimension(:,:), pointer :: tens
         character(8) :: spincase
-        integer(I4) :: lo, hi, npts, first, last, fd2
+        integer(I4) :: lo, hi, npts, first, last
         type(jtensor_t) :: jt
 
         call get_grid_size(this%grid, p1, p2, p3)
@@ -264,17 +262,14 @@ contains
         logical :: debug
 
         integer(I4) :: i, j, k, p1, p2, p3
-        integer(I4) :: fd1, fd2, fd4, fd5
-        integer(I4) :: idx, ptf
+        integer(I4) :: fd2
         real(DP), dimension(3)             :: v, coord
         real(DP), dimension(3)             :: center, normal
         real(DP), dimension(:,:), pointer  :: jv
-        real(DP), dimension(:,:), pointer  :: jtens
         real(DP), allocatable              :: jval_regular(:, :, :, :)
         real(real64), allocatable          :: jval_unstructured(:, :)
         integer(int32), allocatable        :: cells(:, :) ! ncells x 4
 
-        real(DP) :: val
         real(DP) :: bound, r
         integer(int32) :: dummy, ncells
         logical                            :: fd2_isopen = .false.
