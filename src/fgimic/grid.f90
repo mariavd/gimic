@@ -96,19 +96,19 @@ contains
 
             if (keyword_is_set(input, 'Grid.rotation_origin')) then
                 call getkw(input, 'Grid.rotation_origin', ref)
-            else
-                !            call getkw(input, 'Grid.out', out_length)
-                !            call getkw(input, 'Grid.down', down_length)
-                if (keyword_is_set(input, 'Grid.height')) then
-                    call getkw(input, 'Grid.height', hgt)
-                    call getkw(input, 'Grid.width', wdt)
-                    down_length=hgt(2)
-                    out_length=wdt(2)
-                else
-                    call getkw(input, 'Grid.out', out_length)
-                    call getkw(input, 'Grid.down', down_length)
-                end if
+            else if (keyword_is_set(input, 'Grid.height')) then
+                ! bond grid: rotate about the middle of the bond
+                call getkw(input, 'Grid.height', hgt)
+                call getkw(input, 'Grid.width', wdt)
+                down_length=hgt(2)
+                out_length=wdt(2)
                 ref = this%origin + out_length*this%basv(:,2) + down_length*this%basv(:,1)
+            else
+                ! base grid: rotate about the centre of the grid. The grid
+                ! points do not exist yet, so take it from the lengths along
+                ! the (normalised) basis vectors.
+                ref = this%origin + 0.5d0*(this%l(1)*this%basv(:,1) &
+                    + this%l(2)*this%basv(:,2) + this%l(3)*this%basv(:,3))
             end if
             call rotate(this, angle, ref)
         end if
