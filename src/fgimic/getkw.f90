@@ -242,7 +242,7 @@ contains
         if (idx > 0) then
             ok=find_sect(this%active, path(:idx-1), ptr)
             if (.not.ok) then
-                call msg_error('delkw: no such section: ' // trim(path))
+                call msg_error('del_section: no such section: ' // trim(path))
                 return
             end if
         else
@@ -251,7 +251,7 @@ contains
 
         ok=find_sect(ptr, path, sect, sect2)
         if (.not.ok) then
-            call msg_error('delkw: no such key: ' // trim(path))
+            call msg_error('del_section: no such section: ' // trim(path))
             return
         end if
         sect=>del_section_t(sect)
@@ -260,7 +260,7 @@ contains
         else
             ptr%sects=>sect
         end if
-        sect%nsect=sect%nsect-1
+        ptr%nsect=ptr%nsect-1
     end subroutine
 
     function del_keyword(key) result(next)
