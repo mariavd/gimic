@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""
+Thread-count independence test.
+
+Runs one GIMIC test case with several values of OMP_NUM_THREADS and
+requires:
+  * every pointwise output file (.vti, .xyz, .txt) to be bitwise identical
+    across runs: each grid point is computed independently of how the
+    points are distributed over threads, so nothing but the arithmetic
+    order of the integrals may depend on the thread count;
+  * integrated quantities in stdout to agree to one unit in the last
+    printed digit (they are printed with six decimals, so two correctly
+    rounded values of internally different sums can differ by exactly
+    that much; OpenMP reductions sum in a thread-dependent order);
+  * all other numeric output in stdout to be textually identical;
+  * no non-finite value anywhere;
+  * the OpenMP team size gimic reports (measured inside a parallel region)
+    to equal the requested count, so a serial executable or a runtime that
+    shrinks the team cannot pass by accident;
+  * at least two cores, so that the multithreaded runs are real.
+
+BLAS threads are pinned to one and OMP_DYNAMIC is disabled for every run.
+
+Usage: test --binary-dir=DIR --work-dir=DIR --case=DIR --threads=1,4,16
+"""
+import argparse
+import filecmp
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+INTEGRAL_RE = re.compile(r'Induced|contribution')
+NONFINITE_RE = re.compile(r'\b(nan|inf|infinity)\b', re.IGNORECASE)
+# lines that legitimately differ between runs (timings, dates, estimates)
+VOLATILE_RE = re.compile(r'wall time|cpu time|user:|sys:|Estimated|OpenMP threads|'
+                         r'^\s*[A-Z][a-z]{2} [A-Z][a-z]{2} +\d+ \d\d:\d\d:\d\d')
+NUMBER_RE = re.compile(r'[-+]?\d+\.\d+(?:[eEdD][-+]?\d+)?')
+TEAM_RE = re.compile(r'OpenMP threads:\s*(\d+)')
+# the integrals are printed with six decimals: allow one unit in the last
+# printed digit plus a relative part that only matters for large values
+ABS_TOL = 1.0e-6
+REL_TOL = 1.0e-10
+
+
+def fail(msg):
+    print('FAILED: ' + msg)
+    sys.exit(1)
+
+
+def available_cores():
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
+def prepare(case, work):
+    """copy the input files of a test case (not its reference or driver)"""
+    if os.path.isdir(work):
+        shutil.rmtree(work)
+    os.makedirs(work)
+    for name in os.listdir(case):
+        src = os.path.join(case, name)
+        if name in ('reference', 'test') or name.startswith('.'):
+            continue
+        if os.path.islink(src) or os.path.isfile(src):
+            shutil.copy(os.path.realpath(src), os.path.join(work, name))
+
+
+def run(binary_dir, work, nthreads):
+    env = dict(os.environ,
+               OMP_NUM_THREADS=str(nthreads),
+               OMP_DYNAMIC='FALSE',          # the runtime may not shrink the team
+               OPENBLAS_NUM_THREADS='1',     # only OpenMP threads, no BLAS threads
+               MKL_NUM_THREADS='1')
+    with open(os.path.join(work, 'stdout'), 'w') as out, \
+            open(os.path.join(work, 'stderr'), 'w') as err:
+        rc = subprocess.call([os.path.join(binary_dir, 'gimic'), 'gimic.inp'],
+                             cwd=work, env=env, stdout=out, stderr=err)
+    if rc != 0:
+        fail('gimic exited with status {0} for OMP_NUM_THREADS={1}; see {2}'
+             .format(rc, nthreads, os.path.join(work, 'stderr')))
+    with open(os.path.join(work, 'stdout')) as f:
+        teams = [int(m.group(1)) for m in map(TEAM_RE.search, f) if m]
+    if not teams:
+        fail('gimic did not report its OpenMP team size (serial build?)')
+    if teams[0] != nthreads:
+        fail('requested OMP_NUM_THREADS={0} but gimic ran with a team of {1}'
+             .format(nthreads, teams[0]))
+
+
+def outputs(work, inputs):
+    return sorted(n for n in os.listdir(work)
+                  if n not in inputs and n not in ('stdout', 'stderr'))
+
+
+def check_finite(path):
+    with open(path, errors='replace') as f:
+        for lineno, line in enumerate(f, 1):
+            if NONFINITE_RE.search(line):
+                fail('non-finite value in {0}:{1}: {2}'.format(path, lineno, line.strip()))
+
+
+def stable_lines(path):
+    with open(path) as f:
+        return [l.rstrip('\n') for l in f if not VOLATILE_RE.search(l)]
+
+
+def compare_stdout(ref_path, path, label):
+    ref, new = stable_lines(ref_path), stable_lines(path)
+    if len(ref) != len(new):
+        fail('{0}: stdout has {1} stable lines, reference run has {2}'
+             .format(label, len(new), len(ref)))
+    for a, b in zip(ref, new):
+        if a == b:
+            continue
+        if not INTEGRAL_RE.search(a):
+            fail('{0}: stdout line differs:\n  {1}\n  {2}'.format(label, a, b))
+        xa, xb = NUMBER_RE.findall(a), NUMBER_RE.findall(b)
+        if len(xa) != len(xb):
+            fail('{0}: different number of values:\n  {1}\n  {2}'.format(label, a, b))
+        for sa, sb in zip(xa, xb):
+            va, vb = float(sa.replace('d', 'e').replace('D', 'e')), float(sb.replace('d', 'e').replace('D', 'e'))
+            if abs(va - vb) > ABS_TOL + REL_TOL * max(abs(va), abs(vb)):
+                fail('{0}: integral differs by more than {1:g} (+{2:g} rel.):\n  {3}\n  {4}'
+                     .format(label, ABS_TOL, REL_TOL, a, b))
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--binary-dir', required=True)
+    p.add_argument('--work-dir', required=True)
+    p.add_argument('--case', required=True)
+    p.add_argument('--threads', required=True)
+    args = p.parse_args()
+    threads = [int(t) for t in args.threads.split(',')]
+
+    cores = available_cores()
+    if cores < 2:
+        fail('only {0} core available; the multithreaded runs would not be real'.format(cores))
+    print('cores available: {0}; thread counts: {1}'.format(cores, threads))
+    if max(threads) > cores:
+        print('note: {0} threads oversubscribe {1} cores on purpose'.format(max(threads), cores))
+
+    inputs = set(n for n in os.listdir(args.case) if n not in ('reference', 'test'))
+    works = {}
+    for n in threads:
+        work = os.path.join(args.work_dir, 't{0}'.format(n))
+        prepare(args.case, work)
+        run(args.binary_dir, work, n)
+        works[n] = work
+        for name in outputs(work, inputs) + ['stdout']:
+            check_finite(os.path.join(work, name))
+
+    n0 = threads[0]
+    ref_files = outputs(works[n0], inputs)
+    if not ref_files:
+        fail('the reference run produced no output files')
+    for n in threads[1:]:
+        label = 'OMP_NUM_THREADS={0} vs {1}'.format(n, n0)
+        files = outputs(works[n], inputs)
+        if files != ref_files:
+            fail('{0}: different output files: {1} vs {2}'.format(label, files, ref_files))
+        for name in ref_files:
+            if not filecmp.cmp(os.path.join(works[n0], name), os.path.join(works[n], name), shallow=False):
+                fail('{0}: {1} is not bitwise identical'.format(label, name))
+        compare_stdout(os.path.join(works[n0], 'stdout'), os.path.join(works[n], 'stdout'), label)
+        print('{0}: {1} output files bitwise identical, stdout consistent'.format(label, len(ref_files)))
+    print('PASSED')
+
+
+if __name__ == '__main__':
+    main()

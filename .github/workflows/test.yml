@@ -13,6 +13,8 @@ jobs:
       matrix:
         python-version: ["3.10"]
         os: [ubuntu-latest]
+        # the suite must give the same results with one thread and several
+        omp-threads: [1, 4]
 
     steps:
     - name: Checkout
@@ -34,4 +36,4 @@ jobs:
         cd build
         make
         make install
-        ctest --output-on-failure
+        OMP_NUM_THREADS=${{ matrix.omp-threads }} ctest --output-on-failure
