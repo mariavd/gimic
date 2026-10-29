@@ -54,6 +54,10 @@ OpenMP parallelization is enabled by default. To build without it::
   $ ./setup --no-omp
 
 At run time the number of threads is controlled by ``OMP_NUM_THREADS``.
+BLAS is called from inside the OpenMP-parallel loops, so the ``gimic``
+launcher sets ``OPENBLAS_NUM_THREADS``/``MKL_NUM_THREADS`` to 1 unless
+they are already set; a threaded BLAS on top of OpenMP oversubscribes the
+cores and runs several times slower.
 
 MPI parallelization is in the works.
 
