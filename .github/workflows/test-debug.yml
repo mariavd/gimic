@@ -28,8 +28,11 @@ jobs:
 
     - name: Build
       run: |
-        # debug build without BLAS: covers the matmul fallback
-        ./setup --no-blas --type=debug
+        # debug build without BLAS: covers the matmul fallback. Bounds checks,
+        # trapping floating-point exceptions and NaN-initialised locals turn
+        # reads of undefined values into failures instead of wrong numbers.
+        ./setup --no-blas --type=debug \
+                --extra-fc-flags="-g -fcheck=all -ffpe-trap=invalid,zero,overflow -fbacktrace -finit-real=snan -finit-integer=-99999 -finit-logical=false"
         cd build
         make
         make install
