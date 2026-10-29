@@ -33,7 +33,6 @@ module integral_class
     private
 
     character(8) :: spin='total'
-    integer(I4) :: nlip
 contains
     subroutine new_integral(this, grid)
         type(integral_t) :: this

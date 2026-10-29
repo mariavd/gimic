@@ -85,9 +85,9 @@ contains
         real(DP), dimension(:), pointer :: ans
 
         integer(I4), dimension(99) :: posvec
-        integer(I4) :: idx1, idx2
+        integer(I4) :: idx2
 
-        integer(I4) :: i, j, k, natoms, nctr, ncomp, nccomp, idx
+        integer(I4) :: i, j, k, natoms, nctr, idx
         type(atom_t), pointer :: atom
         type(basis_t), pointer :: basis
         type(contraction_t), pointer :: ctr
@@ -175,10 +175,9 @@ contains
         real(DP), dimension(3), intent(in) :: r
         real(DP), dimension(:), pointer :: ans
 
-        integer(I4), dimension(99) :: posvec
-        integer(I4) :: idx1, idx2
+        integer(I4) :: idx2
 
-        integer(I4) :: i, j, k, natoms, nctr, ncomp, nccomp, idx
+        integer(I4) :: i, j, natoms, nctr, idx
         type(atom_t), pointer :: atom
         type(basis_t), pointer :: basis
         type(contraction_t), pointer :: ctr
@@ -243,15 +242,12 @@ contains
         real(DP), dimension(:,:), intent(in) :: drvec
         real(DP), dimension(:,:), pointer :: thisv
 
-        type(atom_t), dimension(:), pointer :: atoms
         integer(I4) :: i, j, k, natoms, nctr, ncomp, idx
         real(DP), dimension(3) :: coord
         type(atom_t), pointer :: atom
         type(basis_t), pointer :: basis
         type(contraction_t), pointer :: ctr
 
-        integer(I4), dimension(99) :: posvec
-        integer(I4) :: l, idx1
         real(DP), dimension(3) :: dbov
         real(DP) :: ror1, ror2, ror3
 
@@ -347,9 +343,9 @@ contains
         real(DP), dimension(:,:), pointer :: drv
 
         integer(I4), dimension(99) :: posvec
-        integer(I4) :: idx1, idx2
+        integer(I4) :: idx2
 
-        integer(I4) :: i, j, k, natoms, nctr, nccomp, axis
+        integer(I4) :: i, j, k, natoms, nctr, axis
         type(atom_t), pointer :: atom
         type(basis_t), pointer :: basis
         type(contraction_t), pointer :: ctr

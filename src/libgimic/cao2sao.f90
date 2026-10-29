@@ -34,7 +34,7 @@ module cao2sao_class
 
 contains
     subroutine setup_c2soper()
-        integer(I4) :: l, i,j
+        integer(I4) :: l
 
         ! Ordering of spherical harmonics in aces2
         ! (the ordering is... random!!?)
@@ -197,7 +197,7 @@ contains
     subroutine renorm(xop)
         real(DP), dimension(:,:), intent(inout) :: xop
 
-        integer(I4) :: i, j, k
+        integer(I4) :: i, j
         real(DP) :: amin, ava, avb, sim
 
         do i=1,size(xop,1)

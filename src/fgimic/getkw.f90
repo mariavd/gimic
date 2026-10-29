@@ -922,7 +922,6 @@ contains
         character(*), intent(in) :: path
         integer(SP), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -941,7 +940,6 @@ contains
         character(*), intent(in) :: path
         integer(SP), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -962,7 +960,6 @@ contains
         character(*), intent(in) :: path
         real(DP), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -981,7 +978,6 @@ contains
         character(*), intent(in) :: path
         real(DP), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1002,7 +998,6 @@ contains
         character(*), intent(in) :: path
         logical, intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1021,7 +1016,6 @@ contains
         character(*), intent(in) :: path
         logical, dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1042,7 +1036,6 @@ contains
         character(*), intent(in) :: path
         character(*), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1063,7 +1056,6 @@ contains
         character(*), intent(in) :: path
         character(LINELEN), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1335,7 +1327,6 @@ contains
         type(getkw_t) :: this
         integer(SP), intent(in) :: lun
 
-        type(section_t), pointer :: foo
 
         call globals(this)
 
@@ -1390,8 +1381,6 @@ contains
         type(section_t) :: sect
         integer(SP) :: lun
 
-        logical :: arg
-        integer(SP) :: nkw, i
         type(keyword_t), pointer :: kw
         type(section_t), pointer :: ptr
         nullify(ptr)
@@ -1424,7 +1413,7 @@ contains
         logical :: ok
 
         type(section_t), pointer :: next
-        integer(SP) :: index, idx, i, nkw
+        integer(SP) :: index, idx
 
         nullify(ptr)
         if (present(ptr2)) nullify(ptr2)
@@ -1494,7 +1483,7 @@ contains
         type(section_t), optional, pointer :: ptr2
         logical :: ok
 
-        integer(SP) :: index, idx, i
+        integer(SP) :: index, idx
 
         ok=.false.
         if (present(ptr2)) nullify(ptr2)
@@ -1529,7 +1518,7 @@ contains
         logical :: sarg
 
         character(6) :: str, str2
-        integer(SP) :: nkw, nsec, i, iarg
+        integer(SP) :: i
         type(keyword_t), pointer :: kw
         type(section_t), pointer :: next
 
@@ -1667,7 +1656,6 @@ contains
         type(kword_t) :: kw
         integer(SP) :: n
 
-        integer(SP) :: strmx
 
 !        read(lun,'(a)') strmx
         allocate(kw%str(n))
@@ -1699,7 +1687,6 @@ contains
         type(section_t) :: sect
 
         type(keyword_t), pointer :: kw
-        type(section_t), pointer :: ss
 
         print *, 'SECTION: ', sect%id, sect%nsect, sect%nkw
         if (associated(sect%arg)) then
@@ -1789,7 +1776,6 @@ contains
 
     subroutine pop_section(this)
         type(getkw_t), target :: this
-        integer(4) :: error
 
         if (this%stidx > 0) then
             this%active=>this%stack(this%stidx)%sect
