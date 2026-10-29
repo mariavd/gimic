@@ -1,5 +1,5 @@
 numpy  # not needed to build or run gimic; used by some tools
-pyparsing == 2.4.7
+pyparsing >= 3.0
 pyyaml
 sphinx
 sphinx_rtd_theme
