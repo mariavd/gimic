@@ -242,7 +242,7 @@ contains
         if (idx > 0) then
             ok=find_sect(this%active, path(:idx-1), ptr)
             if (.not.ok) then
-                call msg_error('delkw: no such section: ' // trim(path))
+                call msg_error('del_section: no such section: ' // trim(path))
                 return
             end if
         else
@@ -251,7 +251,7 @@ contains
 
         ok=find_sect(ptr, path, sect, sect2)
         if (.not.ok) then
-            call msg_error('delkw: no such key: ' // trim(path))
+            call msg_error('del_section: no such section: ' // trim(path))
             return
         end if
         sect=>del_section_t(sect)
@@ -260,7 +260,7 @@ contains
         else
             ptr%sects=>sect
         end if
-        sect%nsect=sect%nsect-1
+        ptr%nsect=ptr%nsect-1
     end subroutine
 
     function del_keyword(key) result(next)
@@ -777,7 +777,7 @@ contains
 !                call getkw_errundef(ptr%id)
                 return
             end if
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 val=>ptr%key%str
@@ -862,6 +862,7 @@ contains
         integer(SP) :: idx
         type(section_t), pointer :: ptr
         nullify(ptr)
+        nullify(kw)
 
         ok=.false.
         arg=.false.
@@ -1313,7 +1314,7 @@ contains
 
         ok=findkw(this%active, path, ptr)
         if (ok) then
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 if (associated(ptr%key%str)) then
@@ -1426,6 +1427,7 @@ contains
         integer(SP) :: index, idx, i, nkw
 
         nullify(ptr)
+        if (present(ptr2)) nullify(ptr2)
 
         ok=.false.
 
@@ -1441,7 +1443,6 @@ contains
             end do
         else
             ptr=>cur%kw
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
@@ -1496,6 +1497,7 @@ contains
         integer(SP) :: index, idx, i
 
         ok=.false.
+        if (present(ptr2)) nullify(ptr2)
         idx=index(path, '.')
         ptr=>cur%sects
         if (idx > 0) then
@@ -1510,7 +1512,6 @@ contains
                 ptr=>next_section(ptr)
             end do
         else
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
@@ -1678,13 +1679,9 @@ contains
         type(kword_t) :: kw
         integer(SP) :: n
 
-!        if (n > 1) then
-            allocate(kw%lvec(n))
-            memtrack=memtrack+1
-            read(lun,*) kw%lvec
-!        else
-            read(lun,*) kw%bool
-!        end if
+        allocate(kw%lvec(n))
+        memtrack=memtrack+1
+        read(lun,*) kw%lvec
     end subroutine
 
     function sane(str1, str2) result(err)

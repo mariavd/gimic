@@ -175,7 +175,8 @@ rotation=[a, b, c]
 
 rotation_origin=[x, y, z] 
     The point in space around which to rotate. If not specified, the rotation is 
-    done at the middle of the bond.
+    done at the middle of the bond for a bond grid and at the centre of the grid 
+    for a base grid.
 
 Advanced section
 -----------------

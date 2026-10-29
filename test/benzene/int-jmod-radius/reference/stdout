@@ -1,0 +1,92 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (ba559bb)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ Thu Oct 29 16:16:27 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+
+ Integration grid data
+ ------------------------------------------------
+ center     2.277078   -0.005328    0.000000
+ origin     7.277078   -0.005328   -5.000000
+ basv1     -0.000000   -0.000000    1.000000
+ basv2     -1.000000   -0.000000   -0.000000
+ basv3      0.000000   -1.000000    0.000000
+ lenghts   10.000000    7.200000    0.000000
+ magnet     0.000000    0.000000   -1.000000
+
+ Grid mode = bond
+ INFO: Integration grid selected.
+ INFO: Adjusted number of grid points for quadrature:    36   36    0
+   Number of grid points <v1,v2>:   36   36    1
+   Total number of grid points  :      1296
+
+ *** Grid plot in grid.xyz
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ *** Integrating |J|
+  Integration bound set to radius    2.0000000000000000
+
+ ************************************************************
+ Induced mod current (au)   :     0.426710
+       Positive contribution:     0.465139  (  13.107345 )
+       Negative contribution:    -0.038429  (  -1.082899 )
+
+ Induced mod current (nA/T) :    12.024445
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+
+ *** Integrating current
+  Integration bound set to radius    2.0000000000000000
+
+ ************************************************************
+    Induced current (au)    :     0.426710
+       Positive contribution:     0.465135  (  13.107229 )
+       Negative contribution:    -0.038425  (  -1.082794 )
+
+    Induced current (nA/T)  :    12.024435
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       0.74sec (   0.0 h )
+     cpu time:       0.65sec (   0.0 h )
+         user:       0.64sec (   0.0 h )
+          sys:       0.01sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Thu Oct 29 16:16:28 2026
+ Hello World! (tm)
+
+ done.
+

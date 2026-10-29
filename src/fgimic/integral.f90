@@ -106,10 +106,10 @@ contains
         nsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum) &
+!$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum,xsum2,psum2,nsum2) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
-!$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
+!$OMP REDUCTION(+:xsum3,psum3,nsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
@@ -245,16 +245,15 @@ contains
             lo = 1
         end if
 
-        sgn=1.d0
         xsum3=0.d0
         psum3=0.d0
         nsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum) &
+!$OMP PRIVATE(i,j,k,r,rr,sgn,xsum,psum,nsum,xsum2,psum2,nsum2) &
 !$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,lo,hi,bound,xdens,mol) &
-!$OMP REDUCTION(+:xsum3,psum3,nsum3,xsum2,psum2,nsum2)
+!$OMP REDUCTION(+:xsum3,psum3,nsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
@@ -274,20 +273,19 @@ contains
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
+                    ! points outside the integration radius do not contribute;
+                    ! skip them before touching their tensor
+                    if (r > bound) cycle
                     tt=ttb(:,i)
                     jvec=matmul(reshape(tt,(/3,3/)),bb)
-                    if ( r > bound ) then
-                        w=0.d0
+                    w=get_weight(this%grid, i, 1)
+                    jp=dot_product(normal,jvec)
+                    if (abs(jp) < 1.d-12) then ! prob. parallel component
+                        sgn=0.d0
+                    else if (jp > 0) then
+                        sgn=1.d0
                     else
-                        w=get_weight(this%grid, i, 1)
-                        jp=dot_product(normal,jvec)
-                        if (abs(jp) < 1.d-12) then ! prob. parallel component
-                            sgn=0.d0
-                        else if (jp > 0) then
-                            sgn=1.d0
-                        else
-                            sgn=-1.d0
-                        end if
+                        sgn=-1.d0
                     end if
                     jp=sgn*sqrt(sum(jvec**2))
                     xsum=xsum+jp*w
@@ -382,7 +380,7 @@ contains
         integer(I4) :: i, pts
         real(DP) :: w
 
-        pts=size(jt)
+        pts=size(jt,2)
 
         xsum=0.d0
         do i=1,pts
@@ -475,10 +473,10 @@ contains
         xsum3=0.d0
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,r,rr,xsum) &
+!$OMP PRIVATE(i,j,k,r,rr,xsum,xsum2) &
 !$OMP PRIVATE(jt,w,tt,val,coords,ttb) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,mol,xdens,lo,hi,bound) &
-!$OMP REDUCTION(+:xsum3,xsum2)
+!$OMP REDUCTION(+:xsum3)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,p1), ttb(9,p1))
         do k=1,p3
