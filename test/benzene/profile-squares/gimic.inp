@@ -1,0 +1,32 @@
+# The reference integration plane resolved into rectangles (squares
+# profile): the matrix in squares_profile.dat must sum to the total.
+
+calc=integral
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet=[0.0, 0.0, -1.0]
+
+Grid(bond) {
+    type=gauss
+    bond=[1,2]
+    towards=[1,2,3,4,5,6]
+    distance=1.3147
+    gauss_order=9
+    grid_points=[36, 36, 0]
+    height=[-5.0, 5.0]
+    width=[-2.2, 5.0]
+    slices=[0.5, 2.0]        # 14 slices along the width, 5 along the height
+}
+
+Advanced {
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}

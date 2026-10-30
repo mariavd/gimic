@@ -115,6 +115,10 @@ fixpoint=c
     Alternatively, specify an arbitrary point using the keyword ``fixcoord``.
 
 fixcoord=[x, y, z]
+
+    Alternatively, specify the atoms of the ring the integration starts from with ``towards``: their centroid is then the fixed point, and the sign of the current is chosen such that diatropic currents are positive, whatever the order of the bond atoms (see the section on grids).
+
+towards=[1, 2, 3, 4, 5, 6]
     Specify an arbitrary point in 3D as the third point defining the integration plane.
     Alternatively, specify an atomic index using the keyword ``fixpoint``.
     

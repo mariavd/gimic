@@ -11,15 +11,16 @@ assert version_info.major == 2
 
 options = cli()
 
-f = [
-    get_filter(from_string=' *** Integrating current',
-               num_lines=10,
-               rel_tolerance=1.0e-8),
-]
+f = {
+    'stdout': [get_filter(from_string=' *** Integrating current',
+                          num_lines=10,
+                          rel_tolerance=1.0e-8)],
+    'current_profile.dat': [get_filter(abs_tolerance=1.0e-6)],
+}
 
 ierr = run(options,
            configure,
            input_files=['gimic.inp'],
-           filters={'stdout': f})
+           filters=f)
 
 sys.exit(ierr)

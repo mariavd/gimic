@@ -4,7 +4,7 @@ Thread-count independence test.
 
 Runs one GIMIC test case with several values of OMP_NUM_THREADS and
 requires:
-  * every pointwise output file (.vti, .xyz, .txt) to be bitwise identical
+  * every pointwise output file (.vti, .xyz, .txt, .dat) to be bitwise identical
     across runs: each grid point is computed independently of how the
     points are distributed over threads, so nothing but the arithmetic
     order of the integrals may depend on the thread count;

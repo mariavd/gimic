@@ -100,6 +100,13 @@ def parse_keywords(args):
     grid.add_kw("gridplot", 'INT', 1)
     grid.add_kw("grid_points", 'INT_ARRAY', 3)
     grid.add_kw("gauss_order", 'INT', (7,))
+    # current profile: slice thickness along the width (axis 2) and the
+    # height (axis 1) of the plane in bohr; 0 = not sliced
+    grid.add_kw("slices", 'DBL_ARRAY', (0.0, 0.0))
+    # reference centre for the sign convention (diatropic positive) and, for
+    # bond grids, the default fixed point: atoms (centroid) or a point
+    grid.add_kw("towards", 'INT_ARRAY', -1)
+    grid.add_kw("towards_coord", 'DBL_ARRAY', 3)
 
     top.add_sect(adv)
     top.add_sect(ess)
@@ -165,7 +172,8 @@ def check_grid(grid):
         required=('file',)
         ignore=('ivec', 'jvec', 'bond', 'fixpoint',
                 'origin', 'rotation', 'rotation_origin',
-                'radius', 'lengths','distance', 'spacing')
+                'radius', 'lengths','distance', 'spacing',
+                'slices', 'towards', 'towards_coord')
         for i in required:
             if not check_opt(grid,i):
                 print(err % (i,arg))
@@ -185,8 +193,9 @@ def check_grid(grid):
         if check_opt(grid, 'origin'):
             print("Error: Keyword 'origin' incompatible with 'bond' grids")
             sys.exit(1)
-        if not (check_opt(grid, 'fixpoint') or check_opt(grid, 'fixcoord')):
-            print("Error: Either fixpoint or fixcoord must be specified")
+        if not (check_opt(grid, 'fixpoint') or check_opt(grid, 'fixcoord')
+                or check_opt(grid, 'towards') or check_opt(grid, 'towards_coord')):
+            print("Error: One of fixpoint, fixcoord, towards or towards_coord must be specified")
             sys.exit(1)
 
         if check_opt(grid,'width'):
@@ -224,6 +233,13 @@ def check_grid(grid):
                 print(warn % (i,arg))
     else:
         print("Error: unknown grid type '%s'" % arg)
+        sys.exit(1)
+
+    if check_opt(grid, 'towards') and check_opt(grid, 'towards_coord'):
+        print("Error: Both towards and towards_coord have been specified")
+        sys.exit(1)
+    if check_opt(grid, 'slices') and grid.getkw('type')[0] == 'even':
+        print("Error: 'slices' needs a quadrature grid (type=gauss or lobatto)")
         sys.exit(1)
 
     if grid.getkw('type')[0] == 'even':

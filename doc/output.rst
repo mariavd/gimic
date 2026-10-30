@@ -10,6 +10,10 @@ Note "file.txt" means text file format and "file.vti" stands for VTK file format
 * ``gimic.inp``: gimic input file, here either the cubic grid or a grid across a bond is specified, needed as input information for a gimic calculation
 * ``gimic.out``: gimic output file, contains information about the integrated current strength susceptibility
 * ``grid.xyz``: contains molecular coordinates in Ångstrøm and cube points (8) or integration plane corner points (4)
+* ``current_profile.dat``: with ``slices`` in the grid section: the current through each slice of the integration plane, one line per slice from the start of the integration: distance (bohr), net, positive and negative contribution (nA/T)
+* ``vertical_profile.dat``: the same for the slices along the height of the plane, when the height is sliced
+* ``profile.dat``: the same with the geometry of the plane, the slice centres in space, the slices along the height if any, and the current per unit length at every quadrature node
+* ``squares_profile.dat``: when both axes are sliced, the net current through each rectangle as a matrix and as a list with coordinates
 * ``mol.xyz``: contains molecular coordinates in Ångstrøm
 
 closed-shell calculation:

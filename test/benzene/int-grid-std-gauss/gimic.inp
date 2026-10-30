@@ -18,6 +18,8 @@ Grid(std) {
     lengths=[10.0, 7.2, 0.0]        # |P1-P0|, |P2-P0|
     gauss_order=9
     grid_points=[36, 36, 0]
+    towards_coord=[0.0, 0.0, 0.0]   # ring centre: diatropic current positive
+    slices=[0.72, 0.0]              # 10 slices along the width
 }
 
 Advanced {

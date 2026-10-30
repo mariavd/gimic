@@ -1,0 +1,94 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (e4b8cb3)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ OpenMP threads: 1
+ Fri Oct 30 10:51:27 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+ INFO: Fixed point set to the reference centre (towards)
+
+ Integration grid data
+ ------------------------------------------------
+ center     2.277078   -0.000028    0.000000
+ origin     7.277078   -0.000028   -5.000000
+ basv1     -0.000000   -0.000000    1.000000
+ basv2     -1.000000   -0.000000   -0.000000
+ basv3      0.000000   -1.000000    0.000000
+ lenghts   10.000000    7.200000    0.000000
+ magnet     0.000000    0.000000   -1.000000
+
+ Grid mode = bond
+ INFO: Integration grid selected.
+   Axis 1:     5 slices of    2.00000 bohr
+ INFO: Slice thickness adjusted to fit the length of the axis
+   Axis 2:    14 slices of    0.51429 bohr
+   Number of grid points <v1,v2>:   45  126    1
+   Total number of grid points  :      5670
+   Reference centre (towards)   :    0.000000    0.000000    0.000000
+
+ *** Grid plot in grid.xyz
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ Jmod integration skipped.
+ *** Integrating current
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Currents are positive when they flow in the diatropic sense around the reference centre
+
+ ************************************************************
+    Induced current (au)    :     0.418820
+       Positive contribution:     0.594989  (  16.766440 )
+       Negative contribution:    -0.176170  (  -4.964353 )
+
+    Induced current (nA/T)  :    11.802087
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+ Current profile written to current_profile.dat
+ Vertical profile written to vertical_profile.dat
+ Profile details written to profile.dat
+ Squares profile written to squares_profile.dat
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       0.40sec (   0.0 h )
+     cpu time:       0.41sec (   0.0 h )
+         user:       0.40sec (   0.0 h )
+          sys:       0.01sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Fri Oct 30 10:51:28 2026
+ Hello World! (tm)
+
+ done.
+

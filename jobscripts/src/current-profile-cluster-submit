@@ -1,25 +1,16 @@
 
-# Submit the calculation
+# Submit the calculation: one GIMIC run over the whole plane, parallel with
+# OpenMP over the columns of the grid.
 
 wrkdir=$(pwd)
 wrkdir=$(echo $wrkdir/$dirname)
 echo "Working directory:"; echo $wrkdir; echo
 
-#echo "Running Gimic calculations..."
-
-filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l))
-checkIfEmpty filenum $filenum
-
 parallel=16
-echo "Enter the number of parallel jobs"
-valueDimInp parallel $parallel
+echo "Number of OpenMP threads (cores of one node) for the GIMIC run"
+valueDimInp parallel $parallel "threads"
 checkIfEmpty parallel $parallel
-
-# check if too many parallel tasks are called
-if [ $parallel -gt $nsteps ]
-then
-    parallel=$nsteps
-fi
+echo threads=$parallel >> $wrkdir/calculation.dat
 
 # job duration:
 duration=12
@@ -27,6 +18,5 @@ echo "Enter the time limit for the execution of the batch job in hours"
 valueDimInp duration $duration "hours"
 checkIfEmpty duration $duration
 
-sbatch --ntasks="$parallel" --job-name="$dirname" --time="$duration":00:00 @SCRIPTS_DIR@/jobscript "$wrkdir" "$parallel" 
+sbatch --ntasks=1 --cpus-per-task="$parallel" --job-name="$dirname" --time="$duration":00:00 @SCRIPTS_DIR@/jobscript "$wrkdir" "$parallel" "$profileMode"
 echo
-

@@ -503,7 +503,37 @@ suggestions, roughly in order of value for effort:
 Until the port is done, the bash scripts as fixed in this session are correct
 for the common case (planar ring, start defined by atoms).
 
-## 5. State of the repository after this session
+## 5. Implementation (30 October 2026)
+
+Sections 3.2 to 3.6 are implemented on this branch, with these differences
+from the plan:
+
+* Keywords: `slices=[dw, dh]`, `towards=[atoms]` and `towards_coord=[x,y,z]`
+  in the `Grid` section, for any grid type. `towards` is also the default
+  fixed point of a bond grid.
+* The sign rule is evaluated at the end of the profile (the "out" edge of a
+  bond grid, the far edge of a base grid) rather than at the plane centre,
+  so that planes reaching past the reference centre keep the convention
+  (`reporting_normal` in `integral.f90`).
+* Per-column accumulation `blk(3, nb1, p2)` in `integrate_current`; the
+  totals are summed in a fixed order, so the integrals no longer depend on
+  the number of threads at all; `schedule(dynamic,4)`; progress on stderr;
+  the MPI reduction of the columns (`collect_array`, untested here, no MPI).
+* Output in `profile.f90`: `current_profile.dat` (the old format),
+  `profile.dat` (geometry, slice centres, end points of the profile, Gauss
+  nodes), `squares_profile.dat`; spin suffixes for open-shell runs.
+* Tests: `benzene/profile`, `benzene/profile-orientation` (other atom order
+  and reversed field, same reference file), `benzene/profile-squares`,
+  `benzene/int-grid-std-gauss` with slices, and `threads/profile`.
+  Verified against the 20 separate slice runs of 3.1 to 5e-6 nA/T.
+* Scripts: one `gimic.inp` for the whole plane, one run with OpenMP threads
+  (local) or one SLURM job with `--cpus-per-task` (cluster); the vertical
+  and squares scripts are two-line wrappers around the current-profile
+  header (`PROFILE_MODE`); `gradient.sh`, `gradient-square.sh`, the squares
+  submit scripts and `jobscript-squares` are gone; `crit_pts.sh` reads the
+  plane end points from `profile.dat`.
+
+## 6. State of the repository after the first session
 
 Changed (uncommitted): `jobscripts/src/functions-def`,
 `current-profile-header`, `current-profile-local-submit`,

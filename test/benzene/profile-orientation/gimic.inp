@@ -1,0 +1,33 @@
+# The same profile as benzene/profile with the bond atoms in the other
+# order and the field reversed: with a reference centre (towards) the
+# result must not change. The reference files are those of benzene/profile.
+
+calc=integral
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet=[0.0, 0.0, 1.0]     # ... and the field reversed
+
+Grid(bond) {
+    type=gauss
+    bond=[2,1]               # atoms in the other order ...
+    towards=[1,2,3,4,5,6]
+    distance=1.3147
+    gauss_order=9
+    grid_points=[72, 0, 0]
+    height=[-8.0, 8.0]
+    width=[-2.6, 8.0]
+    slices=[0.2, 0.0]
+}
+
+Advanced {
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}

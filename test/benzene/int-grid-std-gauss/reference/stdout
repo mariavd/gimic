@@ -2,7 +2,7 @@ This is F-GIMIC.
 
  ****************************************************************
  ***                                                          ***
- ***           GIMIC 2.2.1 (c5e1b3c)                          ***
+ ***           GIMIC 2.2.1 (e4b8cb3)                          ***
  ***           Written by Jonas Juselius and co-authors       ***
  ***                                                          ***
  ***  This software is copyright (c) 2003-2023 by             ***
@@ -12,7 +12,8 @@ This is F-GIMIC.
  ***  terms of the GNU General Public License                 ***
  ****************************************************************
 
- Mon Oct 26 10:18:03 2026
+ OpenMP threads: 1
+ Fri Oct 30 10:34:55 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -30,8 +31,10 @@ This is F-GIMIC.
  INFO: Reordering densities [TURBOMOLE]
  Grid mode = std
  INFO: Integration grid selected.
-   Number of grid points <v1,v2>:   36   36    1
-   Total number of grid points  :      1296
+   Axis 2:    10 slices of    0.72000 bohr
+   Number of grid points <v1,v2>:   36   90    1
+   Total number of grid points  :      3240
+   Reference centre (towards)   :    0.000000    0.000000    0.000000
 
  *** Grid plot in grid.xyz
     Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
@@ -44,27 +47,31 @@ This is F-GIMIC.
  *** Integrating current
     Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
 
+ INFO: Currents are positive when they flow in the diatropic sense around the reference centre
 
  ************************************************************
     Induced current (au)    :     0.418819
-       Positive contribution:     0.595167  (  16.771449 )
-       Negative contribution:    -0.176347  (  -4.969367 )
+       Positive contribution:     0.594964  (  16.765728 )
+       Negative contribution:    -0.176144  (  -4.963646 )
 
     Induced current (nA/T)  :    11.802083
        (conversion factor)  :    28.179409
  ************************************************************
+
+ Current profile written to current_profile.dat
+ Profile details written to profile.dat
 
 
  *** Deallocated grid data
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       0.32sec (   0.0 h )
-     cpu time:       0.41sec (   0.0 h )
-         user:       0.39sec (   0.0 h )
-          sys:       0.02sec (   0.0 h )
+    wall time:       0.19sec (   0.0 h )
+     cpu time:       0.19sec (   0.0 h )
+         user:       0.18sec (   0.0 h )
+          sys:       0.00sec (   0.0 h )
  ----------------------------------------------------------------------
- Mon Oct 26 10:18:03 2026
+ Fri Oct 30 10:34:55 2026
  Hello World! (tm)
 
  done.

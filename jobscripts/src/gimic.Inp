@@ -13,14 +13,14 @@ magnet=[ @Bx@, @By@, @Bz@ ]   # magnet vector
 
 Grid(bond) {                    # define grid orthogonal to a bond 
      type=gauss                  # gauss distribution of grid points
-     bond=[@bond@]               # atom order chosen by the script so that diatropic currents are positive
+     bond=[@bond@]
 #     coord1=[@COORD1@]
 #     coord2=[@COORD2@]
-#     fixpoint=@fixed@
-     fixcoord=[ @FX@, @FY@, @FZ@ ]
+     towards_coord=[ @FX@, @FY@, @FZ@ ]   # reference centre: fixed point and sign convention (diatropic positive)
      distance=@distance@               # place grid 'distance' between atoms
      gauss_order=9               # order for gauss quadrature
-     spacing=[ @spacingX@, @spacingY@, @spacingZ@ ]
+     spacing=[ @spacingX@, @spacingY@, @spacingZ@ ]   # ignored along the sliced axes
+     slices=[ @slices@ ]            # slice thickness along the width and the height; 0 = not sliced
 #     in=@start@
 #     out=@end@
 #     up=@up@

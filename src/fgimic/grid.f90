@@ -28,6 +28,15 @@ module grid_class
         real(DP), dimension(:,:), pointer :: xdata
         integer(I4) :: gauss_order
         real(DP) :: radius
+        ! current profile: slice thickness along each axis (0 = not sliced)
+        ! and the resulting number of slices, i.e. Gauss blocks, per axis
+        real(DP), dimension(3) :: slice
+        integer(I4), dimension(3) :: nslice
+        ! reference centre (Grid.towards / towards_coord): the integrated
+        ! current is reported positive for flow in the diatropic sense
+        ! around it, and for bond grids it is the default fixed point
+        logical :: has_towards
+        real(DP), dimension(3) :: towards
     end type grid_t
 
     public grid_t
@@ -56,8 +65,10 @@ contains
         integer(I4) :: i
 
         real(DP) :: out_length, down_length
-        real(DP), dimension(3) :: ref
-        real(DP), dimension(2) :: hgt,wdt
+        real(DP), dimension(3) :: ref, coord
+        real(DP), dimension(2) :: hgt,wdt,sl
+        integer(SP), dimension(:), pointer :: iptr
+        type(atom_t), pointer :: atom
 
         input=>inp
 
@@ -67,7 +78,39 @@ contains
         this%l=0.0
         this%ortho=0.d0
         this%radius=1.d10   ! no cut-off unless Grid.radius is given (set for bond grids only)
+        this%slice=0.d0
+        this%nslice=0
+        this%has_towards=.false.
+        this%towards=0.d0
         call getkw(input, 'Grid', this%mode)
+
+        ! reference centre for the sign convention: the centroid of a set of
+        ! atoms (typically the ring the profile starts from) or a point
+        if (keyword_is_set(input, 'Grid.towards')) then
+            nullify(iptr)
+            call getkw_ptr(input, 'Grid.towards', iptr)
+            if (.not.associated(iptr)) then
+                call msg_error('Grid.towards: no atoms given')
+                stop
+            end if
+            do i=1,size(iptr)
+                call get_atom(mol, iptr(i), atom)
+                call get_coord(atom, coord)
+                this%towards=this%towards+coord
+            end do
+            this%towards=this%towards/real(size(iptr),DP)
+            this%has_towards=.true.
+        else if (keyword_is_set(input, 'Grid.towards_coord')) then
+            call getkw(input, 'Grid.towards_coord', this%towards)
+            this%has_towards=.true.
+        end if
+
+        ! current profile: slices=[along the width (axis 2), along the height (axis 1)]
+        if (keyword_is_set(input, 'Grid.slices')) then
+            call getkw(input, 'Grid.slices', sl)
+            this%slice(2)=sl(1)
+            this%slice(1)=sl(2)
+        end if
 
         ! first figure out where and how to place the grid
         select case (trim(this%mode))
@@ -127,12 +170,21 @@ contains
                 stop
         end select
 
+        if (any(this%slice > 0.d0) .and. .not.this%gauss) then
+            call msg_error('Grid.slices needs a quadrature grid (type=gauss or lobatto)')
+            stop
+        end if
+
         write(str_g, '(2x,a,3i5)') 'Number of grid points <v1,v2>:', &
             this%npts(1), this%npts(2), this%npts(3)
         call msg_out(str_g)
         write(str_g, '(2x,a,i10)') 'Total number of grid points  :', &
             product(this%npts)
         call msg_out(str_g)
+        if (this%has_towards) then
+            write(str_g, '(2x,a,3f12.6)') 'Reference centre (towards)   :', this%towards
+            call msg_out(str_g)
+        end if
         call nl
     end subroutine
 
@@ -180,13 +232,23 @@ contains
             call getkw(input, 'Grid.coord2', this%basv(:,2))
         end if
 
+        ! the fixed point: the third point defining the orientation of the
+        ! plane about the bond. It decides on which side of the bond the
+        ! integration starts ("in" side), so the reference centre is the
+        ! natural default.
         if (keyword_is_set(input,'Grid.fixpoint')) then
-            ! get fixpoint info
             call getkw(input, 'Grid.fixpoint', atoms(3))
             call get_atom(mol, atoms(3), atom)
             call get_coord(atom, this%origin)
-        else
+        else if (keyword_is_set(input,'Grid.fixcoord')) then
             call getkw(input, 'Grid.fixcoord', this%origin)
+        else if (this%has_towards) then
+            this%origin=this%towards
+            call msg_info('Fixed point set to the reference centre (towards)')
+        else
+            call msg_error('Bond grid: one of fixpoint, fixcoord, towards or &
+                &towards_coord must be given')
+            stop
         end if
 
         this%radius = 1.e10
@@ -306,6 +368,26 @@ contains
                 end if
             end do
         end if
+
+        ! sliced axes: one Gauss block per slice, so that the slice edges are
+        ! exactly where the user asked for them
+        do i=1,3
+            if (this%slice(i) > 0.d0) then
+                if (this%l(i) <= 0.d0) then
+                    call msg_error('Grid.slices: the sliced axis has zero length')
+                    stop
+                end if
+                this%nslice(i)=max(1, nint(this%l(i)/this%slice(i)))
+                if (abs(this%l(i)/this%nslice(i)-this%slice(i)) > 1.d-6) then
+                    call msg_info('Slice thickness adjusted to fit the length of the axis')
+                end if
+                this%slice(i)=this%l(i)/this%nslice(i)
+                this%npts(i)=order*this%nslice(i)
+                write(str_g, '(a,i1,a,i6,a,f10.5,a)') '  Axis ', i, ':', &
+                    this%nslice(i), ' slices of ', this%slice(i), ' bohr'
+                call msg_out(str_g)
+            end if
+        end do
 
         do i=1,3
             if (.not.this%npts(i) > 1) then

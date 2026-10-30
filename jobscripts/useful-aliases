@@ -11,6 +11,8 @@ alias intprofile="$GIMIC_HOME/intprofile.sh"
 
 NOTE: on a laptop or desktop, replace the name of the script below with current-profile-local.sh
 alias gcurrent="$GIMIC_HOME/current-profile-local.sh"
+alias gvertical="$GIMIC_HOME/vertical-profile-local.sh"
+alias gsquares="$GIMIC_HOME/squares-profile-local.sh"
 
 function anprofile() { awk -v lower=$1 -v upper=$2 '{ if (($1 >= lower) && ($1 <= upper)) { total+=$2; dia+=$3; para+=$4; } } END { printf("\nNet current: %f\nDiatropic: %f\nParatropic: %f\n\n", total, dia, para); } ' current_profile.dat ;  };
 

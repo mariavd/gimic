@@ -156,10 +156,8 @@ then
 fi
 if [ $fixedByUser == "y" ]
 then
-    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
-    setBondOrientation $MFx $MFy $MFz
+    echo "Reference centre / fixed point: ($Fx, $Fy, $Fz)"
 fi
-bondInput
 
 printf "\nROTATION OF THE PLANE\n\n"
 
@@ -201,7 +199,7 @@ fi
 
 
 
-string="s/@bond@/$bondInp/; s/@fixed@/$fixed/; s/@distance@/$distanceInp/; s/@up@/$up/; s/@down@/$down/; s/@start@/$start/; s/@end@/$out/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/; s/@Bx@/$MFx/; s/@By@/$MFy/; s/@Bz@/$MFz/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/; s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; "
+string="s/@bond@/$bond/; s/@slices@/0.0, 0.0/; s/@distance@/$distance/; s/@up@/$up/; s/@down@/$down/; s/@start@/$start/; s/@end@/$out/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/; s/@Bx@/$MFx/; s/@By@/$MFy/; s/@Bz@/$MFz/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/; s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; "
 sed "$string" @SCRIPTS_DIR@/src/gimic.Inp > ./$dirname/gimic.inp
 
 printf "Performing a dry run...\n\n"

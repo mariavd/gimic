@@ -1,99 +1,46 @@
 
-# Submit the calculation
+# Run the calculation: one GIMIC run over the whole plane, parallel with
+# OpenMP over the columns of the grid.
 
 wrkdir=$(pwd)
 wrkdir=$(echo $wrkdir/$dirname)
 echo "Working directory:"; echo $wrkdir; echo
 checkIfEmpty wrkdir $wrkdir
 
-echo "Running Gimic calculations..."
-
-filenum=$(cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l)
-checkIfEmpty filenum $filenum
-
-nsteps=$( sed -n -e 's/^.*nsteps=//p' $wrkdir/calculation.dat | awk '{print $1}')
-
-parallel=4
-echo "Enter the number of parallel jobs"
-read parallel
+ncores=$(nproc 2>/dev/null || echo 4)
+parallel=$ncores
+echo "Number of OpenMP threads for the GIMIC run"
+valueDimInp parallel $parallel "threads"
 checkIfEmpty parallel $parallel
-valueDimInp parallel $parallel "tasks"
-
-
-# check if too many parallel tasks are called
-if [ $parallel -gt $nsteps ]
-then
-    parallel=$nsteps
-fi
+echo threads=$parallel >> $wrkdir/calculation.dat
 
 # clean up results of a possible previous calculation (only inside the work directory)
-rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps "$wrkdir"/current_profile.dat "$wrkdir"/current.dat "$wrkdir"/diatropic.dat "$wrkdir"/paratropic.dat
+rm -f "$wrkdir"/GIMIC.* "$wrkdir"/*.eps "$wrkdir"/current_profile.dat "$wrkdir"/profile.dat "$wrkdir"/squares_profile.dat
 
 date
-echo "Running $parallel out of $filenum GIMIC calculations at a time..."; echo 
-
-whole=$( awk -v filenum=$filenum -v parallel=$parallel 'BEGIN{printf "%d\n", filenum/parallel}'  )
-remain=$(awk -v whole=$whole -v filenum=$filenum -v parallel=$parallel 'BEGIN{printf "%d\n", (filenum-whole*parallel) }')
-
-checkIfEmpty whole $whole
-checkIfEmpty remain $remain
-
-completed=0
-
-for ((i=0; i<$whole; i++)) 
-do 
-    for ((j=0; j<$parallel; j++))
-    do  
-        index=$(($i+$j*$whole))
-        grepstring=""
-        if [ -f "$wrkdir/gimic.$index.out" ]
-        then
-            echo "The file $wrkdir/gimic.$index.out already exists."
-            grepstring=$(grep "wall" $wrkdir/gimic.$index.out)
-            echo "$grepstring"
-        fi
-
-        if [ -z "$grepstring" ]
-        then
-            cd $wrkdir && gimic gimic.$index.inp > $wrkdir/gimic.$index.out & 
-        fi
-    done 
-    wait
-    completed=$(( $completed+$parallel ))
-    date
-    echo "$completed of $filenum completed"; echo
-done
-
-if [ "$remain" -gt 0 ]; then
-    for ((i=0; i<$remain; i++))
-    do  
-        index=$(($parallel*$whole+$i))
-        grepstring=""
-        if [ -f "$wrkdir/gimic.$index.out" ]
-        then
-            grepstring=$(grep "wall" $wrkdir/gimic.$index.out)
-        fi
-        if [ -z "$grepstring" ]
-        then
-            (cd $wrkdir && gimic gimic.$index.inp > $wrkdir/gimic.$index.out) &
-        fi
-    done
-    wait   # the gradient must not be evaluated before the last slices have finished
-fi
-echo "$filenum of $filenum completed"
+echo "Running GIMIC with $parallel threads (progress is reported on the terminal)..."; echo
+(cd $wrkdir && OMP_NUM_THREADS=$parallel gimic gimic.inp > gimic.out)
+date
+grep "Induced current (nA/T)" $wrkdir/gimic.out
 echo
 
-rm -f "$wrkdir"/GIMIC.*
+if [ ! -f $wrkdir/profile.dat ]
+then
+    echo "No profile was written; see $wrkdir/gimic.out"
+    exit 1
+fi
 
 ###################################################################################
 
-#Calculating the gradient
-(cd $wrkdir && @SCRIPTS_DIR@/gradient.sh)
-
-# Find the zeroes on the current profile plot
-(cd $wrkdir && @SCRIPTS_DIR@/crit_pts.sh > profile-points.out )
-
-cat $wrkdir/profile-points.out
+if [ "$profileMode" == "current" ]
+then
+    # Plot the profile and find the zeroes
+    (cd $wrkdir && @SCRIPTS_DIR@/crit_pts.sh > profile-points.out )
+    cat $wrkdir/profile-points.out
+else
+    echo "Results in $wrkdir:"
+    ls $wrkdir/*profile*.dat
+fi
 
 ###################################################################################
 

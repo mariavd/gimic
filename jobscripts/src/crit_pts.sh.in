@@ -192,44 +192,32 @@ then
 fi
 
 
-echo "Calculating the coordinates of the starting point of integration"
+echo "Reading the end points of the integration plane from profile.dat"
 echo
 
-(cd $wrkdir && gimic --dryrun gimic.0.inp > /dev/null ) 
+if [ ! -f "$wrkdir"/profile.dat ]
+then
+    echo "profile.dat not found in $wrkdir (GIMIC writes it together with current_profile.dat)"
+    exit 1
+fi
 
-x0A=$(awk '/X/{i++}i==1{print $2, $3, $4; exit}' "$wrkdir"/grid.xyz ) 
+# end points of the profile on the mid-height line of the plane, in bohr
+x0=$(awk '/^# profile start/ {print $(NF-2), $(NF-1), $NF; exit}' "$wrkdir"/profile.dat)
+x1=$(awk '/^# profile end/   {print $(NF-2), $(NF-1), $NF; exit}' "$wrkdir"/profile.dat)
+checkIfEmpty x0 "$x0"
+checkIfEmpty x1 "$x1"
 
-echo "Calculating the coordinates of the end point of integration"
-last=$(( $( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l )  ) -1 )) &&
-
-( cd $wrkdir && gimic --dryrun gimic.$last.inp > /dev/null )
-
-x1A=$(awk '/X/{i++}i==1{print $2, $3, $4; exit}' < "$wrkdir"/grid.xyz) 
-
-# check which point lies higher to determine the start and end
-crd0=(${x0A// / })
-crd1=(${x1A// / })
-x0x=$(A2bohr ${crd0[0]})
-x0y=$(A2bohr ${crd0[1]})
-x0z=$(A2bohr ${crd0[2]})
-x1z=$(A2bohr ${crd1[2]})
+crd0=(${x0// / })
+crd1=(${x1// / })
+x0x=${crd0[0]}
+x0y=${crd0[1]}
+x0z=${crd0[2]}
+x1z=${crd1[2]}
 dz=$(awk -v z0=$x0z -v z1=$x1z 'BEGIN{dz = z0-z1; print dz;}')
 
-#echo dz = $dz
-
-length=$( echo $x0A $x1A | point_dist )
-length=$(A2bohr $length)
-echo "Length of the integration plane: "  $length, "bohr" >> $wrkdir/profile-points.out
-
-#echo
-#echo x0 [Å] = $x0A
-#echo x1 [Å] = $x1A
-
-x0=$(A2bohr $x0A)
-x1=$(A2bohr $x1A)
+length=$( echo $x0 $x1 | point_dist )
+echo "Length of the integration plane: "  $length, "bohr" >> $wrkdir/profile-points.out
 echo
-#echo x0 [bohr] = $x0
-#echo x1 [bohr] = $x1
 
 printf "\nin"  >> $wrkdir/profile-points.out
 echo $x0 $x1 | coords 0  >> $wrkdir/profile-points.out

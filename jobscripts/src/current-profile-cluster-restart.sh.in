@@ -3,40 +3,35 @@
 # Function definitions:
 source  @SCRIPTS_DIR@/src/functions-def
 
-
-echo "Restart and continue the current profile calculation"
+echo "Resubmit a current profile calculation (run from the profile directory)"
 
 wrkdir=$(pwd)
 checkIfEmpty wrkdir $wrkdir
 dirname=$( echo ${wrkdir##*/} ) # removes everything before the backslash
 checkIfEmpty dirname $dirname
 
+if [ ! -f $wrkdir/gimic.inp ]
+then
+    echo "No gimic.inp in $wrkdir"
+    exit 1
+fi
+
 echo "Working directory:"; echo $wrkdir; echo
 
-#echo "Running Gimic calculations..."
-
-filenum=$( (cd $wrkdir && find . -maxdepth 1 -type f -name '*.inp' | wc -l ))
-checkIfEmpty filenum $filenum
+profileMode=current
+case $dirname in
+    vertical_profile*) profileMode=vertical ;;
+    squares_profile*)  profileMode=squares ;;
+esac
 
 parallel=16
-echo "How many parallel tasks to execute?"
+echo "Number of OpenMP threads (cores of one node) for the GIMIC run"
 read parallel
 checkIfEmpty parallel $parallel
 
-nsteps=$( sed -n -e 's/^.*nsteps=//p' $wrkdir/calculation.dat | awk '{print $1}')
-checkIfEmpty nsteps $nsteps
-
-# check if too many parallel tasks are called
-if [ $parallel -gt $nsteps ]
-then
-    parallel=$nsteps
-fi
-
-# job duration:
 echo "Enter the time limit for the execution of the batch job in hours"
 read duration
 checkIfEmpty duration $duration
 
-sbatch --ntasks="$parallel" --job-name="$dirname" --time="$duration":00:00 @SCRIPTS_DIR@/jobscript "$wrkdir" "$parallel" 
+sbatch --ntasks=1 --cpus-per-task="$parallel" --job-name="$dirname" --time="$duration":00:00 @SCRIPTS_DIR@/jobscript "$wrkdir" "$parallel" "$profileMode"
 echo
-

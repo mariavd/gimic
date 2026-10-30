@@ -3,28 +3,39 @@
 # Function definitions:
 source  @SCRIPTS_DIR@/src/functions-def
 
-function createInpTemplate() 
+# profile type: current (slices along the width), vertical (along the
+# height) or squares (both); the wrapper scripts set PROFILE_MODE
+profileMode=${PROFILE_MODE:-current}
+
+function writeInput()
 {
-    # create the template file gimic.Inp -> everything but up, down, in, out
-    cp @SCRIPTS_DIR@/src/gimic.Inp ./$dirname/gimic.Inp
+    # Write the GIMIC input for the whole plane. GIMIC computes the profile in
+    # one run: one Gauss block per slice, in parallel over the grid columns.
+    cp @SCRIPTS_DIR@/src/gimic.Inp ./$dirname/gimic.inp
 
-    bondInput   # sets bondInp and distanceInp (bond direction may be reversed, see functions-def)
-    string1="s/@bond@/$bondInp/; s/@distance@/$distanceInp/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/ "
+    case $profileMode in
+        vertical) slices="0.0, $delta" ;;
+        squares)  slices="$delta, $delta" ;;
+        *)        slices="$delta, 0.0" ;;
+    esac
+    xstart=$( awk -v start=$start 'BEGIN{printf "%.4f", -start }' )   # the "in" side is negative
+    xdown=$( awk -v down=$down 'BEGIN{printf "%.4f", -down }' )
+
+    string1="s/@bond@/$bond/; s/@distance@/$distance/; s/@spacingX@/$spacingX/; s/@spacingY@/$spacingY/; s/@spacingZ@/$spacingZ/; s/@slices@/$slices/"
     string2="s/@rotX@/$rotX/;  s/@rotY@/$rotY/;  s/@rotZ@/$rotZ/; s/@origX@/$origX/; s/@origY@/$origY/; s/@origZ@/$origZ/ "
-    string3="s/@Bx@/$Bx/; s/@By@/$By/; s/@Bz@/$Bz/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/; s/@fixed@/$fixed/;"
+    string3="s/@Bx@/$Bx/; s/@By@/$By/; s/@Bz@/$Bz/; s/@FX@/$Fx/; s/@FY@/$Fy/; s/@FZ@/$Fz/"
+    string4="s/@start@/$xstart/; s/@end@/$out/; s/@down@/$xdown/; s/@up@/$up/"
 
-    sed -i -e "$string1" ./$dirname/gimic.Inp
-    sed -i -e "$string2" ./$dirname/gimic.Inp
-    sed -i -e "$string3" ./$dirname/gimic.Inp
+    sed -i -e "$string1" -e "$string2" -e "$string3" -e "$string4" ./$dirname/gimic.inp
 
     if [ "$useRotationOrigin" == "y" ]
     then
-	sed -i -e 's/^ *#rotation_origin/     rotation_origin/' ./$dirname/gimic.Inp
+	sed -i -e 's/^ *#rotation_origin/     rotation_origin/' ./$dirname/gimic.inp
     fi
 
     if [ "$enableMF_X" == "y" ]
     then
-	sed -i -e 's/^magnet=/#magnet=/; s/^#magnet_axis=X/magnet_axis=X/' ./$dirname/gimic.Inp
+	sed -i -e 's/^magnet=/#magnet=/; s/^#magnet_axis=X/magnet_axis=X/' ./$dirname/gimic.inp
     fi
 }
 
@@ -35,9 +46,8 @@ echo atom2=$atom2 >> ./$dirname/calculation.dat
 echo distance=$distance >> ./$dirname/calculation.dat
 echo in=$start out=$out up=$up down=$down  >> ./$dirname/calculation.dat
 echo fixed point: Fx=$Fx Fy=$Fy Fz=$Fz  >> ./$dirname/calculation.dat
-bondInput
-echo gimic input: bond=[$bondInp] distance=$distanceInp reversed=$swapBond >> ./$dirname/calculation.dat
-echo delta=$delta nsteps=$nsteps >> ./$dirname/calculation.dat
+echo profile=$profileMode >> ./$dirname/calculation.dat
+echo delta=$delta nsteps=$nsteps nstepsV=$nstepsV >> ./$dirname/calculation.dat
 #echo spacing: spacingX=$spacingX spacingY=$spacingY spacingZ=$spacingZ  >> ./$dirname/calculation.dat
 echo magnetic field: Bx=$Bx By=$By Bz=$Bz  >> ./$dirname/calculation.dat
 echo spacing: spacingX=$spacingX spacingY=$spacingY  >> ./$dirname/calculation.dat
@@ -46,16 +56,15 @@ echo rotation angles: rotX=$rotX rotY=$rotY rotZ=$rotZ >> ./$dirname/calculation
 ################################################################################
 
 printf "\n\n*****************************************************************************\n\nSUMMARY\n\n"
-printf "Bond: ["$bond"], distance = $distance\n"
-if [ "$swapBond" == "1" ]
-then
-    printf "GIMIC input: bond=[$bondInp], distance = $distanceInp (direction reversed so that diatropic currents are positive)\n"
-fi
-printf "\n"
+printf "Bond: ["$bond"], distance = $distance; $profileMode profile\n\n"
 echo "Integration plane coordinates"
 printf "in = $start  out = $out  up = $up  down = $down \n"
-printf "Split into $nsteps slices with width $delta and grid spacing [$spacingX; $spacingY] \n"
-printf "Fixed coordinate: ( $Fx; $Fy; $Fz )\n"
+case $profileMode in
+    vertical) printf "Split into $nstepsV slices of $delta bohr along the height; grid spacing $spacingY along the width\n" ;;
+    squares)  printf "Split into $nsteps x $nstepsV squares of $delta bohr\n" ;;
+    *)        printf "Split into $nsteps slices of $delta bohr along the width; grid spacing $spacingX along the height\n" ;;
+esac
+printf "Reference centre / fixed point: ( $Fx; $Fy; $Fz ) -- diatropic currents are reported positive\n"
 printf "Magnetic field direction: ( $Bx; $By; $Bz ) \n"
 printf "Rotation angles: ( $rotX; $rotY; $rotZ ) \n\n"
 
@@ -94,7 +103,7 @@ then
 else
     suffix=$(printf _$suffix)
 fi
-dirname=current_profile_$atom1.$atom2$suffix
+dirname=${profileMode}_profile_$atom1.$atom2$suffix
 
 checkIfPreviousCalculationExists "$dirname"
 #cp @SCRIPTS_DIR@/src/gimic.Inp ./$dirname/gimic.Inp
@@ -139,14 +148,20 @@ valueDimInp up $up "bohr"
 valueDimInp down $down "bohr"
 
 printf "\n\nWIDTH OF THE SLICES\n"
-delta=0.02
+case $profileMode in
+    squares) delta=0.25 ;;
+    *)       delta=0.02 ;;
+esac
 valueDimInp delta $delta "bohr"
 
-nsteps=$( awk -v start=$start -v out=$out -v delta=$delta 'BEGIN{if (start > 0) {start = -start}; nsteps=(out-start)/delta; if (nsteps > 0) {printf("%d",nsteps)} else {printf("%d",-nsteps);}; }'   )
+# number of slices along the width and along the height (GIMIC rounds to the nearest integer)
+nsteps=$( awk -v start=$start -v out=$out -v delta=$delta 'BEGIN{ printf("%d", (out+start)/delta + 0.5) }' )
+nstepsV=$( awk -v up=$up -v down=$down -v delta=$delta 'BEGIN{ printf("%d", (up+down)/delta + 0.5) }' )
 checkIfEmpty nsteps $nsteps
+checkIfEmpty nstepsV $nstepsV
 
 
-printf "\n\nGRID POINT SPACING\n"
+printf "\n\nGRID POINT SPACING (along the axes that are not sliced)\n"
 #Practice has shown that for delta=0.1, the spacing value should be 0.02 in order to have at least 9 Gaussian points per slice
 # If the delta is smaller than 0.1, recalculate:
 # spacingFactor=$( awk -v delta=$delta 'BEGIN{ printf("%.4f",delta/0.02) }' )    # how many times smaller the chosen delta value is
@@ -237,12 +252,13 @@ fi
 
 printf "\nFIXED POINT AND ORIENTATION OF THE INTEGRATION PLANE\n\n"
 
-# The integration plane is always perpendicular to the bond. The fixed point F
-# only decides on which side of the bond the integration starts and, together
-# with the magnetic field, the sign of the integrated current (see
-# fixPointAndOrientation in functions-def). F is the centroid of the atoms that
-# define the start of the integration when they were given, otherwise the bond
-# midpoint displaced by 1 bohr along B x (A2-A1).
+# The integration plane is always perpendicular to the bond. The reference
+# centre F (towards_coord in the GIMIC input) is the fixed point of the plane,
+# so the integration starts on its side of the bond, and GIMIC orients the
+# plane normal such that currents flowing in the diatropic sense around F are
+# positive, whatever the order of the bond atoms. F is the centroid of the
+# atoms that define the start of the integration when they were given,
+# otherwise the bond midpoint displaced by 1 bohr along B x (A2-A1).
 fixedByUser="n"
 setFixPoint $Bx $By $Bz
 
@@ -268,12 +284,7 @@ then
 fi
 if [ $fixedByUser == "y" ]
 then
-    echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
-    setBondOrientation $Bx $By $Bz
-fi
-if [ "$enableMF_X" == "y" ]
-then
-    swapBond=0   # with magnet_axis=X the field follows the plane normal and the sign is independent of the bond direction
+    echo "Reference centre / fixed point: ($Fx, $Fy, $Fz)"
 fi
 
 printf "\nROTATION OF THE PLANE\n\n"
@@ -314,62 +325,37 @@ then
     fi
 fi
 
-printSummary # print to stdout and to calculation.dat
-
-
-# Preparing the input files
-
-downInp=$(echo $down)
-checkIfEmpty downInp $downInp
+# Write the input, check the plane, allow changes
 
 checkPlane="y"
 doDryRun=1
-while [ ! -z $checkPlane ] && [ $checkPlane == "y" ]
+while [ "$checkPlane" == "y" ]
 do
-    createInpTemplate   
+    writeInput
 
-    # check the whole down value 
-    down=$( awk -v down=$downInp 'BEGIN{printf "%.3f\n", -down }' )   
-    compareEqual down up 
-    compareSmaller down up 
-    checkIfEmpty up $up
-    checkIfEmpty down $down
-
-    # calculate the first slice length
-    xstart=$( awk -v start=$start 'BEGIN{printf "%.3f\n", -start }' )   
-    xend=$( awk -v delta=$delta -v xstart=$xstart 'BEGIN{ printf "%.3f\n", xstart+delta }' ) 
-    compareSmaller xstart xend
-    checkIfEmpty xstart $xstart
-    checkIfEmpty xend $xend
-
-    # Create the first and the last slice input file
-    xstring="s/@up@/$up/; s/@down@/$down/; s/@start@/$xstart/; s/@end@/$xend/"
-    sed "$xstring" ./$dirname/gimic.Inp > ./$dirname/gimic.0.inp
-
-    if [ ! -z $doDryRun ] &&  [ $doDryRun == "1" ]
+    if [ "$doDryRun" == "1" ]
     then
-	dryRun 'gimic.0.inp'
-	echo dryrun done >> $dirname/calculation.dat
+	planeCheck
+	echo "Do you accept the above parameters? Press [n] to cancel."; read accept
+	if  [ ! -z $accept ] && [ $accept == "n" ]
+	then
+	    exit
+	fi
+	doDryRun=""
     fi
 
-    # sanity check for the integration plane
-    echo "Creating integration plane end points"
-    # gimic.0.inp already exists; create gimic.$last.inp
-    start_last=$( awk -v xstart=$xstart -v delta=$delta -v nsteps=$nsteps 'BEGIN{ last = xstart + delta*nsteps; print last }')
-    checkIfEmpty start_last $start_last
-
-    end_last=$( awk -v start_last=$start_last -v delta=$delta 'BEGIN{ end = start_last + delta; print end }')
-    checkIfEmpty xend_last $end_last
-
-    lstring="s/@up@/$up/; s/@down@/$down/; s/@start@/$start_last/; s/@end@/$end_last/"
-    sed -e "$lstring" ./$dirname/gimic.Inp > ./$dirname/gimic.last.inp
-
     echo
-    echo "Do you want to preview the integration plane in XYZ format?"
+    echo "Do you want to inspect the integration plane? grid.check.xyz holds the molecule,"
+    echo "the four corners of the plane (X) and the field direction (Be)."
     echo "Press [y] or any other key to skip"; read checkPlane
-    if  [ ! -z $checkPlane ] && [ $checkPlane == "y" ]
+    if  [ "$checkPlane" == "y" ]
     then
-	planeSanityCheck "$dirname"
+	cp ./$dirname/grid.xyz ./$dirname/grid.check.xyz
+	echo
+	echo "The file $dirname/grid.check.xyz created."
+	echo "You can now put this script to the background and inspect the molecule."
+	echo "Bring the script to foreground and press enter to continue."
+	read accept
     else
 	checkPlane=""
     fi
@@ -378,24 +364,19 @@ do
     echo "Do you want to modify the integration plane parameters?"
     echo "Press [y] to list the options."; read accept
 
-    if  [ -z $accept ]
+    if [ ! -z $accept ] && [ $accept == "y" ]
     then
-	echo "Skipping further plane checks and dry runs"
-	printSummary 
-	checkPlane=""
-	doDryRun=""
-    elif [ $accept == "y" ]
-    then
-	#    printf "\nParameters for the calculation:\n"
+	checkPlane="y"   # write the input and check the plane again
+	doDryRun=1
 	echo
 	echo "[1] distance "
 	echo "[2] in value"
 	echo "[3] out value"
 	echo "[4] up value"
 	echo "[5] down value"
-	echo "[6] fixed point"
+	echo "[6] fixed point / reference centre"
 	echo "[7] rotation"
-	entry="0"
+	echo "[8] slice thickness"
 	printf "\n\nEnter the number of the entry to change it or press [ENTER] to continue\n"
 	read entry
 	while [ ! -z $entry ] # while it has a value
@@ -415,7 +396,6 @@ do
 		if [ $fixedByUser == "n" ]
 		then
 		    setFixPoint $Bx $By $Bz
-		    if [ "$enableMF_X" == "y" ]; then swapBond=0; fi
 		fi
 	    elif [ $entry == "3" ]
 	    then
@@ -423,39 +403,28 @@ do
 	    elif [ $entry == "4" ]
 	    then
 		valueDimInp up $up "bohr"
-		doDryRun=1
 	    elif [ $entry == "5" ]
 	    then
 		valueDimInp down $down "bohr"
-		doDryRun=1
 	    elif [ $entry == "6" ]
 	    then
 		echo "Enter the index of the fixed atom: "
 		read fixed_atom
 		validateInput fixed_atom $fixed_atom
-
-		# Read the coordinates of the fixed atom
 		Fx=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $1} }' coord  )
 		Fy=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $2} }' coord  )
 		Fz=$( awk -v atom=$fixed_atom '{ if (NR==(atom+1)) {print $3} }' coord  )
-		echo "Fixed coordinate: ($Fx, $Fy, $Fz)"
+		echo "Reference centre / fixed point: ($Fx, $Fy, $Fz)"
 		fixedByUser="y"
-		setBondOrientation $Bx $By $Bz
-		if [ "$enableMF_X" == "y" ]; then swapBond=0; fi
-
-		doDryRun=1
 	    elif [ $entry == "7" ]
 	    then
 		echo "Enter the rotation angles"
 		valueDimInp rotX $rotX "degrees"
 		valueDimInp rotY $rotY "degrees"
 		valueDimInp rotZ $rotZ "degrees"
-
 		echo "Rotation angles: ($rotX, $rotY, $rotZ)"
-
 		printf "\nDo you accept the rotation origin to be at the bond midpoint?\n"
 		echo "Press [n] to enter Cartesian coordinates." 
-
 		read accept;
 		if [ ! -z $accept ] && [ $accept == "n" ]
 		then
@@ -464,35 +433,22 @@ do
 		    valueDimInp origY $origY "bohr"
 		    valueDimInp origZ $origZ "bohr"
 		fi
-
-		doDryRun=1
+	    elif [ $entry == "8" ]
+	    then
+		valueDimInp delta $delta "bohr"
 	    else
 		echo "Invalid entry. Enter a number again."
 		read entry
+		continue
 	    fi
 	    printf "\n\nEnter the number of the entry to change it or press [ENTER] to continue\n"
 	    read entry
 	done
+	nsteps=$( awk -v start=$start -v out=$out -v delta=$delta 'BEGIN{ printf("%d", (out+start)/delta + 0.5) }' )
+	nstepsV=$( awk -v up=$up -v down=$down -v delta=$delta 'BEGIN{ printf("%d", (up+down)/delta + 0.5) }' )
     fi
 done
 
-# create the final gimic.Inp template
-createInpTemplate
-upDownString="s/@up@/$up/; s/@down@/$down/"
-sed -i "$upDownString" ./$dirname/gimic.Inp
-
-# prepare all files 
-
-echo "Preparing input files..."
-for (( i=1; i<$nsteps; i++ ))
-do
-    xstart=$( awk -v xstart=$xstart -v delta=$delta 'BEGIN{printf "%.3f\n", xstart+delta }' )
-    xend=$( awk -v delta=$delta -v xstart=$xstart 'BEGIN{ printf "%.3f\n", xstart+delta }' ) 
-    string=" s/@start@/$xstart/; s/@end@/$xend/"
-    sed "$string" $dirname/gimic.Inp > $dirname/gimic.$i.inp
-done    
-echo "done"
+printSummary # print to stdout and to calculation.dat
+echo "Input written to $dirname/gimic.inp"
 echo
-
-
-

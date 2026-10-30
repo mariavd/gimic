@@ -170,7 +170,6 @@ function valueDimInp()
 }
 
 
-
 function checkIfInputExists() {
     if [ ! -e MOL ] || [ ! -e XDENS ] || [ ! -e coord ] || [ ! -e coord.xyz ]
     then
@@ -209,246 +208,6 @@ function checkIfPreviousCalculationExists() {
 function checkGimic() {
     command -v gimic >/dev/null 2>&1 || { echo >&2 "GIMIC not found. Load the module or check your \$PATH."; exit 1; }
     }
-
-
-function calculateFixedCoord() {
-    # calculate the rotation matrix for 2D rotation with respect to the z axis such that the rotation will be counterclockwise
-    # multiply the vector originating at (0;0;A2z) and ending at the second atom with coords (A2x; A2y; A2z).
-
-    # Rotation matrix R(theta):
-    #  | cos(theta) -sin(theta)  0  |
-    #  | sin(theta)  cos(theta)  0  |
-    #  |     0            0      1  |
-
-    # The choice of a rotation angle was arbitrary
-
-    # usage:
-    # Fx=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $1}')
-    # Fy=$(calculateFixedCoord $A2x $A2y $A2z | awk '{print $2}')
-
-
-#    echo "func arg: " "$@"
-    awk -v Ax="$1" -v Ay="$2" -v Az="$3" 'BEGIN{ 
-         rotAngleDeg = -10 ; 
-         rotAngleRad=0.0174532925*rotAngleDeg;
-         Cos=cos(rotAngleRad);
-         Sin=sin(rotAngleRad);
-     
-         print(Cos*Ax+Sin*Ay, Sin*Ax-Cos*Ay);
-    }'
-}
-
-dryRun() {
-    printf "\nPerforming a dry run...\n\n"
-    (cd ./$dirname/ && gimic --dryrun "$1" | grep "grid points" )
-    printf "\n\n"
-
-    echo "Do you accept the above parameters? Press [n] to cancel."; read accept
-    if  [ ! -z $accept ] && [ $accept == "n" ]
-    then
-	exit
-    fi
-}
-
-compareEqual() {
-# usage: compareEqual down up
-    local __inputVar1=$1 # down
-    local __inputVar2=$2 # up
-    local equal=$(awk -v down=$__inputVar1 -v up=$__inputVar2 'BEGIN{ if (down = up) {print -down } else {print "ok"} }')
-    if [ ! -z $equal ] &&  [ ! $equal == "ok" ]
-    then
-	eval __inputVar2=$equal
-    fi
-}
-
-compareSmaller() {
-# usage: compareSmaller down up
-    local __inputVar1=$1 # down
-    local __inputVar2=$2 # up
-    local smaller=$(awk -v down=$__inputVar1 -v up=$__inputVar2 'BEGIN{ if (down > up) {print "1"} else {print "0"} }')
-    if [ $smaller -eq 1 ]
-    then
-	tmp=$__inputVar1
-	eval __inputVar1=$__inputVar2
-	eval __inputVar2=$tmp
-    fi
-}
-
-function planeSanityCheck() {
-# sanity check for the integration plane
-    dirname="$@"
-
-    printf "\nPreparing the plane...\n"
-    (cd ./$dirname/ && gimic --dryrun gimic.0.inp  > /dev/null )
-
-    # take the first two coordinates of the int plane
-    cat ./$dirname/grid.xyz | head -n -3 > ./$dirname/grid.check.xyz
-
-    #$last=$(  (cd ./$dirname/ && find . -maxdepth 1 -type f -name '*.inp' | wc -l ) )
-    #$last=$(( $last -1 ))
-    #$checkIfEmpty last $last 
-    (cd ./$dirname/ && gimic --dryrun gimic.last.inp > /dev/null && rm -rf gimic.last.inp )
-
-    # take the coords of the end of the int plane
-    grep X ./$dirname/grid.xyz  | awk '{ if (NR <=2) {print $0} }' >> ./$dirname/grid.check.xyz
-    # copy the B direction "Be" atom
-    #grep Be ./$dirname/grid.xyz  >> ./$dirname/grid.check.xyz
-    readParameter Bx $dirname
-    readParameter By $dirname
-    readParameter Bz $dirname
-
-    readParameter Fx $dirname
-    readParameter Fy $dirname
-    readParameter Fz $dirname
-
-    checkIfEmpty Bx $Bx
-    checkIfEmpty By $By
-    checkIfEmpty Bz $Bz
-    printf "Be\t$Bx\t$By\t$Bz\n"  >> ./$dirname/grid.check.xyz
-
-    # for debugging the fixed coord:
-
-    #fixedCrd=$(awk -v x="$Fx" -v y="$Fy" -v z="$Fz" 'BEGIN{bohr=0.5291772490; printf("U \t %.4f \t %.4f \t %.4f \n", bohr*x, bohr*y, bohr*z); }')
-    #echo "fixed coord U: " $fixedCrd
-    #echo $fixedCrd  >> ./$dirname/grid.check.xyz
-    #nAtoms=$(head -n 1 ./#$dirname/grid.xyz)
-    #sedstring=$(echo "1s/$nAtoms/$(($nAtoms+1))/")
-    #echo sedstring:
-    #echo $sedstring
-    #sed -i -e "$sedstring" ./$dirname/grid.check.xyz
-
-    echo
-    echo "The file grid.check.xyz created."
-    echo "You can now put this script to the background and inspect the molecule."
-    echo "Bring the script to foreground and press enter to continue the current profile."
-    read accept # just wait
-
-    echo "Current profile analysis resumed." 
-}
-
-
-function planeSanityCheckVertical() {
-# sanity check for the integration plane
-
-dirname="$@"
-
-echo "Do you want to preview the integration plane in XYZ format?"
-echo "Press [y] or any other key to skip"; read accept
-if  [ ! -z $accept ] && [ $accept == "y" ]
-then
-    printf "\nPreparing the plane...\n"
-    (cd ./$dirname/ && gimic --dryrun gimic.0.inp  > /dev/null )
-    # take the first two coordinates of the int plane
-    cat ./$dirname/grid.xyz | head -n -2 > ./$dirname/grid.check.xyz
-    grep X ./$dirname/grid.xyz  | awk '{ if (NR ==3) {print $0} }' >> ./$dirname/grid.check.xyz
-
-#    last=$(  (cd ./$dirname/ && find . -maxdepth 1 -type f -name '*.inp' | wc -l ) )
-#    echo $last
-#    last=$(( $last -1 ))
-#    echo $last
-#    checkIfEmpty last $last 
-    
-(cd ./$dirname/ && last=$( find . -maxdepth 1 -type f -name '*.inp' | wc -l  ) && last=$(( $last - 1 )) && gimic --dryrun gimic.$last.inp > /dev/null)
-
-    # take the coords of the end of the int plane
-    grep X ./$dirname/grid.xyz  | awk '{ if (NR ==1) {print $0} }' >> ./$dirname/grid.check.xyz
-    grep X ./$dirname/grid.xyz  | awk '{ if (NR ==4) {print $0} }' >> ./$dirname/grid.check.xyz
-    # copy the B direction "Be" atom
-    grep Be ./$dirname/grid.xyz  >> ./$dirname/grid.check.xyz
-
-    echo
-    echo "The file grid.check.xyz created."
-    echo "You can now put this script to the background and inspect the molecule."
-    echo "Bring the script to foreground and press enter to continue the current profile."
-    read accept # just wait
-
-    echo "Current profile analysis resumed." 
-fi
-}
-
-
-function planeSanityCheckVertical() {
-# sanity check for the integration plane
-
-dirname="$@"
-
-echo "Do you want to preview the integration plane in XYZ format?"
-echo "Press [y] or any other key to skip"; read accept
-if  [ ! -z $accept ] && [ $accept == "y" ]
-then
-    printf "\nPreparing the plane...\n"
-    idxH=$( sed -n -e 's/^.*nstepsH=//p' ./$dirname/calculation.dat | awk '{print $1}')
-    idxV=$( sed -n -e 's/^.*nstepsV=//p' ./$dirname/calculation.dat | awk '{print $1}')
-    checkIfEmpty idxH $idxH
-    checkIfEmpty idxV $idxV
-    idxH=$(( $idxH - 1 ))
-    idxV=$(( $idxV - 1 ))
-
-    (cd ./$dirname/gimic.0 && gimic --dryrun gimic.0.0.inp  > /dev/null )
-    cat ./$dirname/gimic.0/grid.xyz | head -n -4 > ./$dirname/grid.check.xyz
-    (cd ./$dirname/gimic.0 && gimic --dryrun gimic.0.$idxV.inp  > /dev/null )
-    grep X ./$dirname/gimic.0/grid.xyz  | awk '{ if (NR ==2) {print $0} }' >> ./$dirname/grid.check.xyz
-
-    (cd ./$dirname/gimic.$idxH && gimic --dryrun gimic.$idxV.0.inp  > /dev/null )
-    grep X ./$dirname/gimic.$idxH/grid.xyz  | awk '{ if (NR ==3) {print $0} }' >> ./$dirname/grid.check.xyz
-    (cd ./$dirname/gimic.$idxH && gimic --dryrun gimic.$idxH.$idxV.inp  > /dev/null )
-    grep X ./$dirname/gimic.$idxH/grid.xyz  | awk '{ if (NR ==4) {print $0} }' >> ./$dirname/grid.check.xyz
-
-
-    # copy the B direction "Be" atom
-    grep Be ./$dirname/grid.xyz  >> ./$dirname/grid.check.xyz
-
-    echo
-    echo "The file grid.check.xyz created."
-    echo "You can now put this script to the background and inspect the molecule."
-    echo "Bring the script to foreground and press enter to continue the current profile."
-    read accept # just wait
-
-    echo "Current profile analysis resumed." 
-fi
-}
-
-
-function planeSanityCheckSquares() {
-# sanity check for the integration plane
-
-dirname="$@"
-
-echo "Do you want to preview the integration plane in XYZ format?"
-echo "Press [y] or any other key to skip"; read accept
-if  [ ! -z $accept ] && [ $accept == "y" ]
-then
-    printf "\nPreparing the plane...\n"
-    idxH=$( sed -n -e 's/^.*nstepsH=//p' ./$dirname/calculation.dat | awk '{print $1}')
-    idxV=$( sed -n -e 's/^.*nstepsV=//p' ./$dirname/calculation.dat | awk '{print $1}')
-    checkIfEmpty idxH $idxH
-    checkIfEmpty idxV $idxV
-    idxH=$(( $idxH - 1 ))
-    idxV=$(( $idxV - 1 ))
-
-    (cd ./$dirname/gimic.0 && gimic --dryrun gimic.0.0.inp  > /dev/null )
-    cat ./$dirname/gimic.0/grid.xyz | head -n -4 > ./$dirname/grid.check.xyz
-    (cd ./$dirname/gimic.0 && gimic --dryrun gimic.0.$idxV.inp  > /dev/null )
-    grep X ./$dirname/gimic.0/grid.xyz  | awk '{ if (NR ==2) {print $0} }' >> ./$dirname/grid.check.xyz
-
-    (cd ./$dirname/gimic.$idxH && gimic --dryrun gimic.$idxV.0.inp  > /dev/null )
-    grep X ./$dirname/gimic.$idxH/grid.xyz  | awk '{ if (NR ==3) {print $0} }' >> ./$dirname/grid.check.xyz
-    (cd ./$dirname/gimic.$idxH && gimic --dryrun gimic.$idxH.$idxV.inp  > /dev/null )
-    grep X ./$dirname/gimic.$idxH/grid.xyz  | awk '{ if (NR ==4) {print $0} }' >> ./$dirname/grid.check.xyz
-
-
-    # copy the B direction "Be" atom
-    grep Be ./$dirname/grid.xyz  >> ./$dirname/grid.check.xyz
-
-    echo
-    echo "The file grid.check.xyz created."
-    echo "You can now put this script to the background and inspect the molecule."
-    echo "Bring the script to foreground and press enter to continue the current profile."
-    read accept # just wait
-
-    echo "Current profile analysis resumed." 
-fi
-}
 
 
 function calculateRot() {
@@ -619,24 +378,18 @@ function fixPointAndOrientation() {
     }' coord
 }
 
-function reportBondOrientation() {
-    if [ "$swapBond" == "1" ]
-    then
-        echo "The bond direction is reversed in the GIMIC input (bond=[$atom2,$atom1]) so that"
-        echo "diatropic currents are positive. The position of the plane is not affected."
-    fi
-}
-
 function setFixPoint() {
 # usage: setFixPoint Bx By Bz
 # Uses atom1, atom2 and the centroid inCx inCy inCz of the atoms defining the
-# start of the integration (may be empty). Sets Fx Fy Fz swapBond.
+# start of the integration (may be empty). Sets Fx Fy Fz: the reference
+# centre written as towards_coord to the GIMIC input. GIMIC uses it as the
+# fixed point of the plane and orients the plane normal such that diatropic
+# currents are positive, so the order of the bond atoms does not matter.
     read Fx Fy Fz swapBond <<< "$(fixPointAndOrientation $atom1 $atom2 $1 $2 $3 $inCx $inCy $inCz)"
     checkIfEmpty Fx $Fx
     checkIfEmpty Fy $Fy
     checkIfEmpty Fz $Fz
-    checkIfEmpty swapBond $swapBond
-    echo "Fixed point: ($Fx; $Fy; $Fz)"
+    echo "Reference centre / fixed point: ($Fx; $Fy; $Fz)"
     if [ ! -z "$inCx" ]
     then
         echo "(centroid of the atoms that define the start of the integration)"
@@ -644,28 +397,14 @@ function setFixPoint() {
         echo "(bond midpoint displaced by 1 bohr along B x bond; enter atom indices for the"
         echo " start of the integration to use their centroid instead)"
     fi
-    reportBondOrientation
 }
 
-function setBondOrientation() {
-# usage: setBondOrientation Bx By Bz
-# Recomputes swapBond for the current (user-chosen) fixed point Fx Fy Fz.
-    read dummyX dummyY dummyZ swapBond <<< "$(fixPointAndOrientation $atom1 $atom2 $1 $2 $3 $Fx $Fy $Fz)"
-    checkIfEmpty swapBond $swapBond
-    reportBondOrientation
-}
-
-function bondInput() {
-# usage: bondInput
-# Sets bondInp and distanceInp (the values written to the GIMIC input) from
-# atom1, atom2, distance and swapBond. GIMIC measures "distance" from the first
-# atom of the bond, so it is mirrored when the bond direction is reversed.
-    if [ "$swapBond" == "1" ]
-    then
-        bondInp="$atom2,$atom1"
-        distanceInp=$( awk -v L=$(calcDistance $atom1 $atom2) -v d=$distance 'BEGIN{ printf "%.6f", L-d }' )
-    else
-        bondInp="$atom1,$atom2"
-        distanceInp=$distance
-    fi
+function planeCheck() {
+# usage: planeCheck
+# Dry run of the whole-plane input in $dirname: prints the grid size and the
+# slices, writes grid.xyz (molecule, the four corners of the plane, and the
+# field direction as a Be atom) for inspection.
+    printf "\nPerforming a dry run...\n\n"
+    (cd ./$dirname/ && gimic --dryrun gimic.inp | grep -i "slices\|grid points\|reference centre\|error\|warn" )
+    printf "\n"
 }

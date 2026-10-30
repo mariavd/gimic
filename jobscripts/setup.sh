@@ -18,90 +18,26 @@ then
 fi
 
 
-# Prepare the base structure of the squares profile script for a local machine:
-file1="src/squares-profile-header"
-file2="src/squares-profile-local-submit"
-SCRIPT_OUT="src/squares-profile-local.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ]  # [ FILE1 -ot FILE2 ]  -> True if FILE1 is older than FILE2, or is FILE2 exists and FILE1 does not.
-then 
-    cat src/squares-profile-header > $SCRIPT_OUT
-    cat src/squares-profile-local-submit >> $SCRIPT_OUT
-fi
-
-# Prepare the base structure of the vertical profile script for a local machine:
-file1="src/vertical-profile-header"
-file2="src/current-profile-local-submit"
-SCRIPT_OUT="src/vertical-profile-local.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ]  
-then 
-    cat src/vertical-profile-header > $SCRIPT_OUT
-    cat src/current-profile-local-submit >> $SCRIPT_OUT
-fi
-
-
-# Prepare the base structure of the current profile script for a local machine:
-file1="src/current-profile-header"
-file2="src/current-profile-local-submit"
-SCRIPT_OUT="src/current-profile-local.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ]
-then 
-    cat src/current-profile-header > $SCRIPT_OUT
-    cat src/current-profile-local-submit >> $SCRIPT_OUT
-fi
-
-# Prepare the base structure  of the squares profile script for cluster
-
-file1="src/squares-profile-header"
-file2="src/squares-profile-cluster-submit"
-SCRIPT_OUT="src/squares-profile-cluster.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ] 
-then 
-    cat src/squares-profile-header > $SCRIPT_OUT
-    cat src/squares-profile-cluster-submit >> $SCRIPT_OUT
-fi
-
-# Prepare the base structure  of the squares profile script for cluster
-
-file1=squares-profile-header
-file2=squares-profile-cluster-submit
-file3=functions-def
-SCRIPT_OUT="squares-profile-cluster.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ] || [ $SCRIPT_OUT -ot $file3 ]
-then 
-    cat squares-profile-header > squares-profile-cluster.sh.in
-    cat squares-profile-cluster-submit >> squares-profile-cluster.sh.in
-fi
-
-# Prepare the base structure  of the current profile script for cluster
-
-file1="src/current-profile-header"
-file2="src/current-profile-cluster-submit"
-SCRIPT_OUT="src/current-profile-cluster.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ] 
-then 
-    cat src/current-profile-header > $SCRIPT_OUT
-    cat src/current-profile-cluster-submit >> $SCRIPT_OUT
-fi
-
-
-# Prepare the base structure  of the vertical profile script for cluster
-
-file1="src/vertical-profile-header"
-file2="src/current-profile-cluster-submit"
-SCRIPT_OUT="src/vertical-profile-cluster.sh.in"
-
-if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ] 
-then 
-    cat src/vertical-profile-header > $SCRIPT_OUT
-    cat src/current-profile-cluster-submit >> $SCRIPT_OUT
-fi
-
+# Prepare the profile scripts: a header (which parameters to ask for) and a
+# submit part (run locally with OpenMP threads, or submit to SLURM).
+for mode in current vertical squares
+do
+    for where in local cluster
+    do
+        file1="src/$mode-profile-header"
+        file2="src/current-profile-$where-submit"
+        SCRIPT_OUT="src/$mode-profile-$where.sh.in"
+        if [ $SCRIPT_OUT -ot $file1 ] || [ $SCRIPT_OUT -ot $file2 ] || [ $SCRIPT_OUT -ot src/current-profile-header ] || [ $SCRIPT_OUT -ot src/functions-def ]
+        then
+            cat $file1 > $SCRIPT_OUT
+            if [ $mode != current ]
+            then
+                cat src/current-profile-header >> $SCRIPT_OUT   # the vertical and squares profiles are the same script with another slicing
+            fi
+            cat $file2 >> $SCRIPT_OUT
+        fi
+    done
+done
 
 # Prepare the batch job scripts:
 
@@ -116,20 +52,6 @@ then
     echo "Created script $SCRIPT_OUT."
     chmod +x $SCRIPT_OUT
 fi
-
-# Prepare the batch job script for squares profile:
-
-file="src/jobscript-squares.IN"
-SCRIPT_OUT=jobscript-squares
-sedstring="s:@SCRIPTS_DIR@:$SCRIPTS_DIR:"
-if [ $SCRIPT_OUT -ot $file ] || [ $SCRIPT_OUT -ot src/jobscript-header ]
-then 
-    cat src/jobscript-header > $SCRIPT_OUT
-    sed "$sedstring" $file >> $SCRIPT_OUT
-    echo "Created script $SCRIPT_OUT."
-    chmod +x $SCRIPT_OUT
-fi
-
 
 # Prepare all other scripts
 SCRIPTS_IN=$(ls src/*in)
