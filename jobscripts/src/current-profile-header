@@ -387,12 +387,10 @@ do
     fi
 
     # the dry run of the whole plane writes grid.xyz: the molecule, the four
-    # corners of the plane (X) and the field direction (Be); keep a copy under
-    # the name the visualisation recipes know
-    cp ./$dirname/grid.xyz ./$dirname/grid.check.xyz
+    # corners of the plane (X) and the field direction (Be)
     echo
-    echo "The integration plane is in $dirname/grid.check.xyz (molecule, the four corners"
-    echo "of the plane as X, the field direction as Be). To inspect it, put this script in the"
+    echo "The integration plane is in $dirname/grid.xyz (molecule, the four corners of the"
+    echo "plane as X, the field direction as Be). To inspect it, put this script in the"
     echo "background (Ctrl-Z), open the file, and bring the script back with fg."
     echo
     checkPlane=""

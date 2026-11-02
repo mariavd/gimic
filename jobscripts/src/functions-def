@@ -170,11 +170,61 @@ function valueDimInp()
 }
 
 
+# The scripts take the geometry from the Turbomole file coord (bohr): atom i
+# is on line i+1. A missing coord is created from coord.xyz (Angstrom) or, if
+# that is missing too, from the coordinates in MOL (bohr); a missing coord.xyz
+# is created from coord for visualisation.
+
+function xyz2coord() {
+    awk 'BEGIN{ b=1.8897261246; print "$coord" }
+         NR > 2 && NF >= 4 { printf("%20.14f %20.14f %20.14f  %s\n", $2*b, $3*b, $4*b, tolower($1)) }
+         END{ print "$end" }' coord.xyz > coord
+}
+
+function coord2xyz() {
+    awk '/^\$coord/ { inside=1; next }
+         /^\$/ { inside=0 }
+         inside && NF >= 4 { n++; sym[n]=toupper(substr($4,1,1)) substr($4,2); x[n]=$1; y[n]=$2; z[n]=$3 }
+         END{ b=0.52917721; print n; print "converted from coord";
+              for (i=1;i<=n;i++) printf("%s %14.8f %14.8f %14.8f\n", sym[i], x[i]*b, y[i]*b, z[i]*b) }' coord > coord.xyz
+}
+
+function mol2coord() {
+    # atom lines of the MOL file: a label (symbol, optionally followed by a
+    # number or a separate count) and three coordinates in bohr
+    awk 'BEGIN{ print "$coord" }
+         NF == 5 && $1 ~ /^[A-Z][a-z]?$/ && $3 ~ /^-?[0-9.]+$/ { printf("%20.14f %20.14f %20.14f  %s\n", $3, $4, $5, tolower($1)) }
+         NF == 4 && $1 ~ /^[A-Z][a-z]?[0-9]*$/ && $2 ~ /^-?[0-9.]+$/ { sym=$1; sub(/[0-9]+$/, "", sym); printf("%20.14f %20.14f %20.14f  %s\n", $2, $3, $4, tolower(sym)) }
+         END{ print "$end" }' MOL > coord
+}
+
 function checkIfInputExists() {
-    if [ ! -e MOL ] || [ ! -e XDENS ] || [ ! -e coord ] || [ ! -e coord.xyz ]
+    if [ ! -e MOL ] || [ ! -e XDENS ]
     then
-	echo "Please run the bond integral calculation from a directory containing the files MOL, XDENS, coord and coord.xyz"
+	echo "Please run the script from a directory containing the files MOL and XDENS"
         exit
+    fi
+    if [ ! -e coord ] && [ -e coord.xyz ]
+    then
+	xyz2coord
+	echo "The file coord (bohr) was created from coord.xyz."
+    fi
+    if [ ! -e coord ]
+    then
+	mol2coord
+	natoms=$( grep -c -v '^\$' coord )
+	if [ "$natoms" -eq 0 ]
+	then
+	    rm -f coord
+	    echo "No coord or coord.xyz file, and no coordinates could be read from MOL."
+	    exit
+	fi
+	echo "The file coord (bohr) was created from the coordinates in MOL ($natoms atoms)."
+    fi
+    if [ ! -e coord.xyz ]
+    then
+	coord2xyz
+	echo "The file coord.xyz (Angstrom) was created from coord."
     fi
 }
 
