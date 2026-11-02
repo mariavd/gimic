@@ -155,19 +155,25 @@ towards=1, 2, 3, 4, 5, 6
 towards_coord=0.0, 0.0, 0.0
     The reference centre as a point instead of atoms.
 
-slices=0.02, 0.0
-    Current profile: slice thickness along the width and along the height
-    of the plane in bohr (0 = not sliced). See `Current profiles`_.
+slice_thickness=0.02, 0.0
+    Current profile: thickness of the slices along the width and along the
+    height of the plane in bohr (0 = not sliced). The thickness is exact; the
+    far end of the plane (``out``, ``up``) is extended to a whole number of
+    slices if needed. See `Current profiles`_.
 
 Current profiles
 ----------------
 
 The current through a plane can be resolved into slices in one run. The
 quadrature grid of GIMIC is a composite Gauss rule, i.e. a sequence of blocks
-of ``gauss_order`` points each, so with ``slices`` the number of grid points
+of ``gauss_order`` points each, so with ``slice_thickness`` the number of grid points
 along a sliced axis is set to one block per slice (``spacing`` and
 ``grid_points`` are ignored for that axis) and the current through each
 slice is the sum over its block of the column integrals, with no extra cost.
+The slices have exactly the requested thickness: when the length of the axis
+is not a multiple of it, the far end of the plane (``out`` for the width,
+``up`` for the height) is extended to the next whole slice and this is
+reported.
 A profile with 500 slices of 0.02 bohr is therefore one calculation over the
 whole plane instead of 500 calculations, and it is parallel with OpenMP over
 the columns of the grid (set ``OMP_NUM_THREADS``; the ``gimic`` launcher
@@ -185,19 +191,21 @@ keeps BLAS single-threaded).
         spacing=[0.025, 0.0, 0.0] # along the height; the width is set by the slices
         height=[-8.0, 8.0]
         width=[-2.6, 8.0]         # from the ring centre to 8 bohr outside
-        slices=[0.02, 0.0]        # 530 slices along the width
+        slice_thickness=[0.02, 0.0]        # 530 slices along the width
     }
 
-The sliced axis must use ``type=gauss`` or ``lobatto``. ``slices=[0.0, d]``
-gives a vertical profile, ``slices=[dw, dh]`` a map of rectangles. Files
+The sliced axis must use ``type=gauss`` or ``lobatto``. ``slice_thickness=[0.0, d]``
+gives a vertical profile, ``slice_thickness=[dw, dh]`` a map of rectangles. Files
 written: ``current_profile.dat`` (one line per slice, from the start of the
 integration: distance, net, positive and negative current in nA/T; the format
 of the current-profile scripts), ``vertical_profile.dat`` (the same for the
 slices along the height), ``profile.dat`` (the same with the geometry,
 the slice centres in space and the current per unit length at every Gauss
-node), and ``squares_profile.dat`` when both axes are sliced (a matrix, rows
-along the height and columns along the width, followed by a list with
-coordinates). For open-shell calculations the files carry the suffixes
+node), ``profile_points.dat`` (the maxima and minima of the net, diatropic and
+paratropic current per bohr along the profile, the zero crossings of the net
+current and the current integrated between them, also printed to the output),
+and ``squares_profile.dat`` when both axes are sliced (a matrix, rows along the
+height and columns along the width, followed by a list with coordinates). For open-shell calculations the files carry the suffixes
 ``_alpha``, ``_beta`` and ``_spindens``.
 
 Sign convention. The integral is the flux of the current density through the
@@ -215,5 +223,5 @@ is independent of the atom order already.
 A profile over a plane in an arbitrary position is a base grid: ``origin`` is
 one corner, ``ivec`` the edge along the field, ``jvec`` the edge along the
 profile, ``lengths`` the two edge lengths, ``type=gauss`` and
-``slices=[d, 0.0]``; the profile then runs from the origin along ``jvec``.
+``slice_thickness=[d, 0.0]``; the profile then runs from the origin along ``jvec``.
 

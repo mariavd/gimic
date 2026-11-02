@@ -17,6 +17,7 @@ f = {
                           rel_tolerance=1.0e-8)],
     'current_profile.dat': [get_filter(abs_tolerance=1.0e-6)],
     'profile.dat': [get_filter(abs_tolerance=1.0e-6)],
+    'profile_points.dat': [get_filter(abs_tolerance=1.0e-5)],
 }
 
 ierr = run(options,

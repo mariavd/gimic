@@ -102,7 +102,7 @@ def parse_keywords(args):
     grid.add_kw("gauss_order", 'INT', (7,))
     # current profile: slice thickness along the width (axis 2) and the
     # height (axis 1) of the plane in bohr; 0 = not sliced
-    grid.add_kw("slices", 'DBL_ARRAY', (0.0, 0.0))
+    grid.add_kw("slice_thickness", 'DBL_ARRAY', (0.0, 0.0))
     # reference centre for the sign convention (diatropic positive) and, for
     # bond grids, the default fixed point: atoms (centroid) or a point
     grid.add_kw("towards", 'INT_ARRAY', -1)
@@ -173,7 +173,7 @@ def check_grid(grid):
         ignore=('ivec', 'jvec', 'bond', 'fixpoint',
                 'origin', 'rotation', 'rotation_origin',
                 'radius', 'lengths','distance', 'spacing',
-                'slices', 'towards', 'towards_coord')
+                'slice_thickness', 'towards', 'towards_coord')
         for i in required:
             if not check_opt(grid,i):
                 print(err % (i,arg))
@@ -238,8 +238,8 @@ def check_grid(grid):
     if check_opt(grid, 'towards') and check_opt(grid, 'towards_coord'):
         print("Error: Both towards and towards_coord have been specified")
         sys.exit(1)
-    if check_opt(grid, 'slices') and grid.getkw('type')[0] == 'even':
-        print("Error: 'slices' needs a quadrature grid (type=gauss or lobatto)")
+    if check_opt(grid, 'slice_thickness') and grid.getkw('type')[0] == 'even':
+        print("Error: 'slice_thickness' needs a quadrature grid (type=gauss or lobatto)")
         sys.exit(1)
 
     if grid.getkw('type')[0] == 'even':

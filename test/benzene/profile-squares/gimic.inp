@@ -18,7 +18,7 @@ Grid(bond) {
     grid_points=[36, 36, 0]
     height=[-5.0, 5.0]
     width=[-2.2, 5.0]
-    slices=[0.5, 2.0]        # 14 slices along the width, 5 along the height
+    slice_thickness=[0.5, 2.0]        # 14 slices along the width, 5 along the height
 }
 
 Advanced {

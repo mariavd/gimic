@@ -19,7 +19,7 @@ Grid(std) {
     gauss_order=9
     grid_points=[36, 36, 0]
     towards_coord=[0.0, 0.0, 0.0]   # ring centre: diatropic current positive
-    slices=[0.72, 0.0]              # 10 slices along the width
+    slice_thickness=[0.72, 0.0]              # 10 slices along the width
 }
 
 Advanced {

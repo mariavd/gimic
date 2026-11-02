@@ -273,14 +273,14 @@ Grid(bond) {
     width=[-2.63, 8.0]      # unchanged: in (negative, towards C) and out
     height=[-8.0, 8.0]
     gauss_order=9
-    slices=[0.02, 0.0]      # NEW: slice thickness along width and height (bohr); 0 = no slicing.
+    slice_thickness=[0.02, 0.0]      # NEW: slice thickness along width and height (bohr); 0 = no slicing.
                             #      Sets npts = gauss_order * nint(length/slice) on that axis.
     spacing=[0.025, 0.0, 0.0]   # as today for the axes that are not sliced (here the height)
 }
 ```
 
-* `slices=[dw, 0]` gives the current profile along the plane,
-  `slices=[0, dh]` the vertical profile, `slices=[dw, dh]` the squares map.
+* `slice_thickness=[dw, 0]` gives the current profile along the plane,
+  `slice_thickness=[0, dh]` the vertical profile, `slice_thickness=[dw, dh]` the squares map.
   The same accumulation serves all three (`squares-profile` and
   `vertical-profile` become one keyword each instead of 350-line scripts).
 * `towards` can also take a point: `towards_coord=[x,y,z]`. `fixpoint` and
@@ -352,12 +352,12 @@ plain integral.
 
 ### 3.4 Validation
 
-* ctest `benzene/profile`: `slices=[0.1,0]` over width [-2.0, 0.0], 648 x 180,
+* ctest `benzene/profile`: `slice_thickness=[0.1,0]` over width [-2.0, 0.0], 648 x 180,
   reference `current_profile.dat` from the 20 separate runs in 3.1 (they agree
   to 2e-5 nA/T) and the total from the existing `integration-gauss` test.
 * ctest `benzene/profile-orientation`: the four combinations of atom order and
   field sign from 2.2 must give identical output with `towards=[1..6]`.
-* ctest `benzene/squares`: `slices=[0.5,0.5]`, compare the matrix sum with the
+* ctest `benzene/squares`: `slice_thickness=[0.5,0.5]`, compare the matrix sum with the
   total.
 * An MPI run (`GIMIC_LAUNCHER="mpirun -np 2"`) must reproduce the serial
   profile; today it does not even for the total.
@@ -508,7 +508,7 @@ for the common case (planar ring, start defined by atoms).
 Sections 3.2 to 3.6 are implemented on this branch, with these differences
 from the plan:
 
-* Keywords: `slices=[dw, dh]`, `towards=[atoms]` and `towards_coord=[x,y,z]`
+* Keywords: `slice_thickness=[dw, dh]`, `towards=[atoms]` and `towards_coord=[x,y,z]`
   in the `Grid` section, for any grid type. `towards` is also the default
   fixed point of a bond grid.
 * The sign rule is evaluated at the end of the profile (the "out" edge of a

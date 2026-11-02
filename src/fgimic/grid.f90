@@ -105,9 +105,9 @@ contains
             this%has_towards=.true.
         end if
 
-        ! current profile: slices=[along the width (axis 2), along the height (axis 1)]
-        if (keyword_is_set(input, 'Grid.slices')) then
-            call getkw(input, 'Grid.slices', sl)
+        ! current profile: slice_thickness=[along the width (axis 2), along the height (axis 1)]
+        if (keyword_is_set(input, 'Grid.slice_thickness')) then
+            call getkw(input, 'Grid.slice_thickness', sl)
             this%slice(2)=sl(1)
             this%slice(1)=sl(2)
         end if
@@ -171,7 +171,7 @@ contains
         end select
 
         if (any(this%slice > 0.d0) .and. .not.this%gauss) then
-            call msg_error('Grid.slices needs a quadrature grid (type=gauss or lobatto)')
+            call msg_error('Grid.slice_thickness needs a quadrature grid (type=gauss or lobatto)')
             stop
         end if
 
@@ -196,6 +196,8 @@ contains
         call getkw(input, 'Grid.ivec', this%basv(:,1))
         call getkw(input, 'Grid.jvec', this%basv(:,2))
         call getkw(input, 'Grid.lengths', this%l)
+        call whole_slices(this%l(1), this%slice(1), 'height (lengths(1))')
+        call whole_slices(this%l(2), this%slice(2), 'width (lengths(2))')
 
         if (keyword_is_set(input, 'Grid.spacing')) then
             call getkw(input, 'Grid.spacing', this%step)
@@ -272,6 +274,10 @@ contains
             call getkw(input, 'Grid.up', hgt(1))
             call getkw(input, 'Grid.down', hgt(2))
         end if
+        ! sliced axes: the slice thickness is exact and the plane is extended
+        ! at its far end ("out", "up") to a whole number of slices
+        call whole_slices(wdt(2), this%slice(2), 'out', wdt(1))
+        call whole_slices(hgt(2), this%slice(1), 'up', hgt(1))
         this%l=(/sum(hgt), sum(wdt), 0.d0/)
 
         if ( l3 < 0.d0 ) then
@@ -330,6 +336,32 @@ contains
         call nl
     end subroutine
 
+    ! Extend the far end of an axis so that its length is a whole number of
+    ! slices. With a start value, far is the "out"/"up" component and the
+    ! length is start+far; without, far is the length itself.
+    subroutine whole_slices(far, thick, name, start)
+        real(DP), intent(inout) :: far
+        real(DP), intent(in) :: thick
+        character(*), intent(in) :: name
+        real(DP), intent(in), optional :: start
+
+        real(DP) :: l, lnew
+        integer(I4) :: n
+
+        if (thick <= 0.d0) return
+        l=far
+        if (present(start)) l=l+start
+        if (l <= 0.d0) return
+        n=ceiling(l/thick-1.d-9)
+        lnew=real(n,DP)*thick
+        if (abs(lnew-l) > 1.d-9) then
+            far=far+(lnew-l)
+            write(str_g, '(a,a,a,f10.5,a,i6,a)') '  ', trim(name), ' extended to ', far, &
+                ' bohr: ', n, ' whole slices'
+            call msg_info(str_g)
+        end if
+    end subroutine
+
     subroutine normalise(v)
         real(DP), dimension(:,:), intent(inout) :: v
 
@@ -374,14 +406,10 @@ contains
         do i=1,3
             if (this%slice(i) > 0.d0) then
                 if (this%l(i) <= 0.d0) then
-                    call msg_error('Grid.slices: the sliced axis has zero length')
+                    call msg_error('Grid.slice_thickness: the sliced axis has zero length')
                     stop
                 end if
                 this%nslice(i)=max(1, nint(this%l(i)/this%slice(i)))
-                if (abs(this%l(i)/this%nslice(i)-this%slice(i)) > 1.d-6) then
-                    call msg_info('Slice thickness adjusted to fit the length of the axis')
-                end if
-                this%slice(i)=this%l(i)/this%nslice(i)
                 this%npts(i)=order*this%nslice(i)
                 write(str_g, '(a,i1,a,i6,a,f10.5,a)') '  Axis ', i, ':', &
                     this%nslice(i), ' slices of ', this%slice(i), ' bohr'

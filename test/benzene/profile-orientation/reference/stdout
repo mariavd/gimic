@@ -2,7 +2,7 @@ This is F-GIMIC.
 
  ****************************************************************
  ***                                                          ***
- ***           GIMIC 2.2.1 (e4b8cb3)                          ***
+ ***           GIMIC 2.2.1 (1c83156)                          ***
  ***           Written by Jonas Juselius and co-authors       ***
  ***                                                          ***
  ***  This software is copyright (c) 2003-2023 by             ***
@@ -13,7 +13,7 @@ This is F-GIMIC.
  ****************************************************************
 
  OpenMP threads: 1
- Fri Oct 30 10:34:55 2026
+ Mon Nov  2 09:15:16 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -71,6 +71,22 @@ This is F-GIMIC.
  ************************************************************
 
  Current profile written to current_profile.dat
+
+ Current profile: extrema of dJ/dx [nA/T/bohr]
+   net        minimum    1.721 at (   1.398   0.000   0.000 )    -3.7127
+   net        maximum    3.186 at (   2.863   0.000   0.000 )    10.8567
+   net        minimum    6.870 at (   6.547   0.000   0.000 )    -0.0118
+   diatropic  minimum    0.591 at (   0.268   0.000   0.000 )    -0.0057
+   diatropic  maximum    3.186 at (   2.863   0.000   0.000 )    10.8567
+   paratropic minimum    1.815 at (   1.492   0.000   0.000 )    -4.1276
+   paratropic minimum    6.368 at (   6.045   0.000   0.000 )    -0.0269
+
+ Current profile: zero crossings of the net current and the current between them [nA/T]
+      0.000 to   0.323:     0.09390     0.10002    -0.00612
+      0.323 to   2.287:    -3.93381     0.46691    -4.40072
+      2.287 to   6.343:    15.76405    16.30727    -0.54322
+      6.343 to  10.600:    -0.01657     0.01013    -0.02671
+ Profile analysis written to profile_points.dat
  Profile details written to profile.dat
 
 
@@ -78,12 +94,12 @@ This is F-GIMIC.
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       1.13sec (   0.0 h )
-     cpu time:       1.11sec (   0.0 h )
-         user:       1.11sec (   0.0 h )
-          sys:       0.00sec (   0.0 h )
+    wall time:       1.26sec (   0.0 h )
+     cpu time:       1.26sec (   0.0 h )
+         user:       1.25sec (   0.0 h )
+          sys:       0.01sec (   0.0 h )
  ----------------------------------------------------------------------
- Fri Oct 30 10:34:56 2026
+ Mon Nov  2 09:15:17 2026
  Hello World! (tm)
 
  done.

@@ -2,7 +2,7 @@ This is F-GIMIC.
 
  ****************************************************************
  ***                                                          ***
- ***           GIMIC 2.2.1 (e4b8cb3)                          ***
+ ***           GIMIC 2.2.1 (1c83156)                          ***
  ***           Written by Jonas Juselius and co-authors       ***
  ***                                                          ***
  ***  This software is copyright (c) 2003-2023 by             ***
@@ -13,7 +13,7 @@ This is F-GIMIC.
  ****************************************************************
 
  OpenMP threads: 1
- Fri Oct 30 10:51:27 2026
+ Mon Nov  2 09:15:15 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -30,24 +30,24 @@ This is F-GIMIC.
 
  INFO: Reordering densities [TURBOMOLE]
  INFO: Fixed point set to the reference centre (towards)
+ INFO:   out extended to    5.30000 bohr:     15 whole slices
 
  Integration grid data
  ------------------------------------------------
  center     2.277078   -0.000028    0.000000
- origin     7.277078   -0.000028   -5.000000
+ origin     7.577078   -0.000028   -5.000000
  basv1     -0.000000   -0.000000    1.000000
  basv2     -1.000000   -0.000000   -0.000000
  basv3      0.000000   -1.000000    0.000000
- lenghts   10.000000    7.200000    0.000000
+ lenghts   10.000000    7.500000    0.000000
  magnet     0.000000    0.000000   -1.000000
 
  Grid mode = bond
  INFO: Integration grid selected.
    Axis 1:     5 slices of    2.00000 bohr
- INFO: Slice thickness adjusted to fit the length of the axis
-   Axis 2:    14 slices of    0.51429 bohr
-   Number of grid points <v1,v2>:   45  126    1
-   Total number of grid points  :      5670
+   Axis 2:    15 slices of    0.50000 bohr
+   Number of grid points <v1,v2>:   45  135    1
+   Total number of grid points  :      6075
    Reference centre (towards)   :    0.000000    0.000000    0.000000
 
  *** Grid plot in grid.xyz
@@ -64,15 +64,29 @@ This is F-GIMIC.
  INFO: Currents are positive when they flow in the diatropic sense around the reference centre
 
  ************************************************************
-    Induced current (au)    :     0.418820
-       Positive contribution:     0.594989  (  16.766440 )
-       Negative contribution:    -0.176170  (  -4.964353 )
+    Induced current (au)    :     0.418757
+       Positive contribution:     0.595100  (  16.769578 )
+       Negative contribution:    -0.176343  (  -4.969251 )
 
-    Induced current (nA/T)  :    11.802087
+    Induced current (nA/T)  :    11.800327
        (conversion factor)  :    28.179409
  ************************************************************
 
  Current profile written to current_profile.dat
+
+ Current profile: extrema of dJ/dx [nA/T/bohr]
+   net        minimum    1.205 at (   1.282  -0.000   0.000 )    -3.5549
+   net        maximum    2.837 at (   2.914  -0.000   0.000 )    10.6350
+   net        minimum    6.525 at (   6.602  -0.000   0.000 )    -0.0110
+   diatropic  maximum    2.831 at (   2.908  -0.000   0.000 )    10.6186
+   paratropic minimum    1.334 at (   1.411  -0.000   0.000 )    -3.8510
+   paratropic minimum    6.010 at (   6.087  -0.000   0.000 )    -0.0248
+
+ Current profile: zero crossings of the net current and the current between them [nA/T]
+      0.000 to   1.851:    -3.90622     0.90867    -4.81489
+      1.851 to   6.070:    15.72030    15.85135    -0.13105
+      6.070 to   7.500:    -0.01376     0.00956    -0.02332
+ Profile analysis written to profile_points.dat
  Vertical profile written to vertical_profile.dat
  Profile details written to profile.dat
  Squares profile written to squares_profile.dat
@@ -82,12 +96,12 @@ This is F-GIMIC.
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       0.40sec (   0.0 h )
-     cpu time:       0.41sec (   0.0 h )
-         user:       0.40sec (   0.0 h )
-          sys:       0.01sec (   0.0 h )
+    wall time:       0.32sec (   0.0 h )
+     cpu time:       0.32sec (   0.0 h )
+         user:       0.32sec (   0.0 h )
+          sys:       0.00sec (   0.0 h )
  ----------------------------------------------------------------------
- Fri Oct 30 10:51:28 2026
+ Mon Nov  2 09:15:16 2026
  Hello World! (tm)
 
  done.

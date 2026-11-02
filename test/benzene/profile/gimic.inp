@@ -18,7 +18,7 @@ Grid(bond) {
     grid_points=[72, 0, 0]   # the width is set by the slices
     height=[-8.0, 8.0]
     width=[-2.6, 8.0]
-    slices=[0.2, 0.0]        # 53 slices of 0.2 bohr along the width
+    slice_thickness=[0.2, 0.0]        # 53 slices of 0.2 bohr along the width
 }
 
 Advanced {

@@ -20,7 +20,7 @@ Grid(bond) {                    # define grid orthogonal to a bond
      distance=@distance@               # place grid 'distance' between atoms
      gauss_order=9               # order for gauss quadrature
      spacing=[ @spacingX@, @spacingY@, @spacingZ@ ]   # ignored along the sliced axes
-     slices=[ @slices@ ]            # slice thickness along the width and the height; 0 = not sliced
+     slice_thickness=[ @slices@ ]   # along the width and along the height, bohr; 0 = not sliced
 #     in=@start@
 #     out=@end@
 #     up=@up@

@@ -19,7 +19,7 @@ Grid(bond) {
     grid_points=[72, 0, 0]
     height=[-8.0, 8.0]
     width=[-2.6, 8.0]
-    slices=[0.2, 0.0]
+    slice_thickness=[0.2, 0.0]
 }
 
 Advanced {

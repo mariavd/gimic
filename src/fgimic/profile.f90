@@ -25,6 +25,10 @@
 !                         slices along the height if any, and the current
 !                         per unit length at every Gauss node along the
 !                         width, so that any sub-range can be re-integrated.
+!   profile_points.dat    the analysis of the profile along the width: maxima
+!                         and minima of the net, diatropic and paratropic
+!                         current per bohr, the zero crossings of the net
+!                         current, and the current integrated between them.
 !   squares_profile.dat   when both axes are sliced: the net current through
 !                         each rectangle, as a matrix (rows: height slices,
 !                         columns: width slices) for plotting with image
@@ -101,6 +105,8 @@ contains
             close(PFD)
             call msg_out('Current profile written to current_profile'//trim(suffix)//'.dat')
         end if
+
+        if (g%nslice(2) > 2) call analyse_profile(g, s, d2, from_in, suffix)
 
         ! ---- vertical_profile.dat: the slices along the height -----------
         if (g%nslice(1) > 0) then
@@ -238,6 +244,110 @@ contains
 
         deallocate(s, node)
     end subroutine
+
+    ! Maxima, minima and zero crossings of the profile along the width, and
+    ! the current integrated between consecutive zero crossings of the net
+    ! current. The extrema are located with a parabola through the slice and
+    ! its two neighbours, the zero crossings by linear interpolation between
+    ! slice centres; the integrated ranges consist of whole slices.
+    subroutine analyse_profile(g, s, d2, from_in, suffix)
+        type(grid_t), intent(in) :: g
+        real(DP), dimension(:,:,:), intent(in) :: s
+        real(DP), intent(in) :: d2
+        logical, intent(in) :: from_in
+        character(*), intent(in) :: suffix
+
+        integer(I4) :: nb2, n, q
+        real(DP), dimension(:,:), allocatable :: v, sl
+        real(DP), dimension(3) :: p, tot
+        real(DP) :: a, b, c, off, val, x0, xprev
+        character(10), dimension(3), parameter :: qname = &
+            (/ 'net       ', 'diatropic ', 'paratropic' /)
+        character(7) :: kind
+        real(DP), parameter :: THRS=1.d-3   ! nA/T per bohr: ignore extrema of the far-field noise
+
+        nb2=size(s,3)
+        allocate(v(3,nb2), sl(3,nb2))
+        do n=1,nb2
+            do q=1,3
+                sl(q,n)=au2si(sum(s(q,:,slice_index(n,nb2,from_in))))
+            end do
+            v(:,n)=sl(:,n)/d2
+        end do
+
+        open(PFD, file='profile_points'//trim(suffix)//'.dat')
+        write(PFD, '(a)') '# Analysis of the current profile along the width; x in bohr from the start of the profile'
+        write(PFD, '(a)') '# extremum  quantity        x            cx            cy            cz     dJ/dx [nA/T/bohr]'
+        call nl
+        call msg_out('Current profile: extrema of dJ/dx [nA/T/bohr]')
+        do q=1,3
+            do n=2,nb2-1
+                a=v(q,n-1); b=v(q,n); c=v(q,n+1)
+                if (.not.((b > a .and. b >= c) .or. (b < a .and. b <= c))) cycle
+                if (abs(b) < THRS) cycle
+                off=0.d0
+                val=b
+                if (abs(a-2.d0*b+c) > 1.d-14) then
+                    off=0.5d0*d2*(a-c)/(a-2.d0*b+c)
+                    val=b-(a-c)**2/(8.d0*(a-2.d0*b+c))
+                end if
+                x0=(real(n,DP)-0.5d0)*d2+off
+                p=point_at(g, x0, from_in)
+                if (b > a) then
+                    kind='maximum'
+                else
+                    kind='minimum'
+                end if
+                write(PFD, '(2x,a7,2x,a10,f12.4,3f14.6,f16.6)') kind, qname(q), x0, p, val
+                write(str_g, '(2x,a10,1x,a7,f9.3,a,3f8.3,a,f11.4)') qname(q), kind, x0, &
+                    ' at (', p, ' )', val
+                call msg_out(str_g)
+            end do
+        end do
+
+        write(PFD, '(a)') '#'
+        write(PFD, '(a)') '# zero crossings of the net current, and the current [nA/T] integrated between them (whole slices)'
+        write(PFD, '(a)') '#    x_from      x_to           net           dia          para     [zero crossing at x_to: cx cy cz]'
+        call nl
+        call msg_out('Current profile: zero crossings of the net current and the current between them [nA/T]')
+        tot=0.d0
+        xprev=0.d0
+        do n=1,nb2
+            tot=tot+sl(:,n)
+            if (n < nb2) then
+                if (v(1,n)*v(1,n+1) < 0.d0) then
+                    x0=(real(n,DP)-0.5d0)*d2+d2*v(1,n)/(v(1,n)-v(1,n+1))
+                    p=point_at(g, x0, from_in)
+                    write(PFD, '(2f11.4,3f14.6,4x,3f14.6)') xprev, x0, tot, p
+                    write(str_g, '(2x,f8.3,a,f8.3,a,3f12.5)') xprev, ' to', x0, ':', tot
+                    call msg_out(str_g)
+                    xprev=x0
+                    tot=0.d0
+                end if
+            end if
+        end do
+        x0=real(nb2,DP)*d2
+        write(PFD, '(2f11.4,3f14.6)') xprev, x0, tot
+        write(str_g, '(2x,f8.3,a,f8.3,a,3f12.5)') xprev, ' to', x0, ':', tot
+        call msg_out(str_g)
+        close(PFD)
+        call msg_out('Profile analysis written to profile_points'//trim(suffix)//'.dat')
+        deallocate(v, sl)
+    end subroutine
+
+    ! point on the mid-height line of the plane at the profile coordinate x
+    function point_at(g, x, from_in) result(c)
+        type(grid_t), intent(in) :: g
+        real(DP), intent(in) :: x
+        logical, intent(in) :: from_in
+        real(DP), dimension(3) :: c
+
+        if (from_in) then
+            c=slice_centre(g, 0.5d0*g%l(1), g%l(2)-x)
+        else
+            c=slice_centre(g, 0.5d0*g%l(1), x)
+        end if
+    end function
 
     ! block index along the width of the n:th slice in writing order
     function slice_index(n, nb2, from_in) result(b2)

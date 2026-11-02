@@ -1,0 +1,16 @@
+# Analysis of the current profile along the width; x in bohr from the start of the profile
+# extremum  quantity        x            cx            cy            cz     dJ/dx [nA/T/bohr]
+  minimum  net             1.7214      1.398473     -0.000028      0.000000       -3.712744
+  maximum  net             3.1863      2.863346     -0.000028      0.000000       10.856659
+  minimum  net             6.8696      6.546673     -0.000028      0.000000       -0.011777
+  minimum  diatropic       0.5911      0.268138     -0.000028      0.000000       -0.005659
+  maximum  diatropic       3.1863      2.863346     -0.000028      0.000000       10.856659
+  minimum  paratropic      1.8153      1.492422     -0.000028      0.000000       -4.127618
+  minimum  paratropic      6.3678      6.044863     -0.000028      0.000000       -0.026880
+#
+# zero crossings of the net current, and the current [nA/T] integrated between them (whole slices)
+#    x_from      x_to           net           dia          para     [zero crossing at x_to: cx cy cz]
+     0.0000     0.3225      0.093903      0.100022     -0.006119         -0.000381     -0.000028      0.000000
+     0.3225     2.2872     -3.933815      0.466906     -4.400721          1.964310     -0.000028      0.000000
+     2.2872     6.3433     15.764047     16.307270     -0.543224          6.020373     -0.000028      0.000000
+     6.3433    10.6000     -0.016573      0.010134     -0.026707
