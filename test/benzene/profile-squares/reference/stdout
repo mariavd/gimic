@@ -13,7 +13,7 @@ This is F-GIMIC.
  ****************************************************************
 
  OpenMP threads: 1
- Mon Nov  2 09:15:15 2026
+ Mon Nov  2 09:24:17 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -30,7 +30,7 @@ This is F-GIMIC.
 
  INFO: Reordering densities [TURBOMOLE]
  INFO: Fixed point set to the reference centre (towards)
- INFO:   out extended to    5.30000 bohr:     15 whole slices
+ WARNING: Plane out changed from    5.00000 to    5.30000 bohr to hold     15 whole slices of   0.5000 bohr
 
  Integration grid data
  ------------------------------------------------
@@ -96,12 +96,12 @@ This is F-GIMIC.
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       0.32sec (   0.0 h )
-     cpu time:       0.32sec (   0.0 h )
-         user:       0.32sec (   0.0 h )
-          sys:       0.00sec (   0.0 h )
+    wall time:       0.31sec (   0.0 h )
+     cpu time:       0.30sec (   0.0 h )
+         user:       0.30sec (   0.0 h )
+          sys:       0.01sec (   0.0 h )
  ----------------------------------------------------------------------
- Mon Nov  2 09:15:16 2026
+ Mon Nov  2 09:24:18 2026
  Hello World! (tm)
 
  done.

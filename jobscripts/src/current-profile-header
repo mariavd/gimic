@@ -39,12 +39,54 @@ function writeInput()
     fi
 }
 
+function sliceCount()
+{
+    # The slices have exactly the thickness delta. When the width (in+out) or
+    # the height (down+up) of the plane is not a multiple of it, GIMIC extends
+    # the far end of the plane (out, up) to the next whole slice. Compute the
+    # number of slices and the effective extents, and tell the user now: the
+    # extension is small but it moves the edge of the plane, which matters
+    # e.g. when a plane is meant to end exactly at a symmetry plane.
+    nsteps=$( awk -v a=$start -v b=$out -v d=$delta 'BEGIN{ n=int((a+b)/d - 1e-9); if (n*d < a+b-1e-9) n++; printf("%d", n) }' )
+    nstepsV=$( awk -v a=$down -v b=$up -v d=$delta 'BEGIN{ n=int((a+b)/d - 1e-9); if (n*d < a+b-1e-9) n++; printf("%d", n) }' )
+    checkIfEmpty nsteps $nsteps
+    checkIfEmpty nstepsV $nstepsV
+    outEff=$out
+    upEff=$up
+    if [ "$profileMode" != "vertical" ]
+    then
+	outEff=$( awk -v a=$start -v n=$nsteps -v d=$delta 'BEGIN{ printf("%.4f", n*d - a) }' )
+    fi
+    if [ "$profileMode" != "current" ]
+    then
+	upEff=$( awk -v a=$down -v n=$nstepsV -v d=$delta 'BEGIN{ printf("%.4f", n*d - a) }' )
+    fi
+    sliceNote=""
+    if [ $( awk -v a=$out -v b=$outEff 'BEGIN{ print ((b-a > 1e-6) ? 1 : 0) }' ) == 1 ]
+    then
+	sliceNote="NOTE: out = $out is not a whole number of slices away from in = $start; GIMIC will extend the plane to out = $outEff ($nsteps slices of $delta bohr)."
+    fi
+    if [ $( awk -v a=$up -v b=$upEff 'BEGIN{ print ((b-a > 1e-6) ? 1 : 0) }' ) == 1 ]
+    then
+	sliceNote="$sliceNote
+NOTE: up = $up is not a whole number of slices away from down = $down; GIMIC will extend the plane to up = $upEff ($nstepsV slices of $delta bohr)."
+    fi
+    if [ ! -z "$sliceNote" ]
+    then
+	echo
+	echo "$sliceNote"
+	echo "Change out/up or the slice thickness (menu after the dry run) if the edge of the plane must stay where it is."
+	echo
+    fi
+}
+
 function printSummary() {
 cat /dev/null > ./$dirname/calculation.dat
 echo atom1=$atom1  >> ./$dirname/calculation.dat
 echo atom2=$atom2 >> ./$dirname/calculation.dat
 echo distance=$distance >> ./$dirname/calculation.dat
 echo in=$start out=$out up=$up down=$down  >> ./$dirname/calculation.dat
+echo effective extents: out=$outEff up=$upEff >> ./$dirname/calculation.dat
 echo fixed point: Fx=$Fx Fy=$Fy Fz=$Fz  >> ./$dirname/calculation.dat
 echo profile=$profileMode >> ./$dirname/calculation.dat
 echo delta=$delta nsteps=$nsteps nstepsV=$nstepsV >> ./$dirname/calculation.dat
@@ -59,6 +101,10 @@ printf "\n\n********************************************************************
 printf "Bond: ["$bond"], distance = $distance; $profileMode profile\n\n"
 echo "Integration plane coordinates"
 printf "in = $start  out = $out  up = $up  down = $down \n"
+if [ ! -z "$sliceNote" ]
+then
+    printf "$sliceNote\n"
+fi
 case $profileMode in
     vertical) printf "Split into $nstepsV slices of $delta bohr along the height; grid spacing $spacingY along the width\n" ;;
     squares)  printf "Split into $nsteps x $nstepsV squares of $delta bohr\n" ;;
@@ -154,12 +200,7 @@ case $profileMode in
 esac
 valueDimInp delta $delta "bohr"
 
-# number of slices along the width and along the height; GIMIC extends the far end
-# of the plane ("out", "up") to a whole number of slices of exactly this thickness
-nsteps=$( awk -v start=$start -v out=$out -v delta=$delta 'BEGIN{ n=int((out+start)/delta - 1e-9); if (n*delta < out+start-1e-9) n++; printf("%d", n) }' )
-nstepsV=$( awk -v up=$up -v down=$down -v delta=$delta 'BEGIN{ n=int((up+down)/delta - 1e-9); if (n*delta < up+down-1e-9) n++; printf("%d", n) }' )
-checkIfEmpty nsteps $nsteps
-checkIfEmpty nstepsV $nstepsV
+sliceCount   # nsteps, nstepsV and the effective out/up; warns if the plane is extended
 
 
 printf "\n\nGRID POINT SPACING (along the axes that are not sliced)\n"
@@ -445,8 +486,7 @@ do
 	    printf "\n\nEnter the number of the entry to change it or press [ENTER] to continue\n"
 	    read entry
 	done
-	nsteps=$( awk -v start=$start -v out=$out -v delta=$delta 'BEGIN{ n=int((out+start)/delta - 1e-9); if (n*delta < out+start-1e-9) n++; printf("%d", n) }' )
-	nstepsV=$( awk -v up=$up -v down=$down -v delta=$delta 'BEGIN{ n=int((up+down)/delta - 1e-9); if (n*delta < up+down-1e-9) n++; printf("%d", n) }' )
+	sliceCount
     fi
 done
 

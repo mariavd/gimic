@@ -355,10 +355,11 @@ contains
         n=ceiling(l/thick-1.d-9)
         lnew=real(n,DP)*thick
         if (abs(lnew-l) > 1.d-9) then
+            write(str_g, '(a,a,a,f10.5,a,f10.5,a,i6,a,f8.4,a)') 'Plane ', trim(name), &
+                ' changed from ', far, ' to ', far+(lnew-l), ' bohr to hold ', n, &
+                ' whole slices of ', thick, ' bohr'
+            call msg_warn(str_g)
             far=far+(lnew-l)
-            write(str_g, '(a,a,a,f10.5,a,i6,a)') '  ', trim(name), ' extended to ', far, &
-                ' bohr: ', n, ' whole slices'
-            call msg_info(str_g)
         end if
     end subroutine
 

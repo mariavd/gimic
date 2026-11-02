@@ -172,8 +172,12 @@ along a sliced axis is set to one block per slice (``spacing`` and
 slice is the sum over its block of the column integrals, with no extra cost.
 The slices have exactly the requested thickness: when the length of the axis
 is not a multiple of it, the far end of the plane (``out`` for the width,
-``up`` for the height) is extended to the next whole slice and this is
-reported.
+``up`` for the height) is extended to the next whole slice. This is a
+warning in the output (also of a dry run), and the interactive scripts say
+so as soon as the slice thickness is chosen, because it moves the edge of the
+plane: when a plane is meant to end exactly at a symmetry plane, e.g. half
+of a fullerene to be doubled, choose ``out``/``up`` or the thickness such
+that the length is a whole number of slices.
 A profile with 500 slices of 0.02 bohr is therefore one calculation over the
 whole plane instead of 500 calculations, and it is parallel with OpenMP over
 the columns of the grid (set ``OMP_NUM_THREADS``; the ``gimic`` launcher
