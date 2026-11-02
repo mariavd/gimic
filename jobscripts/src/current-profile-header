@@ -386,25 +386,20 @@ do
 	doDryRun=""
     fi
 
+    # the dry run of the whole plane writes grid.xyz: the molecule, the four
+    # corners of the plane (X) and the field direction (Be); keep a copy under
+    # the name the visualisation recipes know
+    cp ./$dirname/grid.xyz ./$dirname/grid.check.xyz
     echo
-    echo "Do you want to inspect the integration plane? grid.check.xyz holds the molecule,"
-    echo "the four corners of the plane (X) and the field direction (Be)."
-    echo "Press [y] or any other key to skip"; read checkPlane
-    if  [ "$checkPlane" == "y" ]
-    then
-	cp ./$dirname/grid.xyz ./$dirname/grid.check.xyz
-	echo
-	echo "The file $dirname/grid.check.xyz created."
-	echo "You can now put this script to the background and inspect the molecule."
-	echo "Bring the script to foreground and press enter to continue."
-	read accept
-    else
-	checkPlane=""
-    fi
+    echo "The integration plane is in $dirname/grid.check.xyz (molecule, the four corners"
+    echo "of the plane as X, the field direction as Be). To inspect it, put this script in the"
+    echo "background (Ctrl-Z), open the file, and bring the script back with fg."
+    echo
+    checkPlane=""
 
     # ask if it's necessary to change a parameter - without restarting the script
     echo "Do you want to modify the integration plane parameters?"
-    echo "Press [y] to list the options."; read accept
+    echo "Press [y] to list the options or [ENTER] to continue."; read accept
 
     if [ ! -z $accept ] && [ $accept == "y" ]
     then
