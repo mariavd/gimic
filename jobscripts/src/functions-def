@@ -397,6 +397,8 @@ function setFixPoint() {
         echo "(bond midpoint displaced by 1 bohr along B x bond; enter atom indices for the"
         echo " start of the integration to use their centroid instead)"
     fi
+    echo "It only fixes the side of the bond on which the integration starts and the sign of"
+    echo "the current (diatropic positive); the start itself is the in value: $start bohr."
 }
 
 function planeCheck() {

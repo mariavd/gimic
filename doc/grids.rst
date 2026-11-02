@@ -145,12 +145,18 @@ rotation=0.0, 0.0, 0.0
     in the x->y->z convention.
 
 towards=1, 2, 3, 4, 5, 6
-    Reference centre: the centroid of these atoms (typically the ring the
-    integration starts from). Two effects: for bond grids it is the default
-    fixed point, so that the integration starts on its side of the bond, and
-    the sign of the integrated current is chosen such that a current flowing
-    in the diatropic sense around it is positive, whatever the order of the
-    bond atoms or the sign of the field. See `Current profiles`_.
+    Optional. Reference centre: the centroid of these atoms (typically the
+    ring the integration starts from). Two effects: for bond grids it is the
+    default fixed point, so that the integration starts on its side of the
+    bond, and the sign of the integrated current is chosen such that a current
+    flowing in the diatropic sense around it is positive, whatever the order
+    of the bond atoms or the sign of the field. It does not set where the
+    plane starts or ends: that is ``width`` and ``height`` as always, and the
+    first component of ``width`` may well reach past the reference centre (a
+    profile that starts a little beyond the ring centre shows the origin of
+    the vortex as the point where the net current changes sign). Without
+    ``towards`` a bond grid needs ``fixpoint`` or ``fixcoord`` and the sign
+    is the flux along the bond direction. See `Current profiles`_.
 
 towards_coord=0.0, 0.0, 0.0
     The reference centre as a point instead of atoms.
