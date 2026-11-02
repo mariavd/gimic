@@ -1,5 +1,0 @@
-#!/bin/bash
-# Squares profile: the plane is sliced along its width and its height, giving
-# a map of the current through rectangles. setup.sh appends the
-# current-profile header and the submit part.
-PROFILE_MODE=squares

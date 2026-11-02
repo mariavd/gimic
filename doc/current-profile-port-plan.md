@@ -533,6 +533,17 @@ from the plan:
   submit scripts and `jobscript-squares` are gone; `crit_pts.sh` reads the
   plane end points from `profile.dat`.
 
+* Interface (section 4) implemented as `tools/gimic-profile.py.in`, installed
+  as `gimic-profile`: every parameter an option, questions only for what is
+  missing with defaults in brackets, `--yes`, atom echo with symbols and
+  coordinates, `--angstrom`, geometry from coord/coord.xyz/MOL, dry run with
+  grid size, slices, warnings and run-time estimate (the estimate is new in
+  GIMIC too, `integral_eta`), `profile.json` instead of `calculation.dat`
+  with `--rerun`, one threaded run or a SLURM job (`--slurm`, `--submit`,
+  header from `~/.gimic/jobscript-header`), matplotlib plots with
+  `--plot`, `--zero origin|bond`, `--lines`. The bash scripts are thin
+  wrappers; `functions-def` remains for `3D-run.sh`.
+
 ## 6. State of the repository after the first session
 
 Changed (uncommitted): `jobscripts/src/functions-def`,

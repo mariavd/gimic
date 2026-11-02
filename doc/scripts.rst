@@ -1,76 +1,129 @@
-
-
-Interactive bash scripts
-==========================
+Current profiles: gimic-profile
+===============================
 
 Introduction
 ----------------------------
 
-GIMIC calculations can be started interactively using bash scripts. They are useful for adjusting the integration plane of choice, for starting current profile analysis, and submission of parallel tasks on a cluster with the SLURM schedulilng system (i.e. one where you submit jobs using ``sbatch``. There is a local version for the current profile analysis, which can run on a laptop, for example. The geometry is taken from the TURBOMOLE ``coord`` file (bohr); if it is missing, it is created from ``coord.xyz`` (Ångström) or, failing that, from the coordinates in ``MOL``, so users of other programs need neither file. The current density analyses employing GIMIC are most easily done if the magnetic field, pointing along the Z axis, is perpendicular to the molecular plane of a planar molecule. The orientation of the magnetic field can, of course, be modified accordingly. 
+Current profiles (the current through an integration plane resolved into thin
+slices) are set up, run and plotted with the command ``gimic-profile``, which
+is installed together with ``gimic``. GIMIC computes all slices of a profile in
+one run (keyword ``slice_thickness``, see the grids section), in parallel with
+OpenMP over the columns of the integration grid, so a profile is one
+calculation on a laptop or one batch job on a cluster.
 
-**NOTE:**  The script assumes that the ``MOL`` and ``XDENS`` files exist. They can prepared using ``turbo2gimic.py`` or ``Gaussian2gimic.py`` once the nuclear shielding calculation has finished.
-
-
-Setup 
------------------------------
-In the ``jobscripts`` directory there is a script called ``setup.sh``. It takes care of preparing the scripts for the specific machine. 
-
-**NOTE**:   When preparing the scripts for a cluster, first it is necessary to modify the ``jobscript-header`` file before running ``setup.sh``. You likely need to adjust the name of the partition according to the specific cluster, as well as load the necessary modules in order to start GIMIC. Do not add time limit, job name, or number of cores as parameters because the GIMIC script will ask for that before submitting the calculation (one task with as many cores as OpenMP threads). 
-
-Remember, that the setup script hardcodes the paths to the directories, so if you want to use the scripts on another computer, you need to execute ``./setup`` there. Setup needs to be done only once - after you ``git pull``, so as to install the newly implemented features and bug fixes. The prepared scripts can then be called from the calculation directory. should be called. The workflow can be made easier by add the export ``$GIMIC_HOME=/your/own/path``, which is printed after setup. There are some bash aliases and functions in the file ``useful-aliases``, which you may want to add to your ``./bashrc``. 
-
-The scripts are still under development but the ones that are recommended for use at the moment are ``current-profile-cluster.sh``, ``current-profile-local.sh``, and ``gimic-run.sh``. The others are still in development phase, so if you are curious, you can try but functionality might be unclear or limited. 
-
-VMD is a highly-recommended tools for visualisation of molecules, in particular, the integration planes. 
-
+The command needs ``MOL`` and ``XDENS`` in the working directory (prepared with
+``turbo2gimic.py`` or ``Gaussian2gimic.py``). The geometry is taken from the
+Turbomole ``coord`` file (bohr) if present, otherwise from ``coord.xyz``
+(Ångström) or from the coordinates in ``MOL``, so nothing else has to be
+prepared.
 
 Quick summary
 -----------------------------
 
-1. Choose an integration plane
-2. If not obvious where to start integrating from, you can test its beginning and end points using the ``gimic-run.sh`` script and visualise the grid.xyz file. Adjust the gimic.inp file manually if necessary.
-3. Run the current profile for the integration plane (``current-profile-local.sh`` if running on your laptop, or ``current-profile-cluster.sh`` if submitting as batch job on a cluster). 
-4. Inspect the profile plot. Far from the molecule the net current must be diatropic (positive).
-5. Make a better-quality plot using the ``plot-current-profile.sh`` script.
-
-
-Detailed desctiption
------------------------------
-
-In the jobscripts directory you can find several bash scripts. They should be called as:
-
-**EXAMPLE:**  
-:: 
-   $ $GIMIC_HOME/jobscripts/current-profile-cluster.sh 
-
-   # OR if using the suggested aliases:
-
-   $ gcurrent
-
-
-The input for the scripts is based on selecting two atoms between which the integration plane lies. By default the integration plane is perpendicular to the bond between them. When you start the script, it asks for indices of the selected atoms according to the ``coord`` file. The order of the two atoms does not matter: the script chooses the direction of the bond in the GIMIC input such that diatropic currents are positive (see the section on the fixed point below). For this to work the integration should start from atoms (e.g. the ring whose current is studied), not from a typed distance, because the centroid of these atoms is what tells the script on which side of the bond the integration starts. 
-
-**TIP:**   Check the indices of the atoms from the xyz file, for example with *xmakemol*. 
-
-**NOTE:**   Atom indices start from 0 in VMD, whereas in GIMIC and xmakemol, they start from 1. 
-
-A directory with a name include the atomic indices of the bond is created, for example ``current_profile_39.119``. This means that several current profiles can be analysed at the same time, each written to a directory of its own. If a directory with the same calculation already exists, it will ask for confirmation to overwrite it.
-
-Next, you need to define the dimensions of the integration plane. It crosses the bond at the midpoint between the two attoms by default, however if needed, one can shift it to be closer to the one or the other atom. Usually we are interested in starting the integration from the centre of a ring to infinity, or maybe from the centre of the ring to another. Two parameters take care of that: the **start** value and the **out** value. These parameters can be defined either by manually entering a distance in atomic units, or using the atomic indices as defined in the ``coord`` file. By default, the script offers integration to infinity, which for practical purposes means 10 bohr. When entering these atomic indices, please type them on the same row and then press enter, for example,
-
 ::
 
-   1 2 3 4 5 [ENTER]
-   
-**TIP:**   The integration can be defined to start or end at the centre of any number of atoms, including single atoms. 
+   gimic-profile                                   # asks for everything, defaults in brackets
+   gimic-profile --bond 4 5 --ring 1 2 3 4 5 6     # asks only what is missing
+   gimic-profile --bond 4 5 --ring 1 2 3 4 5 6 --in 2.9 --slice 0.02 --threads 8 --yes
+   gimic-profile --mode squares --bond 4 5 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
+   gimic-profile --rerun current_profile_4.5/profile.json --slice 0.01 --suffix fine
+   gimic-profile --plot current_profile_4.5 --zero origin --lines "7 8 9 10 11 12"
+   gimic-profile --help
 
-The script will calculate the distance between the bond and the geometric centre of the selected atoms. It is recommended to add extra 0.5 bohr because the origin of the vortex lies in the geometrical centre of the ring only for symmetric molecules. Adding the additional distance from the bond allows the origin of the vortex to be distinguished easily on the current profile. Note that the **start** value can be negative, meaning that integration occurs on the other side of the midpoint of the bond. The height of the integration plane is usually defined to be 10 bohr above and below the molecular plane (the keywords for that are **up** and **down**). 
+The old script names (``current-profile-local.sh``, ``current-profile-cluster.sh``,
+``vertical-profile-*.sh``, ``squares-profile-*.sh``, ``gimic-run.sh``,
+``plot-current-profile.sh``) still exist in ``jobscripts`` as thin wrappers
+around ``gimic-profile`` with the corresponding options.
 
-The current profile analysis resolves the integration plane into thin slices. GIMIC computes all slices in one run (the ``slice_thickness`` keyword, see the grids section): one block of the Gauss quadrature per slice, in parallel with OpenMP over the columns of the grid. The default thickness of the slices is 0.02 bohr but it can be modified if necessary for some reason. The number of grid points along the height of the plane is defined with the **spacing** keyword; the default values have been tested and are recommended. The vertical profile (``vertical-profile-local.sh``, slices along the height) and the squares profile (``squares-profile-local.sh``, slices along both axes, giving a map of the current through rectangles) are the same script with a different slicing. 
+The questions
+-----------------------------
 
-The magnetic field direction is the Z direction (0; 0; -1) by default. It can be entered manually, set to the normal of the plane through the atoms that define the start of the integration (the ring), or left to GIMIC with ``magnet_axis=X``, where the field follows the normal of the plane spanned by the bond and the reference centre. More manipulation of the integration plane is done using the **fixed point** and the **rotation** of the plane. The integration plane is always perpendicular to the bond; the fixed point F is the third point that fixes the orientation of the plane around the bond, and it has two effects (``src/fgimic/grid.f90``, ``setup_bond_grid``): the integration starts on the side of the bond on which F lies, and the sign of the integrated current is the sign of the flux along the bond direction, which for an explicit magnetic field B is positive for diatropic currents only when B is parallel to the normal of the plane spanned by the two bond atoms and F. The script therefore puts F at the centroid of the atoms that define the start of the integration (or, if a distance was typed instead, at the bond midpoint displaced by 1 bohr along B x bond) and reverses the order of the bond atoms in the GIMIC input when needed, so that the start of the integration and the sign are both right by construction. The chosen values are printed and written to ``calculation.dat``. The fixed point can still be overridden by an atom index or by Cartesian coordinates; it must then lie on the same side of the bond as the start of the integration.  
+Every parameter is an option; whatever is not given is asked for, with the
+default shown in brackets, and Enter accepts it. With ``--yes`` nothing is
+asked and all defaults are taken. Lengths are in bohr, or in Ångström with
+``--angstrom`` (a typed value may also carry a unit: ``2.5 A``, ``1.3 bohr``).
 
-After these parameters are specified, the GIMIC input ``current_profile_#.#/gimic.inp`` for the whole plane is written and a dry run prints the number of grid points and slices. The parameters are also written to ``current_profile_#.#/calculation.dat``, and a summary is printed. The ``grid.xyz`` of the dry run in the profile directory holds the molecule, the four corners of the plane and the field direction as a Be atom. To inspect it, the current profile script can be put to background using ``CTRL+Z`` and the grid file opened, for example, in VMD. A useful representation of the plane can be done using the procedure below, which has to be placed in the ``~/.vmdrc`` file. It actually draws the integration planes for all the opened molecule in VMD.  
+1. **The bond**: the two atoms perpendicular to whose connection line the
+   plane lies (``--bond``). The atoms are echoed with their symbols and
+   coordinates, so a wrong index is caught at once.
+2. **The position of the plane along the bond** (``--distance``), by default
+   the midpoint.
+3. **The start of the integration**: either the indices of the atoms of the
+   ring (``--ring``), whose centroid then is the reference centre, or a
+   distance from the bond (``--in``). With a ring, the centroid distance is
+   proposed as the start; for a non-symmetric ring increase it a little, so
+   that the profile reaches past the vortex origin, which then shows up as the
+   first zero crossing of the net current (reported in ``profile_points.dat``
+   and usable as the zero of the plot with ``--zero origin``). The reference
+   centre fixes the side of the bond on which the integration starts and the
+   sign convention (diatropic currents positive), whatever the order of the
+   two bond atoms; it does not set where the plane starts or ends.
+4. **out, up, down** (``--out``, ``--up``, ``--down``): the end of the
+   integration beyond the bond and the extent of the plane along and against
+   the field; 8 bohr by default, which is "infinity" for practical purposes.
+5. **The slice thickness** (``--slice``): 0.02 bohr by default (0.25 for the
+   squares profile). The slices have exactly this thickness; when the width
+   (or height) of the plane is not a multiple of it, GIMIC extends ``out``
+   (or ``up``) to the next whole slice, and the command says so before
+   anything runs, because it moves the edge of the plane.
+6. **The grid spacing** along the height (``--spacing``), with a tested
+   default derived from the slice thickness.
+7. **The magnetic field** (``--field``): ``0 0 -1`` by default, ``ring`` for
+   the normal of the plane through the ring atoms, three components, or ``X``
+   for ``magnet_axis=X``.
+
+``--mode vertical`` slices the plane along its height instead, ``--mode
+squares`` along both axes (a map of the current through rectangles),
+``--mode integral`` computes the plane without slices. ``--rotation`` and
+``--rotation-origin`` rotate the plane; ``--fixpoint`` or ``--fixcoord``
+replace the ring centroid as reference centre.
+
+What happens then
+-----------------------------
+
+A directory ``current_profile_4.5`` (``vertical_profile_``,
+``squares_profile_``, ``bond_int_``; ``--suffix`` adds a suffix) is created
+with ``gimic.inp`` for the whole plane. A dry run prints the number of grid
+points and slices, the warnings, the estimated run time on one core and on
+the available threads, and the corners of the plane; ``grid.xyz`` in the
+directory holds the molecule, the four corners (X) and the field direction
+(Be) for inspection, e.g. in VMD (see below). All settings, including the
+derived ones, are recorded in ``profile.json``; ``--rerun profile.json``
+repeats a run with any option changed, ``--dry-run`` stops after the dry run.
+
+Locally, GIMIC then runs with ``--threads`` OpenMP threads (all cores by
+default), the progress is printed, and the results are plotted. With
+``--slurm`` a job script ``job.sh`` is written instead, from the ``#SBATCH``
+header in ``~/.gimic/jobscript-header`` (copy and edit
+``share/gimic/jobscript-header`` of the installation, or give
+``--slurm-header``), and submitted with ``--submit``; the job asks for one
+task with ``--threads`` cores and ``--time`` hours.
+
+Results
+-----------------------------
+
+* ``current_profile.dat``: one line per slice from the start of the
+  integration: distance, net, diatropic and paratropic current (nA/T).
+* ``profile_points.dat``: maxima and minima of the current per bohr, the
+  zero crossings of the net current, and the current integrated between
+  them: the paratropic current of the ring is the integral from the vortex
+  origin to the next zero crossing, the diatropic one the following range.
+  Also printed at the end of the run.
+* ``profile.dat``, ``vertical_profile.dat``, ``squares_profile.dat``: see
+  the description of the output files.
+* ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
+  ``squares_profile.*``): the plots, made with matplotlib if it is
+  installed. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
+  puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
+  ``--lines "7 8 9"`` draws a vertical line at the centroid of these atoms,
+  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström.
+
+Inspecting the plane
+-----------------------------
+
+VMD is a highly recommended tool for visualisation of molecules, in
+particular the integration planes: open ``grid.xyz`` of the profile
+directory. A useful representation of the plane can be done using the procedure below, which has to be placed in the ``~/.vmdrc`` file. It actually draws the integration planes for all the opened molecule in VMD.  
 
 ::
 
@@ -131,33 +184,6 @@ The magnetic field vector can be drawn using the following VMD procedure:
        draw cylinder $start $middle radius [ expr 0.08*$scaling]
        draw cone $middle $end radius [ expr 0.15*$scaling ]
    }
-
-After closing VMD, the current profile script should be brought back using ``fg`` and pressing enter again. It then asks for the number of OpenMP threads; on a laptop the GIMIC run starts right away (the progress is printed on the terminal), on a cluster it also asks for the batch job limit and submits one job with that many cores using ``sbatch``. When the run finishes, in the current profile directory there will be the ``current_profile.dat`` file. It lists four columns: the first one is the distance along the integration plane, and the next are net current, diatropic contribution and paratropic contribution respectively. ``profile.dat`` holds the same with the geometry of the plane and the current at every quadrature node, and for the squares profile ``squares_profile.dat`` holds the map. For the current profile the data are plotted as EPS files in the current profile directory. A benzene profile with 500 slices takes about one minute on four cores. 
-
-**NOTE:** The net current far from the molecule must be diatropic (positive by convention). With the automatic fixed point this is the case; a negative far-field current points to a manually chosen fixed point on the wrong side of the bond. The sign of an existing profile can be reversed with the following alias:
-
-::
-
-    alias revcurrent="mv current_profile.dat current_profile.dat.1 && awk '{printf \"%.6f\t%.6f\t%.6f\t%.6f\n\", \$1, -\$2, -\$4, -\$3}' current_profile.dat.1 > current_profile.dat"
-
-
-The current strength of different peaks on the current profile can be obtained using the function below. It takes two numbers as arguments - distance along the integration plane. It sums the values of the current in the slices between these distances and returns the net, diatropic and paratropic currents. The distances can be obtained from the output in the file ``profile-points.out``. In the first column of the three sections there is distance along the integration plane, at which the diatropic, paratropic or net current vanish. One can estimate from the current profile plot which points are interesting and then take their actual values from the file. The data about the points can also be obtained by calling the script ``crit_pts.sh`` from the directory of the current profile. 
-
-::
-
-   function anprofile() { awk -v lower= -v upper= '{ if (( >= lower) && ( <= upper)) { total+=; dia+=; para+=; } } END { printf(nTotal current: %fnDiatropic: %fnParatropic: %fnn, total, dia, para); } ' current_profile.dat ;  };
-
-   # used as:
-
-   $ anprofile 0.22 1.5
-
-   Net current: 0.066627
-   Diatropic: 0.134426
-   Paratropic: -0.067799
-
-
-Finally, the current profile plot can them be done anew with ``plot-current-profile.sh``. It is still under development and it might not be very user-friendly at the moment, so feel free to ask questions about it. Please let us know if you have any further questions, bugs and ambiguous parts.
-
 
 
 

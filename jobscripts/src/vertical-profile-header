@@ -1,4 +1,0 @@
-#!/bin/bash
-# Vertical current profile: the plane is sliced along its height instead of
-# its width. setup.sh appends the current-profile header and the submit part.
-PROFILE_MODE=vertical
