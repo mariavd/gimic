@@ -82,10 +82,12 @@ the ’distance’ key, which specifies the distance from atom 1 towards
 atom 2. For analysing dia- and paramagnetic contributions, the positive
 direction of the bond is taken to be from atom 1 towards atom 2. Since
 one vector is not enough to uniquely defining the coordinate system
-(rotations around the bond are arbitrary), a fixpoint must be specified
-using either the ’fixpoint’ atom index or the ’fixcoord’ keyword. This
-triple of coordinates is also used to fix the direction of the magnetic
-field when the ’magnet\_axis=T’ is used.
+(rotations around the bond are arbitrary), a fixpoint is specified using
+the ’fixpoint’ atom index, the ’fixcoord’ keyword or the reference centre
+’towards’; without any of them and with an explicit ’magnet’ vector the
+plane is set upright along the field (see ’towards’ below). This triple of
+coordinates is also used to fix the direction of the magnetic field when
+’magnet\_axis=X’ is used.
 
 The shape and size of the bond grid is specified by the keywords 'width' and
 'height'.  Each of the four components is relative to a point on the line
@@ -154,9 +156,15 @@ towards=1, 2, 3, 4, 5, 6
     plane starts or ends: that is ``width`` and ``height`` as always, and the
     first component of ``width`` may well reach past the reference centre (a
     profile that starts a little beyond the ring centre shows the origin of
-    the vortex as the point where the net current changes sign). Without
-    ``towards`` a bond grid needs ``fixpoint`` or ``fixcoord`` and the sign
-    is the flux along the bond direction. See `Current profiles`_.
+    the vortex as the point where the net current changes sign). With
+    ``fixpoint`` or ``fixcoord`` instead, the sign is the flux along the bond
+    direction. With none of them (an explicit ``magnet`` vector is then
+    required) the fixed point defaults to the bond midpoint displaced by one
+    bohr along B x bond: the plane is upright along the field, the
+    integration starts on the side of the bond that the order of the two
+    atoms implies (swap them for the other side, the dry run shows it in
+    ``grid.xyz``), and that point is also the reference centre for the sign.
+    See `Current profiles`_.
 
 towards_coord=0.0, 0.0, 0.0
     The reference centre as a point instead of atoms.

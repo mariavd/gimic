@@ -218,7 +218,7 @@ contains
         type(atom_t), pointer :: atom
 
         integer(I4), dimension(3) :: atoms
-        real(DP), dimension(3) :: v1, v2, v3, oo
+        real(DP), dimension(3) :: v1, v2, v3, oo, bvec
         real(DP), dimension(2) :: hgt, wdt
         real(DP) :: l3
 
@@ -247,9 +247,32 @@ contains
         else if (this%has_towards) then
             this%origin=this%towards
             call msg_info('Fixed point set to the reference centre (towards)')
+        else if (keyword_is_set(input, 'magnet')) then
+            ! default: the bond midpoint displaced by 1 bohr along B x bond.
+            ! The plane is then upright along B and the integration starts on
+            ! the side of the bond that the order of the two atoms implies
+            ! (swap them to start on the other side). The point also serves
+            ! as the reference centre, so diatropic currents on that side
+            ! are positive.
+            call getkw(input, 'magnet', bvec)
+            v3=this%basv(:,2)-this%basv(:,1)
+            v1=cross_product(bvec, v3)
+            if (vcmp(v1, NILL_VECTOR)) then
+                call msg_error('Bond grid without fixed point: the field is &
+                    &parallel to the bond, give fixpoint, fixcoord or towards')
+                stop
+            end if
+            this%origin=0.5d0*(this%basv(:,1)+this%basv(:,2))+norm(v1)
+            this%towards=this%origin
+            this%has_towards=.true.
+            write(str_g, '(a,3f10.4)') 'No fixed point given: using the bond midpoint &
+                &displaced along B x bond:', this%origin
+            call msg_info(str_g)
+            call msg_info('The integration starts on this side of the bond; swap &
+                &the bond atoms to start on the other side')
         else
-            call msg_error('Bond grid: one of fixpoint, fixcoord, towards or &
-                &towards_coord must be given')
+            call msg_error('Bond grid: give fixpoint, fixcoord or towards, &
+                &or an explicit magnet vector')
             stop
         end if
 

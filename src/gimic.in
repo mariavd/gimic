@@ -193,10 +193,9 @@ def check_grid(grid):
         if check_opt(grid, 'origin'):
             print("Error: Keyword 'origin' incompatible with 'bond' grids")
             sys.exit(1)
-        if not (check_opt(grid, 'fixpoint') or check_opt(grid, 'fixcoord')
-                or check_opt(grid, 'towards') or check_opt(grid, 'towards_coord')):
-            print("Error: One of fixpoint, fixcoord, towards or towards_coord must be specified")
-            sys.exit(1)
+        # fixpoint, fixcoord, towards or towards_coord orient the plane about
+        # the bond; without them GIMIC uses the bond midpoint displaced along
+        # B x bond, which needs an explicit magnet vector (checked there)
 
         if check_opt(grid,'width'):
             wdthgt=wdthgt+1
