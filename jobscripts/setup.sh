@@ -2,14 +2,6 @@
 
 SCRIPTS_DIR=$(pwd)
 
-checkMaxProj=$(command -v maximise_projection)
-if [ ! -e $checkMaxProj ]
-then
-    echo "The program maximise_projection is not found."
-    echo "Compile it and export its path to use the automatic orientation of the magnetic field."
-#    exit
-fi
-
 pathToGimic=$(which gimic)
 if [ -z $pathToGimic ]
 then

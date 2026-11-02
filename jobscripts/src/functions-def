@@ -42,6 +42,33 @@ function angle()
  };
 
 
+function planeNormal()
+{
+# usage: planeNormal atom1 atom2 atom3 ...
+# Unit normal of the mean plane through the atoms (bohr, from coord): the sum
+# of the cross products of consecutive centroid-relative position vectors. The
+# sign is chosen like the default field (0, 0, -1): z component negative, or
+# the largest component negative when the plane contains the z axis.
+    for i in "$@"; do awk -v i=$i '{ if (NR == i+1) print $1, $2, $3 }' coord; done | awk '
+        { n++; x[n]=$1; y[n]=$2; z[n]=$3; cx+=$1; cy+=$2; cz+=$3 }
+        END {
+            if (n < 3) { print ""; exit }
+            cx/=n; cy/=n; cz/=n;
+            for (i=1; i<=n; i++) {
+                j = (i % n) + 1;
+                ax=x[i]-cx; ay=y[i]-cy; az=z[i]-cz; bx=x[j]-cx; by=y[j]-cy; bz=z[j]-cz;
+                nx += ay*bz - az*by; ny += az*bx - ax*bz; nz += ax*by - ay*bx;
+            }
+            l = sqrt(nx*nx + ny*ny + nz*nz);
+            if (l < 1e-8) { print ""; exit }
+            nx/=l; ny/=l; nz/=l;
+            big = nz; if (nx*nx > big*big) big = nx; if (ny*ny > big*big) big = ny;
+            if (nz*nz < 1e-12) { if (big > 0) { nx=-nx; ny=-ny; nz=-nz } }
+            else if (nz > 0) { nx=-nx; ny=-ny; nz=-nz }
+            printf("%.6f %.6f %.6f\n", nx, ny, nz);
+        }'
+}
+
 function readParameter()
 {
 # usage: readParameter variable $dirname 
@@ -94,11 +121,13 @@ function userInp()
     local localResult="$2"
     printf "\nPress [a] to enter atomic indices or press [v] to enter the desired value\n"
     read accept
+    Catoms=""
     if [ ! -z $accept ] && [ $accept == "a" ]
     then
         printf "\nEnter the indices of the selected atoms to calculate their midpoint and then press enter.\n\n" 
      atoms=0; read atoms
      validateInput atoms $atoms
+     Catoms="$atoms"
 
      CENTROID=$(centroid $atoms)
      Cx=$( echo $CENTROID | awk '{print $1} ' )

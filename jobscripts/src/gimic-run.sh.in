@@ -58,6 +58,7 @@ unset Cx Cy Cz
 userInp start $start
 # centroid of the atoms defining the start (empty if a value was typed); used for the fixed point
 inCx=$Cx; inCy=$Cy; inCz=$Cz
+inAtoms="$Catoms"
 tmp=$( awk -v start=$start 'BEGIN{ print -start }' )
 start=$tmp
 
@@ -93,24 +94,30 @@ MFy=0.0
 MFz=-1.0
 
 echo "Do you accept the default MF orientation along the Z axis (0, 0, -1)?"
-echo "Press [a] to calculate the direction automatically or [m] to enter manually"
+if [ ! -z "$inAtoms" ]
+then
+    echo "Press [a] for the normal of the plane through the atoms that define the start of the"
+    echo "integration ($inAtoms), or [m] to enter the components manually."
+else
+    echo "Press [m] to enter the components manually."
+fi
 
 read accept;
-checkMaxProj="installed"
-if [ ! -z $accept ] && [ $accept == "a" ]
+if [ ! -z $accept ] && [ $accept == "a" ] && [ ! -z "$inAtoms" ]
 then
-    checkMaxProj=$(command -v maximise_projection) #  command -> returns the path of the binary if it is found
-    if [ ! -e $checkMaxProj ]
+    read MFx MFy MFz <<< "$(planeNormal $inAtoms)"
+    checkIfEmpty MFx $MFx
+    checkIfEmpty MFy $MFy
+    checkIfEmpty MFz $MFz
+    echo "Normal of the plane through atoms $inAtoms: ($MFx; $MFy; $MFz)"
+    printf "Do you accept it as the field direction? Press [n] to enter the components manually.\n"
+    read accept
+    if [ ! -z $accept ] && [ $accept == "n" ]
     then
-	echo "The program maximise_projection is not found. Switching to manual input of the magnetic field components."
-    else
-	maximise_projection coord.xyz > $dirname/field.dat
-	MFx=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$2} }')
-	MFy=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$3} }')
-	MFz=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$4} }')
+	accept="m"
     fi
 fi
-if ( [ ! -z $accept ] && [ $accept == "m" ] ) || [ -e $checkMaxProj ]
+if [ ! -z $accept ] && [ $accept == "m" ]
 then
     echo "Please enter numeric values."
     valueInp MFx $MFx

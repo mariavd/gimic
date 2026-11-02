@@ -181,6 +181,7 @@ do
 done
 # centroid of the atoms defining the start (empty if a value was typed); used for the fixed point
 inCx=$Cx; inCy=$Cy; inCz=$Cz
+inAtoms="$Catoms"   # their indices (empty if a value was typed)
 
 printf "\nEND POINT OF THE INTEGRATION\n"
 out=8
@@ -233,59 +234,40 @@ Bz=-1.0
 enableMF_X=n # do not use MF=X unless asked for
 
 echo "Do you accept the default B orientation along the Z axis (0, 0, -1)?"
-echo "Press [a] to calculate the direction automatically, [m] to enter manually or [X] for the B=X option."
+if [ ! -z "$inAtoms" ]
+then
+    echo "Press [a] for the normal of the plane through the atoms that define the start of the"
+    echo "integration ($inAtoms), [m] to enter the components manually, or [X] for magnet_axis=X"
+    echo "(the field follows the normal of the plane spanned by the bond and the reference centre)."
+else
+    echo "Press [m] to enter the components manually, or [X] for magnet_axis=X (the field follows"
+    echo "the normal of the plane spanned by the bond and the reference centre)."
+fi
 
 read accept;
-checkMaxProj="installed"
-checkPlaneDir="1"
-if [ ! -z $accept ] 
+if [ ! -z $accept ] && [ $accept == "a" ] && [ ! -z "$inAtoms" ]
 then
-    if [ $accept == "a" ]
+    read Bx By Bz <<< "$(planeNormal $inAtoms)"
+    checkIfEmpty Bx $Bx
+    checkIfEmpty By $By
+    checkIfEmpty Bz $Bz
+    echo "Normal of the plane through atoms $inAtoms: ($Bx; $By; $Bz)"
+    printf "Do you accept it as the field direction? Press [n] to enter the components manually.\n"
+    read accept
+    if [ ! -z $accept ] && [ $accept == "n" ]
     then
-	#RAUL'S PLANE
-	checkPlaneDir=$(command -v normalise_plane)
-	if [ ! -e $checkPlaneDir ]
-	then
-	    echo "The program for orienting with respect a plane is not found. Switching to manual input of the magnetic field components."
-	else
-	    echo "Enter the indices of the atoms defining a plane perpendicular to the magnetic field."
-	    echo "Due to a known bug, the last atom in the coord file may not be used."
-	    read MFatoms
-	    echo $MFatoms > ./$dirname/MF_idx.dat
-	    echo
-	    MFcoords=$( /homeappl/home/mariavd/scripts/normalise_plane coord.xyz ./$dirname/MF_idx.dat 2>&1 > /dev/null | awk '{ if (NR ==2) {print $2, $3, $4} }')
-	    echo "MFcoords: " $MFcoords
-	    Bx=$(echo $MFcoords | awk '{print $1}')
-	    By=$(echo $MFcoords | awk '{print $2}')
-	    Bz=$(echo $MFcoords | awk '{print $3}')
-	    checkIfEmpty Bx $Bx
-	    checkIfEmpty By $By
-	    checkIfEmpty Bz $Bz
-	fi
+	accept="m"
     fi
-    # LUKAS'S MAX PROJECTION
-    #    checkMaxProj=$(command -v maximise_projection) #  command -> returns the path of the binary if it is found
-    #    if [ ! -e $checkMaxProj ]
-    #    then
-    #	echo "The program maximise_projection is not found. Switching to manual input of the magnetic field components."
-    #    else
-    #	maximise_projection coord.xyz > $dirname/field.dat
-    #	Bx=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$2} }')
-    #	By=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$3} }')
-    #	Bz=$( cat $dirname/field.dat | sed -e 's#{#_#g; s#}#_#g; s#,#_#g' | awk -F [_] '{ {print -$4} }')
-    #    fi
-    #fi
-    #if [ $accept == "m" ] || [ -z $checkMaxProj ]
-    if  [ $accept == "m" ] || [ -z $checkPlaneDir ]
-    then
-	echo "Please enter numeric values."
-	valueDimInp Bx $Bx "bohr"
-	valueDimInp By $By "bohr"
-	valueDimInp Bz $Bz "bohr"
-    fi
-    echo "Magnetic field vector coordinates: ($Bx; $By; $Bz)"
-    echo
 fi
+if [ ! -z $accept ] && [ $accept == "m" ]
+then
+    echo "Please enter numeric values."
+    valueDimInp Bx $Bx ""
+    valueDimInp By $By ""
+    valueDimInp Bz $Bz ""
+fi
+echo "Magnetic field vector: ($Bx; $By; $Bz)"
+echo
 
 if [ ! -z $accept ] && [ $accept == "X" ]
 then
@@ -428,6 +410,7 @@ do
 		    userInp start $start
 		done
 		inCx=$Cx; inCy=$Cy; inCz=$Cz
+		inAtoms="$Catoms"
 		if [ $fixedByUser == "n" ]
 		then
 		    setFixPoint $Bx $By $Bz
