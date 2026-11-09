@@ -49,8 +49,9 @@ contains
         nullify(this%grid)
     end subroutine
 
-    ! Estimate the run time of the integration from one column of the grid
-    ! (the middle one, so that screening does not make it unusually cheap).
+    ! Estimate the run time of the integration from a few columns of the grid
+    ! spread over its width: with screening the columns far from the molecule
+    ! are much cheaper than those through it, so one column would be way off.
     ! Used before the integration and in dry runs, where it tells whether to
     ! run on the spot or to submit.
     subroutine integral_eta(grid, mol, xdens)
@@ -59,7 +60,7 @@ contains
         type(molecule_t) :: mol
         type(dens_t) :: xdens
 
-        integer(I4) :: i, j, p1, p2, p3, nthreads
+        integer(I4) :: i, j, n, p1, p2, p3, nthreads, nsample
         integer(8) :: t0, t1, rate
         real(DP) :: delta_t, cpu_est
         real(DP), dimension(:,:), allocatable :: coords, tens
@@ -67,20 +68,25 @@ contains
 
         call get_grid_size(grid, p1, p2, p3)
         if (p1 < 1 .or. p2 < 1) return
-        j=(p2+1)/2
+        nsample=min(p2, 9)
         allocate(coords(3,p1), tens(9,p1))
-        do i=1,p1
-            coords(:,i)=gridpoint(grid, i, j, 1)
-        end do
         call new_jtensor(jt, mol, xdens)
-        call system_clock(t0, rate)
-        call ctensor_batch(jt, coords, tens, 'total')
-        call system_clock(t1)
+        delta_t=0.d0
+        do n=1,nsample
+            ! columns at the centres of nsample equal parts of the width
+            j=int((real(n,DP)-0.5d0)*real(p2,DP)/real(nsample,DP))+1
+            do i=1,p1
+                coords(:,i)=gridpoint(grid, i, j, 1)
+            end do
+            call system_clock(t0, rate)
+            call ctensor_batch(jt, coords, tens, 'total')
+            call system_clock(t1)
+            delta_t=delta_t+real(t1-t0, DP)/real(rate, DP)
+        end do
         call del_jtensor(jt)
         deallocate(coords, tens)
 
-        delta_t=real(t1-t0, DP)/real(rate, DP)
-        cpu_est=delta_t*real(p2*p3, DP)
+        cpu_est=delta_t/real(nsample, DP)*real(p2*p3, DP)
         if (settings%is_uhf) cpu_est=4.d0*cpu_est
         call msg_info(time_string('Estimated CPU time for the integration on one core: ', cpu_est))
         nthreads=1

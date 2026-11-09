@@ -116,7 +116,23 @@ Results
   installed. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
   puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
   ``--lines "7 8 9"`` draws a vertical line at the centroid of these atoms,
-  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström.
+  ``--compare DIR2 DIR3`` overlays the net current of other profiles,
+  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström. The
+  numbers along the top of the plot are the current integrated between
+  consecutive zero crossings of the net current.
+
+Examples: benzene, bond 1-2, start 0.4 bohr past the ring centre, 0.02 bohr
+slices (``--zero origin``); the squares profile with 0.25 bohr squares; and
+the vertical profile with 0.1 bohr slices.
+
+.. image:: current-profile-benzene.png
+   :width: 600px
+
+.. image:: squares-profile-benzene.png
+   :width: 360px
+
+.. image:: vertical-profile-benzene.png
+   :width: 600px
 
 Inspecting the plane
 -----------------------------
