@@ -127,7 +127,9 @@ Results
   also per area); the line runs along the middle of the plane with the
   current per unit length as point data and carries the sign changes of the
   net current as vertices (``marker`` 1 is the first one, the vortex
-  origin). Coordinates in bohr, like ``jvec.vti``.
+  origin). Coordinates in bohr, like ``jvec.vti``. ``paraview_profile_1.2.py``
+  assembles them in ParaView (``paraview --script=...``; ``--jvec FILE``
+  adds a slice of the current density of a 3D calculation).
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
   ``squares_profile.*``): the plots, made with matplotlib if it is
   installed. ``current_profile_annotated.*`` adds the strengths of the
