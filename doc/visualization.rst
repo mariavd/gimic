@@ -80,7 +80,8 @@ Current profiles over the current density
 ------------------------------------------
 
 A current profile (``gimic-profile``, or ``slice_thickness`` in the input)
-writes ``profile_plane.vtp`` and ``profile_line.vtp`` next to its data files.
+writes ``profile_plane_1.2.vtp`` and ``profile_line_1.2.vtp`` (named after
+the bond atoms) next to its data files.
 They show where the integration plane lies and what it cuts through when
 loaded into ParaView together with the ``jvec.vti`` of a separate 3D
 calculation of the same molecule (both in bohr): colour the plane by

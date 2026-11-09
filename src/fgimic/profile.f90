@@ -35,14 +35,16 @@
 !                         contribution (the ranges where it is above 1% of
 !                         its maximum) with their peaks and integrated
 !                         currents: the strength of each feature.
-!   profile_line.vtp      ParaView: the mid-height line of the plane as a
-!   profile_plane.vtp     polyline with the current per unit length of every
+!   profile_line_1.2.vtp  ParaView: the mid-height line of the plane as a
+!   profile_plane_1.2.vtp polyline with the current per unit length of every
 !                         slice as point data (net, positive, negative) and
 !                         the sign changes of the net current as vertices;
 !                         and the plane as quads with the current through
-!                         each slice or rectangle as cell data. Coordinates
-!                         in bohr, like jvec.vti, so that the profile can be
-!                         laid over the current density.
+!                         each slice or rectangle as cell data. Named after
+!                         the bond atoms, so that several profiles can be
+!                         loaded side by side. Coordinates in bohr, like
+!                         jvec.vti, so that the profile can be laid over the
+!                         current density.
 !   squares_profile.dat   when both axes are sliced: the net current through
 !                         each rectangle, as a matrix (rows: height slices,
 !                         columns: width slices) for plotting with image
@@ -421,14 +423,22 @@ contains
 
         integer(I4) :: nb1, nb2, b1, b2, n, q, np, nz
         real(DP), dimension(3) :: c
+        character(32) :: tag
         character(len=*), parameter :: hdr = '<VTKFile type="PolyData" version="0.1" byte_order="LittleEndian">'
 
         nb1=size(s,2)
         nb2=size(s,3)
         nz=size(zx)
 
+        ! name the files after the profile: the bond atoms when known
+        tag=''
+        if (all(g%bondatoms > 0)) then
+            write(tag, '(a,i0,a,i0)') '_', g%bondatoms(1), '.', g%bondatoms(2)
+        end if
+        tag=trim(tag)//trim(suffix)
+
         ! ---- the plane: (nb1+1)*(nb2+1) corners, nb1*nb2 quads ---------
-        open(PFD, file='profile_plane'//trim(suffix)//'.vtp')
+        open(PFD, file='profile_plane'//trim(tag)//'.vtp')
         write(PFD, '(a)') hdr
         write(PFD, '(a)') '<PolyData>'
         write(PFD, '(a,i0,a,i0,a)') '<Piece NumberOfPoints="', (nb1+1)*(nb2+1), &
@@ -470,7 +480,7 @@ contains
 
         ! ---- the line: slice centres on the mid-height line + sign changes
         np=nb2+nz
-        open(PFD, file='profile_line'//trim(suffix)//'.vtp')
+        open(PFD, file='profile_line'//trim(tag)//'.vtp')
         write(PFD, '(a)') hdr
         write(PFD, '(a)') '<PolyData>'
         write(PFD, '(a,i0,a,i0,a)') '<Piece NumberOfPoints="', np, '" NumberOfVerts="', nz, &
@@ -512,8 +522,8 @@ contains
         write(PFD, '(a)') '</PointData>'
         write(PFD, '(a)') '</Piece></PolyData></VTKFile>'
         close(PFD)
-        call msg_out('ParaView files written: profile_plane'//trim(suffix)//'.vtp, profile_line'// &
-            trim(suffix)//'.vtp (bohr; marker 1 = first sign change of the net current)')
+        call msg_out('ParaView files written: profile_plane'//trim(tag)//'.vtp, profile_line'// &
+            trim(tag)//'.vtp (bohr; marker 1 = first sign change of the net current)')
     end subroutine
 
     function cellname(q) result(name)

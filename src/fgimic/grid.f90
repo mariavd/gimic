@@ -37,6 +37,9 @@ module grid_class
         ! around it, and for bond grids it is the default fixed point
         logical :: has_towards
         real(DP), dimension(3) :: towards
+        ! the two atoms of a bond grid (0 when given as coordinates): used
+        ! to name output files after the profile
+        integer(I4), dimension(2) :: bondatoms
     end type grid_t
 
     public grid_t
@@ -82,6 +85,7 @@ contains
         this%nslice=0
         this%has_towards=.false.
         this%towards=0.d0
+        this%bondatoms=0
         call getkw(input, 'Grid', this%mode)
 
         ! reference centre for the sign convention: the centroid of a set of
@@ -225,6 +229,7 @@ contains
         if (keyword_is_set(input, 'Grid.bond')) then
             ! get bond information
             call getkw(input, 'Grid.bond', atoms(1:2))
+            this%bondatoms=atoms(1:2)
             call get_atom(mol, atoms(1), atom)
             call get_coord(atom, this%basv(:,1))
             call get_atom(mol, atoms(2), atom)

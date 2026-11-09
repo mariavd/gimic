@@ -119,8 +119,8 @@ Results
   each feature. Also printed at the end of the run.
 * ``profile.dat``, ``vertical_profile.dat``, ``squares_profile.dat``: see
   the description of the output files.
-* ``profile_plane.vtp`` and ``profile_line.vtp``: the plane and the profile
-  for ParaView, to be laid over the current density of a separate 3D
+* ``profile_plane_1.2.vtp`` and ``profile_line_1.2.vtp`` (named after the
+  bond atoms): the plane and the profile for ParaView, to be laid over the current density of a separate 3D
   calculation (``jvec.vti``, see the visualisation chapter). The plane is
   made of one quad per slice (per rectangle for the squares profile) with
   the current through it as cell data (``net``, ``positive``, ``negative``,
