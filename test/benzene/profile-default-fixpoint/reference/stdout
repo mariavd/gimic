@@ -2,7 +2,7 @@ This is F-GIMIC.
 
  ****************************************************************
  ***                                                          ***
- ***           GIMIC 2.2.1 (e56cf1d)                          ***
+ ***           GIMIC 2.2.1 (1e2f83a)                          ***
  ***           Written by Jonas Juselius and co-authors       ***
  ***                                                          ***
  ***  This software is copyright (c) 2003-2023 by             ***
@@ -13,7 +13,7 @@ This is F-GIMIC.
  ****************************************************************
 
  OpenMP threads: 1
- Mon Nov  9 08:46:39 2026
+ Mon Nov  9 08:58:38 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -56,7 +56,7 @@ This is F-GIMIC.
 
  Integrating current density
  *****************************************
- INFO: Estimated CPU time for the integration on one core:        0.81sec (   0.0 h )
+ INFO: Estimated CPU time for the integration on one core:        0.90sec (   0.0 h )
 
  Jmod integration skipped.
  *** Integrating current
@@ -89,6 +89,11 @@ This is F-GIMIC.
       0.323 to   2.287:    -3.93381     0.46691    -4.40072
       2.287 to   6.343:    15.76405    16.30727    -0.54322
       6.343 to  10.600:    -0.01657     0.01013    -0.02671
+
+ Current profile: positive and negative blobs (range, peak, current [nA/T])
+   positive     0.000 to   0.200  peak at    0.100    0.4293     0.08586
+   positive     1.400 to   5.800  peak at    3.100   10.7286    16.72157
+   negative     0.400 to   2.600  peak at    1.900   -4.0634    -4.93007
  Profile analysis written to profile_points.dat
  Profile details written to profile.dat
 
@@ -97,12 +102,12 @@ This is F-GIMIC.
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       0.99sec (   0.0 h )
-     cpu time:       0.98sec (   0.0 h )
-         user:       0.98sec (   0.0 h )
+    wall time:       0.85sec (   0.0 h )
+     cpu time:       0.84sec (   0.0 h )
+         user:       0.84sec (   0.0 h )
           sys:       0.00sec (   0.0 h )
  ----------------------------------------------------------------------
- Mon Nov  9 08:46:40 2026
+ Mon Nov  9 08:58:39 2026
  Hello World! (tm)
 
  done.

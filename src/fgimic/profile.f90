@@ -30,7 +30,11 @@
 !   profile_points.dat    the analysis of the profile along the width: maxima
 !                         and minima of the net, positive and negative
 !                         current per bohr, the zero crossings of the net
-!                         current, and the current integrated between them.
+!                         current with the current integrated between them,
+!                         and the "blobs" of the positive and of the negative
+!                         contribution (the ranges where it is above 1% of
+!                         its maximum) with their peaks and integrated
+!                         currents: the strength of each feature.
 !   squares_profile.dat   when both axes are sliced: the net current through
 !                         each rectangle, as a matrix (rows: height slices,
 !                         columns: width slices) for plotting with image
@@ -332,9 +336,61 @@ contains
         write(PFD, '(2f11.4,3f14.6)') xprev, x0, tot
         write(str_g, '(2x,f8.3,a,f8.3,a,3f12.5)') xprev, ' to', x0, ':', tot
         call msg_out(str_g)
-        close(PFD)
+
+        ! blobs: the ranges where the positive (negative) contribution is
+        ! above 1% of its largest value, with the peak and the integral
+        write(PFD, '(a)') '#'
+        write(PFD, '(a)') '# blobs of the positive and the negative contribution: ranges above 1% of the largest value'
+        write(PFD, '(a)') '# quantity      x_from      x_to      x_peak   peak [nA/T/bohr]   current [nA/T]'
+        call nl
+        call msg_out('Current profile: positive and negative blobs (range, peak, current [nA/T])')
+        do q=2,3
+            call blobs(q)
+        end do
         call msg_out('Profile analysis written to profile_points'//trim(suffix)//'.dat')
         deallocate(v, sl)
+
+    contains
+
+        subroutine blobs(q)
+            integer(I4), intent(in) :: q
+
+            integer(I4) :: n, n0, npk
+            real(DP) :: thr, cur, xa, xb
+            logical :: inside
+
+            thr=0.01d0*maxval(abs(v(q,:)))
+            if (thr <= 0.d0) return
+            inside=.false.
+            do n=1,nb2+1
+                if (n <= nb2) then
+                    if (abs(v(q,n)) >= thr .and. .not.inside) then
+                        inside=.true.
+                        n0=n
+                        cur=0.d0
+                        npk=n
+                    end if
+                end if
+                if (inside) then
+                    if (n <= nb2) then
+                        if (abs(v(q,n)) >= thr) then
+                            cur=cur+sl(q,n)
+                            if (abs(v(q,n)) > abs(v(q,npk))) npk=n
+                            cycle
+                        end if
+                    end if
+                    ! the blob ended at slice n-1
+                    inside=.false.
+                    xa=real(n0-1,DP)*d2
+                    xb=real(n-1,DP)*d2
+                    write(PFD, '(2x,a10,2f11.4,f12.4,f18.6,f17.6)') qname(q), xa, xb, &
+                        (real(npk,DP)-0.5d0)*d2, v(q,npk), cur
+                    write(str_g, '(2x,a10,f8.3,a,f8.3,a,f9.3,f10.4,f12.5)') qname(q), xa, &
+                        ' to', xb, '  peak at', (real(npk,DP)-0.5d0)*d2, v(q,npk), cur
+                    call msg_out(str_g)
+                end if
+            end do
+        end subroutine
     end subroutine
 
     ! point on the mid-height line of the plane at the profile coordinate x

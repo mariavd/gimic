@@ -359,27 +359,33 @@ def read_profile(dirname, name='current_profile.dat'):
 
 
 def read_points(dirname):
-    """from profile_points.dat: the zero crossings (x) of the net current and
-    the ranges between them with their integrated net, dia and para current"""
-    zeros, ranges = [], []
+    """from profile_points.dat: the zero crossings (x) of the net current, the
+    ranges between them with their integrated net, positive and negative
+    current, and the blobs (quantity, x_from, x_to, x_peak, peak, current)"""
+    zeros, ranges, blobs = [], [], []
     fname = os.path.join(dirname, 'profile_points.dat')
     if not os.path.exists(fname):
-        return zeros, ranges
+        return zeros, ranges, blobs
     with open(fname) as f:
         section = None
         for line in f:
             if line.startswith('# zero crossings'):
                 section = 'zeros'
                 continue
+            if line.startswith('# blobs'):
+                section = 'blobs'
+                continue
             if line.startswith('#') or not line.strip():
                 continue
+            w = line.split()
             if section == 'zeros':
-                w = line.split()
                 if len(w) >= 5:
                     ranges.append((float(w[0]), float(w[1]), float(w[2]), float(w[3]), float(w[4])))
                 if len(w) >= 8:
                     zeros.append(float(w[1]))
-    return zeros, ranges
+            elif section == 'blobs' and len(w) >= 6:
+                blobs.append((w[0], float(w[1]), float(w[2]), float(w[3]), float(w[4]), float(w[5])))
+    return zeros, ranges, blobs
 
 
 def read_matrix(dirname):
@@ -411,76 +417,133 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
     POS, NEG, NET = '#C00000', '#1E46FF', '#333333'   # positive, negative, net
     delta = record['slice']
     bond = record['bond']
+    ylab = r'd$\mathcal{J}$/d$x$ [nA/T / %s]' % unit
     if mode in ('current', 'squares'):
         xs, net, dia, para = read_profile(dirname)
         xs = [x + 0.5 * delta for x in xs]            # slice centres
-        zeros, ranges = read_points(dirname)
+        zeros, ranges, blobs = read_points(dirname)
         x0 = 0.0
         if zero == 'origin' and zeros:
             x0 = zeros[0]
         elif zero == 'bond':
             x0 = record['in']
         X = [(x - x0) * f for x in xs]
-        # two figures: a plain one, and one with the current integrated between
-        # the zero crossings written along the top
-        for annotated in (False, True):
-            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+
+        def frame(ax, title):
             ax.axhline(0, color='k', lw=0.8)
-            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive')
-            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative')
-            ax.plot(X, [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
             ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label='bond %d-%d' % tuple(bond))
-            for z in zeros:
-                ax.axvline((z - x0) * f, color='#00DCFF', lw=1.0)
+            if zero == 'origin' and zeros:
+                ax.axvline(0, color='#00DCFF', lw=1.0, label='vortex origin')
             for lab, pos in (lines or []):
                 ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.', label=lab)
-            # other profiles to compare with: their net current, same zero convention
-            for other in (overlay or []):
-                try:
-                    with open(os.path.join(other, 'profile.json')) as fo:
-                        orec = json.load(fo)
-                    oxs, onet, _, _ = read_profile(other)
-                    od = orec['slice']
-                    oxs = [x + 0.5 * od for x in oxs]
-                    ox0 = 0.0
-                    if zero == 'origin':
-                        oz, _ = read_points(other)
-                        ox0 = oz[0] if oz else 0.0
-                    elif zero == 'bond':
-                        ox0 = orec['in']
-                    ax.plot([(x - ox0) * f for x in oxs], [v / od for v in onet], lw=1.5,
-                            label='net, bond %d-%d' % (orec['bond'][0], orec['bond'][1]))
-                except (IOError, KeyError, IndexError) as e:
-                    print('cannot overlay %s: %s' % (other, e))
             ax.set_xlim(min(X), max(X))
             if yrange:
                 ax.set_ylim(*yrange)
-            if annotated:
-                ymin, ymax = ax.get_ylim()
-                for (xa, xb, vnet, vdia, vpara) in ranges:
-                    if abs(vnet) < 0.05:
-                        continue
-                    xm = 0.5 * (xa + xb)
-                    xlo, xhi = ax.get_xlim()
-                    xt = (xm - x0) * f
-                    ha = 'center'
-                    if xt - xlo < 0.06 * (xhi - xlo):
-                        ha, xt = 'left', xlo + 0.005 * (xhi - xlo)
-                    elif xhi - xt < 0.06 * (xhi - xlo):
-                        ha, xt = 'right', xhi - 0.005 * (xhi - xlo)
-                    ax.annotate('%+.2f nA/T' % vnet, xy=(xt, ymax), xytext=(0, -4), textcoords='offset points',
-                                ha=ha, va='top', fontsize=9, color='#444444')
             ax.set_xlabel('distance [%s]' % unit)
-            ax.set_ylabel('dJ/dx [nA/T per %s]' % unit)
-            ax.legend(loc='upper right')
-            ax.set_title('%s profile, bond %d-%d: net %.2f nA/T' % (mode, bond[0], bond[1], sum(net)))
+            ax.set_ylabel(ylab)
+            ax.set_title(title)
+
+        def save(fig, stem):
             fig.tight_layout()
-            stem = 'current_profile_annotated' if annotated else 'current_profile'
             for ext in ('png', 'pdf'):
                 name = os.path.join(dirname, stem + '.' + ext)
                 fig.savefig(name, dpi=150)
                 out.append(name)
             plt.close(fig)
+
+        title = '%s profile, bond %d-%d: net %.2f nA/T' % (mode, bond[0], bond[1], sum(net))
+        # two figures: a plain one, and one with the strengths of the features:
+        # the current integrated between the zero crossings of the net current
+        # along the top, and for every positive and negative blob its
+        # boundaries (lines from the axis to the peak) and integrated current
+        for annotated in (False, True):
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive')
+            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative')
+            ax.plot(X, [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
+            frame(ax, title)
+            if annotated:
+                for z in zeros:
+                    ax.axvline((z - x0) * f, color='#00DCFF', lw=0.8)
+                if not yrange:
+                    # room for the labels above the peaks and along the bottom
+                    ymin, ymax = ax.get_ylim()
+                    ax.set_ylim(ymin - 0.12 * (ymax - ymin), ymax + 0.10 * (ymax - ymin))
+                ymin, ymax = ax.get_ylim()
+                xlo, xhi = ax.get_xlim()
+                tick = 0.08 * (ymax - ymin)
+
+                def clamp(xt):
+                    """keep a label inside the frame"""
+                    if xt - xlo < 0.06 * (xhi - xlo):
+                        return 'left', xlo + 0.005 * (xhi - xlo)
+                    if xhi - xt < 0.06 * (xhi - xlo):
+                        return 'right', xhi - 0.005 * (xhi - xlo)
+                    return 'center', xt
+
+                # the net current between consecutive zero crossings, along the bottom
+                for (xa, xb, vnet, vpos, vneg) in ranges:
+                    if abs(vnet) < 0.05 or (xb - xa) * f < 0.08 * (xhi - xlo):
+                        continue
+                    ha, xt = clamp((0.5 * (xa + xb) - x0) * f)
+                    ax.annotate('net %+.2f' % vnet, xy=(xt, ymin), xytext=(0, 4), textcoords='offset points',
+                                ha=ha, va='bottom', fontsize=9, color='#444444')
+                # every blob: short marks at its boundaries, from the axis up or
+                # down, and its integrated current at the peak
+                for (q, xa, xb, xpk, peak, cur) in blobs:
+                    if abs(cur) < 0.05:
+                        continue
+                    col = POS if q == 'positive' else NEG
+                    sign = 1.0 if q == 'positive' else -1.0
+                    for xe in (xa, xb):
+                        ax.plot([(xe - x0) * f] * 2, [0, sign * tick], color=col, lw=1.2)
+                    ha, xt = clamp((xpk - x0) * f)
+                    ax.annotate('%+.2f nA/T' % cur, xy=(xt, peak),
+                                xytext=(0, 6 if peak > 0 else -6), textcoords='offset points',
+                                ha=ha, va='bottom' if peak > 0 else 'top', fontsize=9, color=col)
+            ax.legend(loc='upper right')
+            save(fig, 'current_profile_annotated' if annotated else 'current_profile')
+
+        # comparison with other profiles: one figure with the net currents, one
+        # with the positive and negative contributions
+        if overlay:
+            others = []
+            for other in overlay:
+                try:
+                    with open(os.path.join(other, 'profile.json')) as fo:
+                        orec = json.load(fo)
+                    oxs, onet, odia, opara = read_profile(other)
+                    od = orec['slice']
+                    oxs = [x + 0.5 * od for x in oxs]
+                    ox0 = 0.0
+                    if zero == 'origin':
+                        oz, _, _ = read_points(other)
+                        ox0 = oz[0] if oz else 0.0
+                    elif zero == 'bond':
+                        ox0 = orec['in']
+                    others.append(('bond %d-%d' % tuple(orec['bond']), [(x - ox0) * f for x in oxs],
+                                   [v / od for v in onet], [v / od for v in odia], [v / od for v in opara]))
+                except (IOError, KeyError, IndexError) as e:
+                    print('cannot compare with %s: %s' % (other, e))
+            this = 'bond %d-%d' % tuple(bond)
+            styles = ['-', '--', '-.', ':']
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in net], color=NET, lw=2.0, label='net, ' + this)
+            for k, (lab, ox, onet, odia, opara) in enumerate(others):
+                ax.plot(ox, onet, lw=2.0, ls=styles[(k + 1) % 4], label='net, ' + lab)
+            frame(ax, 'net current: ' + ', '.join([this] + [o[0] for o in others]))
+            ax.legend(loc='upper right')
+            save(fig, 'compare_net')
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive, ' + this)
+            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative, ' + this)
+            for k, (lab, ox, onet, odia, opara) in enumerate(others):
+                ls = styles[(k + 1) % 4]
+                ax.plot(ox, odia, color=POS, lw=1.5, ls=ls, label='positive, ' + lab)
+                ax.plot(ox, opara, color=NEG, lw=1.5, ls=ls, label='negative, ' + lab)
+            frame(ax, 'positive and negative contributions: ' + ', '.join([this] + [o[0] for o in others]))
+            ax.legend(loc='upper right')
+            save(fig, 'compare_contributions')
     if mode == 'vertical':
         xs, net, dia, para = read_profile(dirname, 'vertical_profile.dat')
         s0 = record['down']                           # the molecular plane (the bond) is 'down' above the lower edge
@@ -493,7 +556,7 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
         ax.plot([x * f for x in xs], [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
         ax.set_xlim(min(xs) * f, max(xs) * f)
         ax.set_xlabel('height above the plane of the bond [%s]' % unit)
-        ax.set_ylabel('dJ/ds [nA/T per %s]' % unit)
+        ax.set_ylabel(r'd$\mathcal{J}$/d$s$ [nA/T / %s]' % unit)
         ax.set_title('vertical profile, bond %d-%d: net %.2f nA/T' % (bond[0], bond[1], sum(net)))
         if yrange:
             ax.set_ylim(*yrange)
@@ -566,7 +629,7 @@ def parse_args():
     ap.add_argument('--no-plot', action='store_true', help='do not plot')
     ap.add_argument('--rerun', metavar='FILE', help='take all settings from the profile.json of a previous run')
     ap.add_argument('--plot', metavar='DIR', help='only plot the results in DIR')
-    ap.add_argument('--compare', nargs='+', metavar='DIR', help='with --plot: overlay the net current of these profiles')
+    ap.add_argument('--compare', nargs='+', metavar='DIR', help='with --plot: compare with these profiles (compare_net and compare_contributions figures)')
     ap.add_argument('--zero', choices=['start', 'origin', 'bond'], default='start', help='x = 0 of the plot [start]')
     ap.add_argument('--lines', nargs='+', metavar='"ATOMS"', help='vertical lines at the centroids of these atom groups (quote each group)')
     ap.add_argument('--yrange', nargs=2, type=float, metavar=('MIN', 'MAX'), help='y range of the plot')

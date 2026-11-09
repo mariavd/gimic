@@ -107,16 +107,22 @@ Results
   cannot tell the tropicity of a current; by the sign convention a diatropic
   ring current comes out positive.
 * ``profile_points.dat``: maxima and minima of the current per bohr, the
-  zero crossings of the net current, and the current integrated between
-  them: the paratropic current of the ring is the integral from the vortex
-  origin to the next zero crossing, the diatropic one the following range.
-  Also printed at the end of the run.
+  zero crossings of the net current with the current integrated between
+  them, and the blobs of the positive and the negative contribution with
+  their boundaries, peaks and integrated currents, i.e. the strength of
+  each feature. Also printed at the end of the run.
 * ``profile.dat``, ``vertical_profile.dat``, ``squares_profile.dat``: see
   the description of the output files.
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
   ``squares_profile.*``): the plots, made with matplotlib if it is
-  installed; ``current_profile_annotated.*`` is the same with the current
-  integrated between the zero crossings written along the top. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
+  installed. ``current_profile_annotated.*`` adds the strengths of the
+  features: for every positive and every negative blob (a range where the
+  contribution is above 1% of its largest value) its boundaries are marked
+  by short lines at the axis and its integrated current is written at the
+  peak; the net current between consecutive zero crossings is written
+  along the bottom. With ``--compare``, ``compare_net.*`` shows the net
+  currents of the profiles and ``compare_contributions.*`` their positive
+  and negative contributions. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
   puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
   ``--lines "7 8 9"`` draws a vertical line at the centroid of these atoms,
   ``--compare DIR2 DIR3`` overlays the net current of other profiles,
@@ -127,6 +133,9 @@ slices (``--zero origin``); the squares profile with 0.25 bohr squares; and
 the vertical profile with 0.1 bohr slices.
 
 .. image:: current-profile-benzene.png
+   :width: 600px
+
+.. image:: current-profile-benzene-annotated.png
    :width: 600px
 
 .. image:: squares-profile-benzene.png
