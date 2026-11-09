@@ -162,6 +162,24 @@ def plane_normal(atoms, idx):
     return n
 
 
+# covalent radii in Angstrom (Cordero et al. 2008), for telling a bond from
+# two reference points; anything missing counts as 1.5
+COVALENT = {'H': 0.31, 'He': 0.28, 'Li': 1.28, 'Be': 0.96, 'B': 0.84, 'C': 0.76, 'N': 0.71, 'O': 0.66,
+            'F': 0.57, 'Ne': 0.58, 'Na': 1.66, 'Mg': 1.41, 'Al': 1.21, 'Si': 1.11, 'P': 1.07, 'S': 1.05,
+            'Cl': 1.02, 'Ar': 1.06, 'K': 2.03, 'Ca': 1.76, 'Ti': 1.60, 'Fe': 1.32, 'Co': 1.26, 'Ni': 1.24,
+            'Cu': 1.32, 'Zn': 1.22, 'Ga': 1.22, 'Ge': 1.20, 'As': 1.19, 'Se': 1.20, 'Br': 1.20, 'Kr': 1.16,
+            'Sn': 1.39, 'Sb': 1.39, 'Te': 1.38, 'I': 1.39, 'Xe': 1.40, 'Pt': 1.36, 'Au': 1.36, 'Hg': 1.32,
+            'Pb': 1.46, 'Bi': 1.48}
+
+
+def is_bond(atoms, a1, a2):
+    """True when the two atoms are within 1.25 times the sum of their covalent radii"""
+    s1, s2 = atoms[a1 - 1][0], atoms[a2 - 1][0]
+    d = norm(vec(atoms[a1 - 1][1:], atoms[a2 - 1][1:]))
+    rsum = (COVALENT.get(s1, 1.5) + COVALENT.get(s2, 1.5)) / BOHR
+    return d <= 1.25 * rsum, d, rsum
+
+
 def atom_label(atoms, i):
     sym, x, y, z = atoms[i - 1]
     return '%s%d (%.3f, %.3f, %.3f)' % (sym, i, x, y, z)
@@ -429,9 +447,18 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
             x0 = record['in']
         X = [(x - x0) * f for x in xs]
 
+        bondname = ('bond %d-%d' if record.get('is_bond', True) else 'atoms %d-%d') % tuple(bond)
+        midname = ('bond %d-%d' if record.get('is_bond', True) else 'midpoint %d-%d') % tuple(bond)
+
         def frame(ax, title):
             ax.axhline(0, color='k', lw=0.8)
-            ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label='bond %d-%d' % tuple(bond))
+            ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label=midname)
+            # atoms the plane passes through: a mark at the axis with the label
+            for k, (lab, along, off) in enumerate(record.get('atoms_in_plane', [])):
+                ax.plot([(along - x0) * f], [0], marker='o', ms=7, color='#666666', mfc='white', zorder=5,
+                        label='atoms in the plane' if k == 0 else None)
+                ax.annotate(lab, xy=((along - x0) * f, 0), xytext=(4, 4), textcoords='offset points',
+                            fontsize=8, color='#666666')
             if zero == 'origin' and zeros:
                 ax.axvline(0, color='#00DCFF', lw=1.0, label='vortex origin')
             for lab, pos in (lines or []):
@@ -451,7 +478,7 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
                 out.append(name)
             plt.close(fig)
 
-        title = '%s profile, bond %d-%d: net %.2f nA/T' % (mode, bond[0], bond[1], sum(net))
+        title = '%s profile, %s: net %.2f nA/T' % (mode, bondname, sum(net))
         # two figures: a plain one, and one with the strengths of the features:
         # the current integrated between the zero crossings of the net current
         # along the top, and for every positive and negative blob its
@@ -463,8 +490,13 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
             ax.plot(X, [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
             frame(ax, title)
             if annotated:
-                for z in zeros:
-                    ax.axvline((z - x0) * f, color='#00DCFF', lw=0.8)
+                # the other sign changes of the net current; the first one is the
+                # vortex origin (already drawn when it is the zero of the axis)
+                for k, z in enumerate(zeros):
+                    if zero == 'origin' and k == 0:
+                        continue
+                    ax.axvline((z - x0) * f, color='#00DCFF', lw=0.8, ls='--',
+                               label='sign change of the net current' if k == (1 if zero == 'origin' else 0) else None)
                 if not yrange:
                     # room for the labels above the peaks and along the bottom
                     ymin, ymax = ax.get_ylim()
@@ -485,6 +517,8 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
                 for (xa, xb, vnet, vpos, vneg) in ranges:
                     if abs(vnet) < 0.05 or (xb - xa) * f < 0.08 * (xhi - xlo):
                         continue
+                    if zero == 'origin' and xb <= x0 + 1e-6:
+                        continue                      # before the vortex origin: only there to locate it
                     ha, xt = clamp((0.5 * (xa + xb) - x0) * f)
                     ax.annotate('net %+.2f' % vnet, xy=(xt, ymin), xytext=(0, 4), textcoords='offset points',
                                 ha=ha, va='bottom', fontsize=9, color='#444444')
@@ -493,6 +527,8 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
                 for (q, xa, xb, xpk, peak, cur) in blobs:
                     if abs(cur) < 0.05:
                         continue
+                    if zero == 'origin' and xpk < x0:
+                        continue                      # before the vortex origin
                     col = POS if q == 'positive' else NEG
                     sign = 1.0 if q == 'positive' else -1.0
                     for xe in (xa, xb):
@@ -521,11 +557,12 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
                         ox0 = oz[0] if oz else 0.0
                     elif zero == 'bond':
                         ox0 = orec['in']
-                    others.append(('bond %d-%d' % tuple(orec['bond']), [(x - ox0) * f for x in oxs],
+                    others.append((('bond %d-%d' if orec.get('is_bond', True) else 'atoms %d-%d') % tuple(orec['bond']),
+                                   [(x - ox0) * f for x in oxs],
                                    [v / od for v in onet], [v / od for v in odia], [v / od for v in opara]))
                 except (IOError, KeyError, IndexError) as e:
                     print('cannot compare with %s: %s' % (other, e))
-            this = 'bond %d-%d' % tuple(bond)
+            this = bondname
             styles = ['-', '--', '-.', ':']
             fig, ax = plt.subplots(figsize=(9.8, 5.4))
             ax.plot(X, [v / delta for v in net], color=NET, lw=2.0, label='net, ' + this)
@@ -692,8 +729,15 @@ def main():
     for a in (a1, a2):
         if not 1 <= a <= natoms:
             sys.exit('atom index %d out of range (1..%d)' % (a, natoms))
-    print('Bond: %s -- %s' % (atom_label(atoms, a1), atom_label(atoms, a2)))
     p['bond'] = [a1, a2]
+    bonded, blen, rsum = is_bond(atoms, a1, a2)
+    p['is_bond'] = bonded
+    if bonded:
+        print('Bond: %s -- %s (%.3f bohr)' % (atom_label(atoms, a1), atom_label(atoms, a2), blen))
+    else:
+        print('Reference points: %s -- %s, %.3f bohr apart, more than a bond (covalent radii sum %.2f bohr):'
+              % (atom_label(atoms, a1), atom_label(atoms, a2), blen, rsum))
+        print('  the plane is perpendicular to their connection line; check the dry run where it crosses the molecule')
     A1 = list(atoms[a1 - 1][1:]); A2 = list(atoms[a2 - 1][1:])
     d = vec(A1, A2)
     length = norm(d)
@@ -825,6 +869,21 @@ def main():
     p['in_direction'] = unit(vec(M, p['towards'])) if norm(vec(M, p['towards'])) > 1e-8 else [0.0, 0.0, 0.0]
     p['rotation'] = args.rotation if args.rotation else (rec and rec.get('rotation')) or [0.0, 0.0, 0.0]
     p['rotation_origin'] = [ask.to_bohr(x) for x in args.rotation_origin] if args.rotation_origin else (rec and rec.get('rotation_origin'))
+
+    # atoms the plane passes through (within 0.6 bohr of it), with their
+    # position along the profile from its start: what the profile crosses
+    in_dir = p['in_direction']
+    crossed = []
+    for i, (sym, x, y, z) in enumerate(atoms, 1):
+        r = vec(M, [x, y, z])
+        off = dot(r, dhat)                 # distance from the plane
+        if abs(off) <= 0.6:
+            along = p['in'] - dot(r, in_dir)   # from the start of the integration
+            if -0.5 <= along <= p['in'] + p['out'] + 0.5:
+                crossed.append(('%s%d' % (sym, i), along, off))
+    p['atoms_in_plane'] = crossed
+    if crossed:
+        print('The plane passes through: ' + ', '.join('%s (%.2f bohr from the start, %.2f off the plane)' % c for c in crossed))
 
     # directory
     suffix = ('_' + args.suffix) if args.suffix else ''
