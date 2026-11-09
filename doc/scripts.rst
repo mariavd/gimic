@@ -45,7 +45,13 @@ asked and all defaults are taken. Lengths are in bohr, or in Ångström with
 
 1. **The bond**: the two atoms perpendicular to whose connection line the
    plane lies (``--bond``). The atoms are echoed with their symbols and
-   coordinates, so a wrong index is caught at once.
+   coordinates, so a wrong index is caught at once. Two atoms farther apart
+   than 1.25 times the sum of their covalent radii are treated as reference
+   points rather than a bond (the plane still passes through the point
+   ``--distance`` from the first along their connection line, the midpoint
+   by default) and are labelled so. The atoms within 0.6 bohr of the plane
+   are listed with their position along the profile and marked in the
+   plots: that is what the profile cuts through.
 2. **The position of the plane along the bond** (``--distance``), by default
    the midpoint.
 3. **The start of the integration**: either the indices of the atoms of the
@@ -113,6 +119,15 @@ Results
   each feature. Also printed at the end of the run.
 * ``profile.dat``, ``vertical_profile.dat``, ``squares_profile.dat``: see
   the description of the output files.
+* ``profile_plane.vtp`` and ``profile_line.vtp``: the plane and the profile
+  for ParaView, to be laid over the current density of a separate 3D
+  calculation (``jvec.vti``, see the visualisation chapter). The plane is
+  made of one quad per slice (per rectangle for the squares profile) with
+  the current through it as cell data (``net``, ``positive``, ``negative``,
+  also per area); the line runs along the middle of the plane with the
+  current per unit length as point data and carries the sign changes of the
+  net current as vertices (``marker`` 1 is the first one, the vortex
+  origin). Coordinates in bohr, like ``jvec.vti``.
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
   ``squares_profile.*``): the plots, made with matplotlib if it is
   installed. ``current_profile_annotated.*`` adds the strengths of the
@@ -124,9 +139,12 @@ Results
   currents of the profiles and ``compare_contributions.*`` their positive
   and negative contributions. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
   puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
-  ``--lines "7 8 9"`` draws a vertical line at the centroid of these atoms,
-  ``--compare DIR2 DIR3`` overlays the net current of other profiles,
-  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström.
+  ``--mark 7 "9 10 11"`` marks atom 7 and the centroid of atoms 9, 10 and
+  11 along the profile (also at run time; the marks are kept in
+  ``profile.json``), ``--no-atom-marks`` drops the automatic marks of the
+  atoms the plane passes through, ``--compare DIR2 DIR3`` adds the
+  comparison figures, ``--yrange`` sets the y range, ``--angstrom`` labels
+  in Ångström.
 
 Examples: benzene, bond 1-2, start 0.4 bohr past the ring centre, 0.02 bohr
 slices (``--zero origin``); the squares profile with 0.25 bohr squares; and

@@ -35,6 +35,14 @@
 !                         contribution (the ranges where it is above 1% of
 !                         its maximum) with their peaks and integrated
 !                         currents: the strength of each feature.
+!   profile_line.vtp      ParaView: the mid-height line of the plane as a
+!   profile_plane.vtp     polyline with the current per unit length of every
+!                         slice as point data (net, positive, negative) and
+!                         the sign changes of the net current as vertices;
+!                         and the plane as quads with the current through
+!                         each slice or rectangle as cell data. Coordinates
+!                         in bohr, like jvec.vti, so that the profile can be
+!                         laid over the current density.
 !   squares_profile.dat   when both axes are sliced: the net current through
 !                         each rectangle, as a matrix (rows: height slices,
 !                         columns: width slices) for plotting with image
@@ -65,6 +73,7 @@ contains
         integer(I4) :: nb1, nb2, p2, j, b1, b2, order, n
         real(DP), dimension(:,:,:), allocatable :: s
         real(DP), dimension(:,:), allocatable :: node
+        real(DP), dimension(:), allocatable :: zx
         real(DP), dimension(3) :: tot, c
         real(DP) :: w, d1, d2, x, t, dir
         character(16) :: suffix
@@ -112,7 +121,10 @@ contains
             call msg_out('Current profile written to current_profile'//trim(suffix)//'.dat')
         end if
 
-        if (g%nslice(2) > 2) call analyse_profile(g, s, d2, from_in, suffix)
+        allocate(zx(0))
+        if (g%nslice(2) > 2) call analyse_profile(g, s, d2, from_in, suffix, zx)
+        call write_vtk(g, s, d1, d2, from_in, suffix, zx)
+        deallocate(zx)
 
         ! ---- vertical_profile.dat: the slices along the height -----------
         if (g%nslice(1) > 0) then
@@ -256,12 +268,13 @@ contains
     ! current. The extrema are located with a parabola through the slice and
     ! its two neighbours, the zero crossings by linear interpolation between
     ! slice centres; the integrated ranges consist of whole slices.
-    subroutine analyse_profile(g, s, d2, from_in, suffix)
+    subroutine analyse_profile(g, s, d2, from_in, suffix, zx)
         type(grid_t), intent(in) :: g
         real(DP), dimension(:,:,:), intent(in) :: s
         real(DP), intent(in) :: d2
         logical, intent(in) :: from_in
         character(*), intent(in) :: suffix
+        real(DP), dimension(:), allocatable, intent(inout) :: zx   ! positions of the zero crossings
 
         integer(I4) :: nb2, n, q
         real(DP), dimension(:,:), allocatable :: v, sl
@@ -323,6 +336,7 @@ contains
             if (n < nb2) then
                 if (v(1,n)*v(1,n+1) < 0.d0) then
                     x0=(real(n,DP)-0.5d0)*d2+d2*v(1,n)/(v(1,n)-v(1,n+1))
+                    zx=[zx, x0]
                     p=point_at(g, x0, from_in)
                     write(PFD, '(2f11.4,3f14.6,4x,3f14.6)') xprev, x0, tot, p
                     write(str_g, '(2x,f8.3,a,f8.3,a,3f12.5)') xprev, ' to', x0, ':', tot
@@ -392,6 +406,128 @@ contains
             end do
         end subroutine
     end subroutine
+
+    ! ParaView output: the plane as quads with the slice currents as cell
+    ! data, and the mid-height line as a polyline with the current per unit
+    ! length as point data and the sign changes as vertices (XML PolyData,
+    ! ASCII, coordinates in bohr)
+    subroutine write_vtk(g, s, d1, d2, from_in, suffix, zx)
+        type(grid_t), intent(in) :: g
+        real(DP), dimension(:,:,:), intent(in) :: s
+        real(DP), intent(in) :: d1, d2
+        logical, intent(in) :: from_in
+        character(*), intent(in) :: suffix
+        real(DP), dimension(:), intent(in) :: zx
+
+        integer(I4) :: nb1, nb2, b1, b2, n, q, np, nz
+        real(DP), dimension(3) :: c
+        character(len=*), parameter :: hdr = '<VTKFile type="PolyData" version="0.1" byte_order="LittleEndian">'
+
+        nb1=size(s,2)
+        nb2=size(s,3)
+        nz=size(zx)
+
+        ! ---- the plane: (nb1+1)*(nb2+1) corners, nb1*nb2 quads ---------
+        open(PFD, file='profile_plane'//trim(suffix)//'.vtp')
+        write(PFD, '(a)') hdr
+        write(PFD, '(a)') '<PolyData>'
+        write(PFD, '(a,i0,a,i0,a)') '<Piece NumberOfPoints="', (nb1+1)*(nb2+1), &
+            '" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="', nb1*nb2, '">'
+        write(PFD, '(a)') '<Points><DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+        do b2=0,nb2
+            do b1=0,nb1
+                c=slice_centre(g, real(b1,DP)*d1, real(b2,DP)*d2)
+                write(PFD, '(3es16.8)') c
+            end do
+        end do
+        write(PFD, '(a)') '</DataArray></Points>'
+        write(PFD, '(a)') '<Polys><DataArray type="Int32" Name="connectivity" format="ascii">'
+        do b2=1,nb2
+            do b1=1,nb1
+                ! corners (b1-1,b2-1), (b1,b2-1), (b1,b2), (b1-1,b2); point index = b1 + b2*(nb1+1)
+                write(PFD, '(4i10)') (b1-1)+(b2-1)*(nb1+1), b1+(b2-1)*(nb1+1), b1+b2*(nb1+1), (b1-1)+b2*(nb1+1)
+            end do
+        end do
+        write(PFD, '(a)') '</DataArray><DataArray type="Int32" Name="offsets" format="ascii">'
+        write(PFD, '(10i10)') (4*n, n=1,nb1*nb2)
+        write(PFD, '(a)') '</DataArray></Polys>'
+        write(PFD, '(a)') '<CellData Scalars="net">'
+        do q=1,3
+            write(PFD, '(a,a,a)') '<DataArray type="Float64" Name="', trim(cellname(q)), &
+                '" format="ascii">'
+            write(PFD, '(6es16.8)') ((au2si(s(q,b1,b2)), b1=1,nb1), b2=1,nb2)
+            write(PFD, '(a)') '</DataArray>'
+        end do
+        do q=1,3
+            write(PFD, '(a,a,a)') '<DataArray type="Float64" Name="', trim(cellname(q)), &
+                ' per area" format="ascii">'
+            write(PFD, '(6es16.8)') ((au2si(s(q,b1,b2))/(d1*d2), b1=1,nb1), b2=1,nb2)
+            write(PFD, '(a)') '</DataArray>'
+        end do
+        write(PFD, '(a)') '</CellData>'
+        write(PFD, '(a)') '</Piece></PolyData></VTKFile>'
+        close(PFD)
+
+        ! ---- the line: slice centres on the mid-height line + sign changes
+        np=nb2+nz
+        open(PFD, file='profile_line'//trim(suffix)//'.vtp')
+        write(PFD, '(a)') hdr
+        write(PFD, '(a)') '<PolyData>'
+        write(PFD, '(a,i0,a,i0,a)') '<Piece NumberOfPoints="', np, '" NumberOfVerts="', nz, &
+            '" NumberOfLines="1" NumberOfStrips="0" NumberOfPolys="0">'
+        write(PFD, '(a)') '<Points><DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+        do n=1,nb2
+            c=point_at(g, (real(n,DP)-0.5d0)*d2, from_in)
+            write(PFD, '(3es16.8)') c
+        end do
+        do n=1,nz
+            c=point_at(g, zx(n), from_in)
+            write(PFD, '(3es16.8)') c
+        end do
+        write(PFD, '(a)') '</DataArray></Points>'
+        write(PFD, '(a)') '<Verts><DataArray type="Int32" Name="connectivity" format="ascii">'
+        if (nz > 0) write(PFD, '(10i10)') (nb2+n-1, n=1,nz)
+        write(PFD, '(a)') '</DataArray><DataArray type="Int32" Name="offsets" format="ascii">'
+        if (nz > 0) write(PFD, '(10i10)') (n, n=1,nz)
+        write(PFD, '(a)') '</DataArray></Verts>'
+        write(PFD, '(a)') '<Lines><DataArray type="Int32" Name="connectivity" format="ascii">'
+        write(PFD, '(10i10)') (n-1, n=1,nb2)
+        write(PFD, '(a)') '</DataArray><DataArray type="Int32" Name="offsets" format="ascii">'
+        write(PFD, '(i10)') nb2
+        write(PFD, '(a)') '</DataArray></Lines>'
+        write(PFD, '(a)') '<PointData Scalars="net">'
+        do q=1,3
+            write(PFD, '(a,a,a)') '<DataArray type="Float64" Name="', trim(cellname(q)), &
+                ' per bohr" format="ascii">'
+            write(PFD, '(6es16.8)') (au2si(sum(s(q,:,slice_index(n,nb2,from_in))))/d2, n=1,nb2), &
+                (0.d0, n=1,nz)
+            write(PFD, '(a)') '</DataArray>'
+        end do
+        write(PFD, '(a)') '<DataArray type="Float64" Name="distance" format="ascii">'
+        write(PFD, '(6es16.8)') ((real(n,DP)-0.5d0)*d2, n=1,nb2), (zx(n), n=1,nz)
+        write(PFD, '(a)') '</DataArray>'
+        write(PFD, '(a)') '<DataArray type="Int32" Name="marker" format="ascii">'
+        write(PFD, '(10i10)') (0, n=1,nb2), (merge(1, 2, n == 1), n=1,nz)
+        write(PFD, '(a)') '</DataArray>'
+        write(PFD, '(a)') '</PointData>'
+        write(PFD, '(a)') '</Piece></PolyData></VTKFile>'
+        close(PFD)
+        call msg_out('ParaView files written: profile_plane'//trim(suffix)//'.vtp, profile_line'// &
+            trim(suffix)//'.vtp (bohr; marker 1 = first sign change of the net current)')
+    end subroutine
+
+    function cellname(q) result(name)
+        integer(I4), intent(in) :: q
+        character(8) :: name
+        select case (q)
+            case (1)
+                name='net'
+            case (2)
+                name='positive'
+            case default
+                name='negative'
+        end select
+    end function
 
     ! point on the mid-height line of the plane at the profile coordinate x
     function point_at(g, x, from_in) result(c)

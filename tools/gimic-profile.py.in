@@ -14,7 +14,7 @@ with the default in brackets (Enter accepts it). With --yes nothing is asked.
     gimic-profile --bond 1 2 --ring 1 2 3 4 5 6 --in 2.9 --out 8 --slice 0.02 --threads 8 --yes
     gimic-profile --mode squares --bond 1 2 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
     gimic-profile --rerun current_profile_1.2/profile.json --slice 0.01
-    gimic-profile --plot current_profile_1.2 --zero origin --lines "7 8 9"
+    gimic-profile --plot current_profile_1.2 --zero origin --mark 7 "9 10 11"
 
 Needs MOL and XDENS in the working directory. The geometry is taken from
 coord (Turbomole, bohr), coord.xyz (Angstrom) or, failing both, from MOL.
@@ -454,15 +454,18 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
             ax.axhline(0, color='k', lw=0.8)
             ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label=midname)
             # atoms the plane passes through: a mark at the axis with the label
-            for k, (lab, along, off) in enumerate(record.get('atoms_in_plane', [])):
-                ax.plot([(along - x0) * f], [0], marker='o', ms=7, color='#666666', mfc='white', zorder=5,
-                        label='atoms in the plane' if k == 0 else None)
-                ax.annotate(lab, xy=((along - x0) * f, 0), xytext=(4, 4), textcoords='offset points',
-                            fontsize=8, color='#666666')
+            if not record.get('no_atom_marks'):
+                for k, (lab, along, off) in enumerate(record.get('atoms_in_plane', [])):
+                    ax.plot([(along - x0) * f], [0], marker='o', ms=7, color='#666666', mfc='white', zorder=5,
+                            label='atoms in the plane' if k == 0 else None)
+                    ax.annotate(lab, xy=((along - x0) * f, 0), xytext=(4, 4), textcoords='offset points',
+                                fontsize=8, color='#666666')
             if zero == 'origin' and zeros:
                 ax.axvline(0, color='#00DCFF', lw=1.0, label='vortex origin')
             for lab, pos in (lines or []):
-                ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.', label=lab)
+                ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.')
+                ax.annotate(lab, xy=((pos - x0) * f, 1), xycoords=('data', 'axes fraction'), xytext=(3, -12),
+                            textcoords='offset points', fontsize=8, color='#AA00AA')
             ax.set_xlim(min(X), max(X))
             if yrange:
                 ax.set_ylim(*yrange)
@@ -668,10 +671,28 @@ def parse_args():
     ap.add_argument('--plot', metavar='DIR', help='only plot the results in DIR')
     ap.add_argument('--compare', nargs='+', metavar='DIR', help='with --plot: compare with these profiles (compare_net and compare_contributions figures)')
     ap.add_argument('--zero', choices=['start', 'origin', 'bond'], default='start', help='x = 0 of the plot [start]')
-    ap.add_argument('--lines', nargs='+', metavar='"ATOMS"', help='vertical lines at the centroids of these atom groups (quote each group)')
+    ap.add_argument('--mark', '--lines', dest='mark', nargs='+', metavar='"ATOMS"',
+                    help='mark these atoms, or the centroid of a quoted group of atoms, along the profile (e.g. --mark 7 "9 10 11")')
+    ap.add_argument('--no-atom-marks', action='store_true', help='do not mark the atoms the plane passes through')
     ap.add_argument('--yrange', nargs=2, type=float, metavar=('MIN', 'MAX'), help='y range of the plot')
     ap.add_argument('--overwrite', action='store_true', help='overwrite an existing directory without asking')
     return ap.parse_args()
+
+
+def marks_along(atoms, specs, record):
+    """(label, position along the profile from its start) for atoms or quoted groups"""
+    marks = []
+    M = record['bond_midpoint']
+    in_dir = record['in_direction']
+    for spec in specs or []:
+        idx = [int(x) for x in str(spec).replace(',', ' ').split()]
+        if not idx:
+            continue
+        c = centroid(atoms, idx)
+        along = record['in'] - dot(vec(M, c), in_dir)
+        label = '%s%d' % (atoms[idx[0] - 1][0], idx[0]) if len(idx) == 1 else 'atoms ' + ' '.join(str(i) for i in idx)
+        marks.append((label, along))
+    return marks
 
 
 def centroid_distance(atoms, idx, point):
@@ -685,16 +706,12 @@ def main():
     if args.plot:
         with open(os.path.join(args.plot, 'profile.json')) as f:
             record = json.load(f)
-        atoms = load_geometry() if args.lines else []
-        lines = []
-        for group in args.lines or []:
-            idx = [int(x) for x in group.replace(',', ' ').split()]
-            c = centroid(atoms, idx)
-            bond_mid = record['bond_midpoint']
-            # position along the profile: start is 'in' bohr before the bond midpoint
-            d = norm(vec(c, bond_mid))
-            lines.append(('atoms %s' % group, record['in'] - d if dot(vec(bond_mid, c), record['in_direction']) > 0 else record['in'] + d))
-        files = plot(args.plot, record, args.zero, lines, args.yrange, args.angstrom, args.compare)
+        if args.mark:
+            atoms = load_geometry()
+            record['marks'] = marks_along(atoms, args.mark, record)
+        if args.no_atom_marks:
+            record['no_atom_marks'] = True
+        files = plot(args.plot, record, args.zero, record.get('marks'), args.yrange, args.angstrom, args.compare)
         for f in files:
             print('written %s' % f)
         return
@@ -908,6 +925,8 @@ def main():
         print('  Plane corners (bohr): ' + '; '.join('(%.2f, %.2f, %.2f)' % tuple(c) for c in corners))
     print('  The plane and the molecule are in %s/grid.xyz (corners X, field Be)' % dirname)
 
+    p['marks'] = marks_along(atoms, args.mark, p) if args.mark else (rec and rec.get('marks')) or []
+    p['no_atom_marks'] = bool(args.no_atom_marks)
     p['threads'] = args.threads or (rec and rec.get('threads')) or os.cpu_count() or 4
     p['dirname'] = dirname
     p['angstrom'] = args.angstrom
@@ -948,7 +967,7 @@ def main():
                 print(line.rstrip())
     show_analysis(dirname)
     if not args.no_plot and mode != 'integral':
-        for f in plot(dirname, p, args.zero, None, args.yrange, args.angstrom):
+        for f in plot(dirname, p, args.zero, p['marks'], args.yrange, args.angstrom):
             print('written %s' % f)
     print('Settings recorded in %s/profile.json (rerun with --rerun, replot with --plot %s)' % (dirname, dirname))
 
