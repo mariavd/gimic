@@ -129,7 +129,6 @@ module gtodefs_module
 contains
     subroutine setup_gtos()
         integer(I4) :: a, i, k, l, m
-        integer(I4) :: turbo
 
         GTO_DEFS(0)%l=0; GTO_DEFS(0)%ncomp=1
         GTO_DEFS(1)%l=1; GTO_DEFS(1)%ncomp=3

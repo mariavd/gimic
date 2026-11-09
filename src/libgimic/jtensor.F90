@@ -408,8 +408,6 @@ contains
         real(DP), dimension(9), intent(inout) :: j
         integer(I4) :: spin
 
-        integer(I4) :: i, b
-        integer(I4), save :: notify=1
 
         this%rho=DP50*r ! needed for diamag. contr.
         if (settings%use_giao) then
@@ -450,8 +448,10 @@ contains
         real(DP), dimension(3,3), intent(out) :: ct
         integer(I4), intent(in) :: spin
 
-        integer(I4) :: b, m, n, k, ii,jj
+        integer(I4) :: b, m, k
+#ifdef HAVE_BLAS
         integer(I4) :: vec_size
+#endif
         real(DP) :: prsp1, prsp2       ! paramagnetic wavefunction response
         real(DP) :: ppd                ! paramagnetic probability density
         real(DP), dimension(3) :: dpd  ! diamagnetic probability density

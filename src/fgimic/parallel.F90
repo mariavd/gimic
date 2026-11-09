@@ -12,14 +12,20 @@ module parallel_module
     public gather_data, collect_sum
     private
 
+#ifdef HAVE_MPI
     integer(I4) :: ierr
+#endif
     integer(I4) :: rank
+#ifdef HAVE_MPI
     character(80) :: sys
+#endif
 contains
     function init_mpi(is_mpirun) result(mpirank)
         logical, intent(out) :: is_mpirun
         integer(I4) :: mpirank
+#ifdef HAVE_MPI
         integer(I4) :: hostnm
+#endif
 
         mpi_world_size = 1
 #ifdef HAVE_MPI
@@ -67,7 +73,9 @@ contains
         integer(I4), intent(in) :: npts
         integer(I4), intent(out) :: lo, hi
 
+#ifdef HAVE_MPI
         integer(I4) :: nPerHost, nLeftOver
+#endif
 
         if (mpi_world_size == 1) then
             lo=1

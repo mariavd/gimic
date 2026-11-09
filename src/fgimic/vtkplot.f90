@@ -16,10 +16,8 @@ contains
         type(grid_t) :: grid
         real(DP), dimension(:,:,:) :: pdata
 
-        integer(I4) :: skp=1
         integer(I4) :: i,j,k,l, fd
         integer(I4), dimension(3) :: npts
-        real(DP), dimension(2) :: qrange
         real(DP), dimension(3) :: qmin, qmax, step
 
         call getfd(fd)
@@ -90,10 +88,8 @@ contains
         type(grid_t) :: grid
         real(DP), dimension(:,:,:,:) :: pdata
 
-        integer(I4) :: skp=1
-        integer(I4) :: i,j,k,l, fd, idx
+        integer(I4) :: i,j,k,l, fd
         integer(I4), dimension(3) :: npts
-        real(DP), dimension(2) :: qrange
         real(DP), dimension(3) :: qmin, qmax, step
         real(DP) :: avg_x, avg_y, avg_z
         real(DP) :: norm

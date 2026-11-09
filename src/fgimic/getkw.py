@@ -18,11 +18,15 @@ import sys,os,inspect
 import re, string, copy
 from copy import deepcopy
 from pyparsing import \
-	Literal, Word, ZeroOrMore, Group, Dict, Optional, removeQuotes, \
-	printables, ParseException, restOfLine, alphas, alphanums, nums, \
-	pythonStyleComment, oneOf, quotedString, SkipTo, Forward, \
-	commaSeparatedList, OneOrMore, Combine, srange, delimitedList, \
-	downcaseTokens, line, lineno, StringEnd
+	Literal, Word, ZeroOrMore, Group, remove_quotes, ParseException, \
+	alphas, alphanums, python_style_comment, quoted_string, SkipTo, \
+	Forward, Combine, line, lineno, StringEnd
+
+# pyparsing >= 3.0; DelimitedList replaced the delimited_list function in 3.1
+try:
+	from pyparsing import DelimitedList
+except ImportError:  # pyparsing 3.0.x
+	from pyparsing import delimited_list as DelimitedList
 
 verbose=True
 strict=True
@@ -444,8 +448,8 @@ class GetkwParser:
 			self.path=None
 		if GetkwParser.bnf == None:
 			GetkwParser.bnf=self.getkw_bnf()
-		self.parseString=self.bnf.parseString
-#        GetkwParser.bnf.setDebug(True)
+		self.parseString=self.bnf.parse_string
+#        GetkwParser.bnf.set_debug(True)
 
 	def set_caseless(self, arg):
 		if arg is True:
@@ -457,11 +461,11 @@ class GetkwParser:
 		pass
 
 	def parseFile(self,fil):
-		self.bnf.parseFile(fil)
+		self.bnf.parse_file(fil)
 		return self.top
 
 	def add_sect(self,s,l,t):
-		q=t.asList()
+		q=t.as_list()
 		self.strg=s
 		self.loc=l
 		name=q[0]
@@ -487,7 +491,7 @@ class GetkwParser:
 			k.set_kwarg(kw, set=True)
 
 	def add_vecsect(self,s,l,t):
-		q=t.asList()
+		q=t.as_list()
 		self.strg=s
 		self.loc=l
 		name=q[0]
@@ -531,7 +535,7 @@ class GetkwParser:
 		self.cur=self.stack[-1]
 
 	def store_key(self,s,l,t):
-		q=t.asList()
+		q=t.as_list()
 		self.strg=s
 		self.loc=l
 		name=q[0]
@@ -554,7 +558,7 @@ class GetkwParser:
 		self.cur.add_kwkw(k,set=True)
 
 	def store_vector(self,s,l,t):
-		q=t.asList()
+		q=t.as_list()
 		self.strg=s
 		self.loc=l
 		name=q[0]
@@ -698,11 +702,11 @@ line: %d" % ( name, lineno(self.loc,self.strg)) )
 
 
 		# Helper definitions
-		kstr=Word(prtable) ^ quotedString.setParseAction(removeQuotes)
+		kstr=Word(prtable) ^ quoted_string.set_parse_action(remove_quotes)
 		name = Word(alphas+"_",alphanums+"_")
-		vec=array_begin+delimitedList(Word(prtable) ^ \
+		vec=array_begin+DelimitedList(Word(prtable) ^ \
 				Literal("\n").suppress() ^ \
-				quotedString.setParseAction(removeQuotes))+array_end
+				quoted_string.set_parse_action(remove_quotes))+array_end
 		sect=name+sect_begin
 		key_sect=name+Group(arg_begin+kstr+arg_end)+sect_begin
 		vec_sect=name+Group(arg_begin+vec+ arg_end)+sect_begin
@@ -717,16 +721,16 @@ line: %d" % ( name, lineno(self.loc,self.strg)) )
 		section << sect_def+ZeroOrMore(input) + sect_end
 
 		# Parsing actions
-		keyword.setParseAction(self.store_key)
-		vector.setParseAction(self.store_vector)
-		data.setParseAction(self.store_data)
-		sect.setParseAction(self.add_sect)
-		key_sect.setParseAction(self.add_sect)
-		vec_sect.setParseAction(self.add_vecsect)
-		sect_end.setParseAction(self.pop_sect)
+		keyword.set_parse_action(self.store_key)
+		vector.set_parse_action(self.store_vector)
+		data.set_parse_action(self.store_data)
+		sect.set_parse_action(self.add_sect)
+		key_sect.set_parse_action(self.add_sect)
+		vec_sect.set_parse_action(self.add_vecsect)
+		sect_end.set_parse_action(self.pop_sect)
 
-		bnf=ZeroOrMore(input) + StringEnd().setFailAction(parse_error)
-		bnf.ignore(pythonStyleComment)
+		bnf=ZeroOrMore(input) + StringEnd().set_fail_action(parse_error)
+		bnf.ignore(python_style_comment)
 		return bnf
 
 def parse_error(s,t,d,err):

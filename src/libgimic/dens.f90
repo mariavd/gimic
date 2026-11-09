@@ -57,7 +57,7 @@ contains
         type(dens_t), intent(inout) :: this
         character(80), intent(in) :: xdens_file
 
-        integer(I4) :: b, mo, ispin, s
+        integer(I4) :: b, ispin, s
         type(reorder_t) :: order
         real(DP), dimension(:,:), allocatable :: array
 
@@ -289,7 +289,7 @@ contains
         character(*), intent(in) :: mofile
         integer(I4), dimension(2), optional :: morange
 
-        integer(4) :: n, i,j
+        integer(4) :: n, i
         real(DP), dimension(:,:), allocatable :: mos
         type(reorder_t) :: order
 

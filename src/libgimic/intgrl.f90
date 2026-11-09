@@ -151,7 +151,7 @@ contains
     subroutine read_contraction(ctr)
         type(contraction_t), intent(inout) :: ctr
 
-        integer(I4) :: i, j, ios
+        integer(I4) :: i
 
         read(BASFD, *) ctr%npf, i
 
@@ -174,7 +174,7 @@ contains
         integer(I4), intent(in) :: idx
         integer(I4), intent(out) :: ncf
 
-        integer(I4) :: i, j, l, ncomp, nccomp, npf, nncf
+        integer(I4) :: i, j, l, ncomp, nccomp, npf
         real(DP) :: xp
         real(DP), dimension(:), allocatable :: cc
         type(contraction_t), pointer :: ctr

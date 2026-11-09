@@ -54,7 +54,7 @@ contains
     subroutine turbo_reorder(this)
         type(reorder_t) :: this
 
-        integer(I4) :: i, j, k, l, m, c, q, natoms, ncgto
+        integer(I4) :: i, j, k, l, c, q, natoms, ncgto
         type(atom_t),  pointer :: atom
         type(basis_t), pointer :: aob
         type(contraction_t), pointer :: ctr
@@ -98,7 +98,7 @@ contains
     subroutine degeneralize(this)
         type(reorder_t) :: this
 
-        integer(I4) :: i, j, k, l, m, base, q, natoms, ncgto
+        integer(I4) :: i, j, k, m, base, q, natoms, ncgto
         type(atom_t),  pointer :: atom
         type(basis_t), pointer :: aob
         type(contraction_t), pointer :: ctr

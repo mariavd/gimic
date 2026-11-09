@@ -89,7 +89,7 @@ contains
         real(DP), dimension(:,:), pointer :: f
         real(DP), dimension(3) :: df
         real(DP) :: up, down
-        integer(I4) :: i, j
+        integer(I4) :: i
         real(DP) :: rr2
 
         rr2=sum(r**2)

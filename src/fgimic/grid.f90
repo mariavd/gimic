@@ -52,10 +52,8 @@ contains
         type(getkw_t), target :: inp
         type(molecule_t) :: mol
 
-        real(DP) :: ll
         real(DP), dimension(3) :: angle
-        integer(I4), dimension(3) :: ngp
-        integer(I4) :: i, j
+        integer(I4) :: i
 
         real(DP) :: out_length, down_length
         real(DP), dimension(3) :: ref
@@ -96,19 +94,19 @@ contains
 
             if (keyword_is_set(input, 'Grid.rotation_origin')) then
                 call getkw(input, 'Grid.rotation_origin', ref)
-            else
-                !            call getkw(input, 'Grid.out', out_length)
-                !            call getkw(input, 'Grid.down', down_length)
-                if (keyword_is_set(input, 'Grid.height')) then
-                    call getkw(input, 'Grid.height', hgt)
-                    call getkw(input, 'Grid.width', wdt)
-                    down_length=hgt(2)
-                    out_length=wdt(2)
-                else
-                    call getkw(input, 'Grid.out', out_length)
-                    call getkw(input, 'Grid.down', down_length)
-                end if
+            else if (keyword_is_set(input, 'Grid.height')) then
+                ! bond grid: rotate about the middle of the bond
+                call getkw(input, 'Grid.height', hgt)
+                call getkw(input, 'Grid.width', wdt)
+                down_length=hgt(2)
+                out_length=wdt(2)
                 ref = this%origin + out_length*this%basv(:,2) + down_length*this%basv(:,1)
+            else
+                ! base grid: rotate about the centre of the grid. The grid
+                ! points do not exist yet, so take it from the lengths along
+                ! the (normalised) basis vectors.
+                ref = this%origin + 0.5d0*(this%l(1)*this%basv(:,1) &
+                    + this%l(2)*this%basv(:,2) + this%l(3)*this%basv(:,3))
             end if
             call rotate(this, angle, ref)
         end if
@@ -139,11 +137,7 @@ contains
 
     subroutine setup_std_grid(this)
         type(grid_t) :: this
-        type(atom_t), pointer :: atom
 
-        integer(I4) :: i
-        integer(I4), dimension(3) :: atoms
-        real(DP), dimension(3) :: normv
 
         call getkw(input, 'Grid.origin', this%origin)
         call getkw(input, 'Grid.ivec', this%basv(:,1))
@@ -168,8 +162,6 @@ contains
 
         type(atom_t), pointer :: atom
 
-        integer(I4) :: i
-        real(DP), dimension(3) :: normv
         integer(I4), dimension(3) :: atoms
         real(DP), dimension(3) :: v1, v2, v3, oo
         real(DP), dimension(2) :: hgt, wdt
@@ -376,7 +368,7 @@ contains
         type(grid_t), intent(in) :: this
         type(grid_t), intent(inout) :: g2
 
-        integer(I4) :: i, n
+        integer(I4) :: n
 
         g2%gauss=this%gauss
         g2%basv=this%basv
@@ -403,7 +395,6 @@ contains
     subroutine ortho_coordsys(this)
         type(grid_t), intent(inout) :: this
 
-        integer(I4) :: i
         real(DP), dimension(3) :: tvec
         real(DP) :: dpr
 
@@ -543,7 +534,7 @@ contains
     subroutine extgrid(this)
         type(grid_t), intent(inout) :: this
 
-        integer(I4) :: nlines, i
+        integer(I4) :: nlines
 
         this%basv=0.d0
         this%l=0.d0
@@ -790,8 +781,8 @@ contains
     end subroutine
 
     subroutine quadrant()
-        integer(I4) :: i, j, k
-        real(DP), dimension(3) :: v1, v2, v3
+        integer(I4) :: i, j
+        real(DP), dimension(3) :: v3
         integer, dimension(3,3) :: vtab2, vtab1 = reshape((/ &
         1,0,0, &
         0,1,0, &

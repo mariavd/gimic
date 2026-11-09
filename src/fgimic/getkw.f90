@@ -242,7 +242,7 @@ contains
         if (idx > 0) then
             ok=find_sect(this%active, path(:idx-1), ptr)
             if (.not.ok) then
-                call msg_error('delkw: no such section: ' // trim(path))
+                call msg_error('del_section: no such section: ' // trim(path))
                 return
             end if
         else
@@ -251,7 +251,7 @@ contains
 
         ok=find_sect(ptr, path, sect, sect2)
         if (.not.ok) then
-            call msg_error('delkw: no such key: ' // trim(path))
+            call msg_error('del_section: no such section: ' // trim(path))
             return
         end if
         sect=>del_section_t(sect)
@@ -260,7 +260,7 @@ contains
         else
             ptr%sects=>sect
         end if
-        sect%nsect=sect%nsect-1
+        ptr%nsect=ptr%nsect-1
     end subroutine
 
     function del_keyword(key) result(next)
@@ -777,7 +777,7 @@ contains
 !                call getkw_errundef(ptr%id)
                 return
             end if
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 val=>ptr%key%str
@@ -862,6 +862,7 @@ contains
         integer(SP) :: idx
         type(section_t), pointer :: ptr
         nullify(ptr)
+        nullify(kw)
 
         ok=.false.
         arg=.false.
@@ -921,7 +922,6 @@ contains
         character(*), intent(in) :: path
         integer(SP), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -940,7 +940,6 @@ contains
         character(*), intent(in) :: path
         integer(SP), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -961,7 +960,6 @@ contains
         character(*), intent(in) :: path
         real(DP), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -980,7 +978,6 @@ contains
         character(*), intent(in) :: path
         real(DP), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1001,7 +998,6 @@ contains
         character(*), intent(in) :: path
         logical, intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1020,7 +1016,6 @@ contains
         character(*), intent(in) :: path
         logical, dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1041,7 +1036,6 @@ contains
         character(*), intent(in) :: path
         character(*), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1062,7 +1056,6 @@ contains
         character(*), intent(in) :: path
         character(LINELEN), dimension(:), intent(in) :: val
 
-        logical :: ok
 
         type(keyword_t), pointer :: kw
 
@@ -1313,7 +1306,7 @@ contains
 
         ok=findkw(this%active, path, ptr)
         if (ok) then
-            if (ptr%typ  /= KW_LVEC) then
+            if (ptr%typ  /= KW_STR) then
                 call getkw_typerr(ptr)
             else
                 if (associated(ptr%key%str)) then
@@ -1334,7 +1327,6 @@ contains
         type(getkw_t) :: this
         integer(SP), intent(in) :: lun
 
-        type(section_t), pointer :: foo
 
         call globals(this)
 
@@ -1389,8 +1381,6 @@ contains
         type(section_t) :: sect
         integer(SP) :: lun
 
-        logical :: arg
-        integer(SP) :: nkw, i
         type(keyword_t), pointer :: kw
         type(section_t), pointer :: ptr
         nullify(ptr)
@@ -1423,9 +1413,10 @@ contains
         logical :: ok
 
         type(section_t), pointer :: next
-        integer(SP) :: index, idx, i, nkw
+        integer(SP) :: index, idx
 
         nullify(ptr)
+        if (present(ptr2)) nullify(ptr2)
 
         ok=.false.
 
@@ -1441,7 +1432,6 @@ contains
             end do
         else
             ptr=>cur%kw
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
@@ -1493,9 +1483,10 @@ contains
         type(section_t), optional, pointer :: ptr2
         logical :: ok
 
-        integer(SP) :: index, idx, i
+        integer(SP) :: index, idx
 
         ok=.false.
+        if (present(ptr2)) nullify(ptr2)
         idx=index(path, '.')
         ptr=>cur%sects
         if (idx > 0) then
@@ -1510,7 +1501,6 @@ contains
                 ptr=>next_section(ptr)
             end do
         else
-            if (present(ptr2)) nullify(ptr2)
             do while (associated(ptr))
                 if (path == ptr%id) then
                     ok=.true.
@@ -1528,7 +1518,7 @@ contains
         logical :: sarg
 
         character(6) :: str, str2
-        integer(SP) :: nkw, nsec, i, iarg
+        integer(SP) :: i
         type(keyword_t), pointer :: kw
         type(section_t), pointer :: next
 
@@ -1666,7 +1656,6 @@ contains
         type(kword_t) :: kw
         integer(SP) :: n
 
-        integer(SP) :: strmx
 
 !        read(lun,'(a)') strmx
         allocate(kw%str(n))
@@ -1678,13 +1667,9 @@ contains
         type(kword_t) :: kw
         integer(SP) :: n
 
-!        if (n > 1) then
-            allocate(kw%lvec(n))
-            memtrack=memtrack+1
-            read(lun,*) kw%lvec
-!        else
-            read(lun,*) kw%bool
-!        end if
+        allocate(kw%lvec(n))
+        memtrack=memtrack+1
+        read(lun,*) kw%lvec
     end subroutine
 
     function sane(str1, str2) result(err)
@@ -1702,7 +1687,6 @@ contains
         type(section_t) :: sect
 
         type(keyword_t), pointer :: kw
-        type(section_t), pointer :: ss
 
         print *, 'SECTION: ', sect%id, sect%nsect, sect%nkw
         if (associated(sect%arg)) then
@@ -1792,7 +1776,6 @@ contains
 
     subroutine pop_section(this)
         type(getkw_t), target :: this
-        integer(4) :: error
 
         if (this%stidx > 0) then
             this%active=>this%stack(this%stidx)%sect
