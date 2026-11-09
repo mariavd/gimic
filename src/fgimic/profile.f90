@@ -13,8 +13,10 @@
 !   current_profile.dat   one line per slice along the width, from the start
 !                         of the integration to its end: distance of the
 !                         slice start from the start of the integration, net,
-!                         positive (diatropic) and negative (paratropic)
-!                         current through the slice in nA/T. No header, the
+!                         positive and negative current through the slice in
+!                         nA/T (a plane cannot tell the tropicity; by the
+!                         sign convention a diatropic ring current comes out
+!                         positive). No header, the
 !                         format the current-profile scripts have always
 !                         produced.
 !   vertical_profile.dat  the same for the slices along the height, when the
@@ -26,7 +28,7 @@
 !                         per unit length at every Gauss node along the
 !                         width, so that any sub-range can be re-integrated.
 !   profile_points.dat    the analysis of the profile along the width: maxima
-!                         and minima of the net, diatropic and paratropic
+!                         and minima of the net, positive and negative
 !                         current per bohr, the zero crossings of the net
 !                         current, and the current integrated between them.
 !   squares_profile.dat   when both axes are sliced: the net current through
@@ -165,7 +167,7 @@ contains
             write(PFD, '(a)') '# Slices along the width'
             write(PFD, '(a)') '#    n     x_start    x_centre' // &
                 '        cx            cy            cz' // &
-                '           net           dia          para' // &
+                '           net      positive      negative' // &
                 '      dJ/dx [nA/T/bohr]'
             do n=1,nb2
                 b2=slice_index(n, nb2, from_in)
@@ -182,7 +184,7 @@ contains
             write(PFD, '(a)') '# Slices along the height (from the grid origin along basv1)'
             write(PFD, '(a)') '#    n     s_start    s_centre' // &
                 '        cx            cy            cz' // &
-                '           net           dia          para' // &
+                '           net      positive      negative' // &
                 '      dJ/ds [nA/T/bohr]'
             do b1=1,nb1
                 x=real(b1-1,DP)*d1
@@ -196,7 +198,7 @@ contains
 
         write(PFD, '(a)') '# Current per unit length at the Gauss nodes along the width [nA/T/bohr]'
         write(PFD, '(a)') '#    j           x        weight' // &
-                '           net           dia          para'
+                '           net      positive      negative'
         if (from_in) then
             dir=-1.d0
         else
@@ -226,7 +228,7 @@ contains
                 write(PFD, '(*(f14.8))') (au2si(sum(s(1,b1,slice_index(n,nb2,from_in):slice_index(n,nb2,from_in)))), n=1,nb2)
             end do
             write(PFD, '(a)') ''
-            write(PFD, '(a)') '# list: x_centre  s_centre  cx  cy  cz  net  dia  para'
+            write(PFD, '(a)') '# list: x_centre  s_centre  cx  cy  cz  net  positive  negative'
             do b1=1,nb1
                 do n=1,nb2
                     b2=slice_index(n, nb2, from_in)
@@ -262,7 +264,7 @@ contains
         real(DP), dimension(3) :: p, tot
         real(DP) :: a, b, c, off, val, x0, xprev
         character(10), dimension(3), parameter :: qname = &
-            (/ 'net       ', 'diatropic ', 'paratropic' /)
+            (/ 'net       ', 'positive  ', 'negative  ' /)
         character(7) :: kind
         real(DP), parameter :: THRS=1.d-3   ! nA/T per bohr: ignore extrema of the far-field noise
 
@@ -307,7 +309,7 @@ contains
 
         write(PFD, '(a)') '#'
         write(PFD, '(a)') '# zero crossings of the net current, and the current [nA/T] integrated between them (whole slices)'
-        write(PFD, '(a)') '#    x_from      x_to           net           dia          para     [zero crossing at x_to: cx cy cz]'
+        write(PFD, '(a)') '#    x_from      x_to           net      positive      negative     [zero crossing at x_to: cx cy cz]'
         call nl
         call msg_out('Current profile: zero crossings of the net current and the current between them [nA/T]')
         tot=0.d0

@@ -103,7 +103,9 @@ Results
 -----------------------------
 
 * ``current_profile.dat``: one line per slice from the start of the
-  integration: distance, net, diatropic and paratropic current (nA/T).
+  integration: distance, net, positive and negative current (nA/T). A plane
+  cannot tell the tropicity of a current; by the sign convention a diatropic
+  ring current comes out positive.
 * ``profile_points.dat``: maxima and minima of the current per bohr, the
   zero crossings of the net current, and the current integrated between
   them: the paratropic current of the ring is the integral from the vortex
@@ -113,13 +115,12 @@ Results
   the description of the output files.
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
   ``squares_profile.*``): the plots, made with matplotlib if it is
-  installed. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
+  installed; ``current_profile_annotated.*`` is the same with the current
+  integrated between the zero crossings written along the top. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
   puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
   ``--lines "7 8 9"`` draws a vertical line at the centroid of these atoms,
   ``--compare DIR2 DIR3`` overlays the net current of other profiles,
-  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström. The
-  numbers along the top of the plot are the current integrated between
-  consecutive zero crossings of the net current.
+  ``--yrange`` sets the y range, ``--angstrom`` labels in Ångström.
 
 Examples: benzene, bond 1-2, start 0.4 bohr past the ring centre, 0.02 bohr
 slices (``--zero origin``); the squares profile with 0.25 bohr squares; and

@@ -406,8 +406,9 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
         return []
     out = []
     mode = record.get('mode', 'current')
-    unit = 'Å' if angstrom else 'bohr'
+    unit = 'Å' if angstrom else '$a_0$'
     f = BOHR if angstrom else 1.0
+    POS, NEG, NET = '#C00000', '#1E46FF', '#333333'   # positive, negative, net
     delta = record['slice']
     bond = record['bond']
     if mode in ('current', 'squares'):
@@ -415,61 +416,71 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
         xs = [x + 0.5 * delta for x in xs]            # slice centres
         zeros, ranges = read_points(dirname)
         x0 = 0.0
-        label0 = 'start of the integration'
         if zero == 'origin' and zeros:
             x0 = zeros[0]
-            label0 = 'vortex origin (first zero of the net current)'
         elif zero == 'bond':
             x0 = record['in']
-            label0 = 'bond %d-%d' % tuple(bond)
-        fig, ax = plt.subplots(figsize=(9.8, 5.4))
-        ax.axhline(0, color='k', lw=0.8)
-        ax.plot([(x - x0) * f for x in xs], [v / delta for v in dia], color='#007F00', lw=2.5, label='diatropic')
-        ax.plot([(x - x0) * f for x in xs], [v / delta for v in para], color='#1E46FF', lw=2.5, label='paratropic')
-        ax.plot([(x - x0) * f for x in xs], [v / delta for v in net], color='k', lw=1.2, ls='--', label='net')
-        ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label='bond %d-%d' % tuple(bond))
-        for z in zeros:
-            ax.axvline((z - x0) * f, color='#00DCFF', lw=1.0)
-        # the current integrated between consecutive zero crossings
-        ymin, ymax = ax.get_ylim()
-        for (xa, xb, vnet, vdia, vpara) in ranges:
-            if abs(vnet) < 0.05:
-                continue
-            xm = 0.5 * (xa + xb)
-            ax.annotate('%+.2f nA/T' % vnet, xy=((xm - x0) * f, ymax), xytext=(0, -4), textcoords='offset points',
-                        ha='center', va='top', fontsize=9, color='#444444')
-        for lab, pos in (lines or []):
-            ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.', label=lab)
-        # other profiles to compare with: their net current, same zero convention
-        for other in (overlay or []):
-            try:
-                with open(os.path.join(other, 'profile.json')) as fo:
-                    orec = json.load(fo)
-                oxs, onet, _, _ = read_profile(other)
-                od = orec['slice']
-                oxs = [x + 0.5 * od for x in oxs]
-                ox0 = 0.0
-                if zero == 'origin':
-                    oz, _ = read_points(other)
-                    ox0 = oz[0] if oz else 0.0
-                elif zero == 'bond':
-                    ox0 = orec['in']
-                ax.plot([(x - ox0) * f for x in oxs], [v / od for v in onet], lw=1.5,
-                        label='net, %s (bond %d-%d)' % (os.path.basename(os.path.normpath(other)), orec['bond'][0], orec['bond'][1]))
-            except (IOError, KeyError, IndexError) as e:
-                print('cannot overlay %s: %s' % (other, e))
-        ax.set_xlabel('distance from the %s [%s]' % (label0, unit))
-        ax.set_ylabel('dJ/dx [nA/T per bohr]')
-        if yrange:
-            ax.set_ylim(*yrange)
-        ax.legend(loc='upper right')
-        ax.set_title('%s profile, bond %d-%d: net %.3f nA/T' % (mode, bond[0], bond[1], sum(net)))
-        fig.tight_layout()
-        for ext in ('png', 'pdf'):
-            name = os.path.join(dirname, 'current_profile.' + ext)
-            fig.savefig(name, dpi=150)
-            out.append(name)
-        plt.close(fig)
+        X = [(x - x0) * f for x in xs]
+        # two figures: a plain one, and one with the current integrated between
+        # the zero crossings written along the top
+        for annotated in (False, True):
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.axhline(0, color='k', lw=0.8)
+            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive')
+            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative')
+            ax.plot(X, [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
+            ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label='bond %d-%d' % tuple(bond))
+            for z in zeros:
+                ax.axvline((z - x0) * f, color='#00DCFF', lw=1.0)
+            for lab, pos in (lines or []):
+                ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.', label=lab)
+            # other profiles to compare with: their net current, same zero convention
+            for other in (overlay or []):
+                try:
+                    with open(os.path.join(other, 'profile.json')) as fo:
+                        orec = json.load(fo)
+                    oxs, onet, _, _ = read_profile(other)
+                    od = orec['slice']
+                    oxs = [x + 0.5 * od for x in oxs]
+                    ox0 = 0.0
+                    if zero == 'origin':
+                        oz, _ = read_points(other)
+                        ox0 = oz[0] if oz else 0.0
+                    elif zero == 'bond':
+                        ox0 = orec['in']
+                    ax.plot([(x - ox0) * f for x in oxs], [v / od for v in onet], lw=1.5,
+                            label='net, bond %d-%d' % (orec['bond'][0], orec['bond'][1]))
+                except (IOError, KeyError, IndexError) as e:
+                    print('cannot overlay %s: %s' % (other, e))
+            ax.set_xlim(min(X), max(X))
+            if yrange:
+                ax.set_ylim(*yrange)
+            if annotated:
+                ymin, ymax = ax.get_ylim()
+                for (xa, xb, vnet, vdia, vpara) in ranges:
+                    if abs(vnet) < 0.05:
+                        continue
+                    xm = 0.5 * (xa + xb)
+                    xlo, xhi = ax.get_xlim()
+                    xt = (xm - x0) * f
+                    ha = 'center'
+                    if xt - xlo < 0.06 * (xhi - xlo):
+                        ha, xt = 'left', xlo + 0.005 * (xhi - xlo)
+                    elif xhi - xt < 0.06 * (xhi - xlo):
+                        ha, xt = 'right', xhi - 0.005 * (xhi - xlo)
+                    ax.annotate('%+.2f nA/T' % vnet, xy=(xt, ymax), xytext=(0, -4), textcoords='offset points',
+                                ha=ha, va='top', fontsize=9, color='#444444')
+            ax.set_xlabel('distance [%s]' % unit)
+            ax.set_ylabel('dJ/dx [nA/T per %s]' % unit)
+            ax.legend(loc='upper right')
+            ax.set_title('%s profile, bond %d-%d: net %.2f nA/T' % (mode, bond[0], bond[1], sum(net)))
+            fig.tight_layout()
+            stem = 'current_profile_annotated' if annotated else 'current_profile'
+            for ext in ('png', 'pdf'):
+                name = os.path.join(dirname, stem + '.' + ext)
+                fig.savefig(name, dpi=150)
+                out.append(name)
+            plt.close(fig)
     if mode == 'vertical':
         xs, net, dia, para = read_profile(dirname, 'vertical_profile.dat')
         s0 = record['down']                           # the molecular plane (the bond) is 'down' above the lower edge
@@ -477,11 +488,13 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
         fig, ax = plt.subplots(figsize=(9.8, 5.4))
         ax.axhline(0, color='k', lw=0.8)
         ax.axvline(0, color='#999999', lw=1.5, ls=':', label='plane of the bond')
-        ax.plot([x * f for x in xs], [v / delta for v in dia], color='#007F00', lw=2.5, label='diatropic')
-        ax.plot([x * f for x in xs], [v / delta for v in para], color='#1E46FF', lw=2.5, label='paratropic')
-        ax.plot([x * f for x in xs], [v / delta for v in net], color='k', lw=1.2, ls='--', label='net')
-        ax.set_xlabel('height above the plane of the bond, along the field [%s]' % unit)
-        ax.set_ylabel('dJ/ds [nA/T per bohr]')
+        ax.plot([x * f for x in xs], [v / delta for v in dia], color=POS, lw=2.5, label='positive')
+        ax.plot([x * f for x in xs], [v / delta for v in para], color=NEG, lw=2.5, label='negative')
+        ax.plot([x * f for x in xs], [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
+        ax.set_xlim(min(xs) * f, max(xs) * f)
+        ax.set_xlabel('height above the plane of the bond [%s]' % unit)
+        ax.set_ylabel('dJ/ds [nA/T per %s]' % unit)
+        ax.set_title('vertical profile, bond %d-%d: net %.2f nA/T' % (bond[0], bond[1], sum(net)))
         if yrange:
             ax.set_ylim(*yrange)
         ax.legend()
@@ -499,10 +512,10 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
                        extent=[0, len(rows[0]) * delta * f, 0, len(rows) * delta * f])
         ax.axvline(record['in'] * f, color='#444444', lw=1.0, ls=':')
         ax.axhline(record['down'] * f, color='#444444', lw=1.0, ls=':')
-        ax.set_xlabel('along the profile from the start of the integration [%s]  (dotted: bond)' % unit)
-        ax.set_ylabel('along the height from the lower edge [%s]  (dotted: plane of the bond)' % unit)
+        ax.set_xlabel('distance [%s]  (dotted: bond)' % unit)
+        ax.set_ylabel('height [%s]  (dotted: plane of the bond)' % unit)
         fig.colorbar(im, ax=ax, label='net current through the square [nA/T]')
-        ax.set_title('squares profile, bond %d-%d: net %.3f nA/T' % (bond[0], bond[1], sum(sum(r) for r in rows)))
+        ax.set_title('squares profile, bond %d-%d: net %.2f nA/T' % (bond[0], bond[1], sum(sum(r) for r in rows)))
         fig.tight_layout()
         for ext in ('png', 'pdf'):
             name = os.path.join(dirname, 'squares_profile.' + ext)
