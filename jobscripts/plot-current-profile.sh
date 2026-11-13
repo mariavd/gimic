@@ -15,6 +15,14 @@ function createPlot() {
 
 echo "Creating plot, please wait..."
 
+# with tropicity=on in the GIMIC input there is also a profile of the
+# diatropic and paratropic currents assigned by streamline tracing
+tropicityPlot=""
+if [ -f tropicity_profile.dat ]
+then
+    tropicityPlot="set style line 5 lt 1 lw 3 lc rgb \"#888888\"; set output \"current_profile_$atom1_idx.$atom2_idx-tropicity.eps\"; plot \"tropicity_profile.dat\" u (\$1-${offsets[0]}):(\$3/$delta) w l ls 1 title \"Diatropic\", \"tropicity_profile.dat\" u (\$1-${offsets[0]}):(\$4/$delta) w l ls 2 title \"Paratropic\", \"tropicity_profile.dat\" u (\$1-${offsets[0]}):(\$5/$delta) w l ls 5 title \"Undefined\""
+fi
+
 gnuplot << EOF
 
 # colour and style definitions:
@@ -75,6 +83,8 @@ set output "current_profile_$atom1_idx.$atom2_idx-dia-para.eps"
 plot "current_profile.dat" u (\$1-${offsets[0]}):(\$3/$delta) w l ls 1 title "Diatropic", "current_profile.dat" u (\$1-${offsets[0]}):(\$4/$delta) w l ls 2 title "Paratropic"
 # for the weird bond 23.9 in BNBN when the x axis starts at x>0: 
 #plot "current_profile.dat" u (\$1+${offsets[0]}):(\$3/$delta) w l ls 1 title "Diatropic", "current_profile.dat" u (\$1+${offsets[0]}):(\$4/$delta)  w l ls 2 title "Paratropic"
+
+$tropicityPlot
 
 EOF
 

@@ -274,6 +274,13 @@ tropicity=off
     paratropic and undefined parts. The three parts add up to the total
     current strength; the undefined part is the uncertainty of the split.
 
+The split of the current strength converges more slowly with the number of
+quadrature points than the total current strength does, because the diatropic
+and paratropic parts end abruptly where the two kinds of streamlines meet.
+For benzene the two parts change by a few tenths of nA/T between the default
+grid and a converged one, while the total is already converged. Increase
+``grid_points`` (or reduce ``spacing``) until the split is stable.
+
 A streamline is left undefined when it does not make a full turn within the
 maximum path length, when it runs into a point where the current density
 vanishes, or when it circulates in a plane that contains the magnetic field.

@@ -14,6 +14,10 @@ alias gcurrent="$GIMIC_HOME/current-profile-local.sh"
 
 function anprofile() { awk -v lower=$1 -v upper=$2 '{ if (($1 >= lower) && ($1 <= upper)) { total+=$2; dia+=$3; para+=$4; } } END { printf("\nNet current: %f\nDiatropic: %f\nParatropic: %f\n\n", total, dia, para); } ' current_profile.dat ;  };
 
+# the same for tropicity_profile.dat (tropicity=on in the GIMIC input)
+function antropicity() { awk -v lower=$1 -v upper=$2 '{ if (($1 >= lower) && ($1 <= upper)) { total+=$2; dia+=$3; para+=$4; undef+=$5; } } END { printf("\nNet current: %f\nDiatropic: %f\nParatropic: %f\nUndefined: %f\n\n", total, dia, para, undef); } ' tropicity_profile.dat ;  };
+# reverse the sign of tropicity_profile.dat; the labels are not swapped
+alias revtropicity="mv tropicity_profile.dat tropicity_profile.dat.1 && awk '{printf \"%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n\", \$1, -\$2, -\$3, -\$4, -\$5}' tropicity_profile.dat.1 > tropicity_profile.dat"
 
 function dryrun() { gimic --dryrun "$@" > /dev/null ; xmakemol -f grid.xyz;  };
 

@@ -160,6 +160,33 @@ The current strength of different peaks on the current profile can be obtained u
    Paratropic: -0.067799
 
 
+Tropicity profile
+~~~~~~~~~~~~~~~~~~~
+
+The diatropic and paratropic columns of ``current_profile.dat`` are the
+currents that cross each slice in the positive and in the negative direction.
+To obtain instead the currents that belong to diatropic and paratropic
+streamlines, set ``tropicity=on`` in the ``Essential`` section of the input
+template ``gimic.Inp`` (or of the generated ``gimic.*.inp`` files) before the
+slices are calculated. GIMIC then follows the streamline through every
+integration point, see the description of the keyword in the input section.
+When the calculation has finished, the file ``tropicity_profile.dat`` is
+written next to ``current_profile.dat``. It lists five columns in nA/T: the
+distance along the integration plane, the net current, and its diatropic,
+paratropic and undefined parts. The last three add up to the net current. The
+data are plotted to an EPS file with the name ending in
+``_tropicity-profile.eps``, and also by ``plot-current-profile.sh``.
+
+The two-dimensional (squares) profile writes the three matrices
+``tropicity_dia_profile.dat``, ``tropicity_para_profile.dat`` and
+``tropicity_undef_profile.dat`` in the layout of ``current_profile.dat``.
+
+If the direction of the integration plane is reversed, all columns change
+sign, but a diatropic current remains in the diatropic column. The function
+``antropicity`` sums the columns between two distances in the same way as
+``anprofile``, and the alias ``revtropicity`` reverses the sign. Both are
+defined in ``jobscripts/useful-aliases``.
+
 Finally, the current profile plot can them be done anew with ``plot-current-profile.sh``. It is still under development and it might not be very user-friendly at the moment, so feel free to ask questions about it. Please let us know if you have any further questions, bugs and ambiguous parts.
 
 

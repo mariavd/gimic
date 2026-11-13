@@ -48,6 +48,50 @@ paste $wrkdir/current.dat $wrkdir/diatropic.dat $wrkdir/paratropic.dat > $wrkdir
 printf "\nData saved in current_profile.dat\n\n"
 
 #######################################################################
+# Tropicity profile. With tropicity=on in the Essential section of the input,
+# GIMIC follows the streamline through every integration point and splits the
+# current of each slice into its diatropic, paratropic and undefined parts.
+# Columns of tropicity_profile.dat (nA/T): distance, net current, diatropic,
+# paratropic, undefined.
+
+if grep -q "Split by tropicity" gimic.0.out 2> /dev/null
+then
+    cat /dev/null > $wrkdir/tropicity.dat
+    for (( i=0; i<$filenum; i++ ))
+    do
+        awk 'BEGIN { d="nan"; p="nan"; u="nan" }
+             /Split by tropicity/ { f=1; next }
+             f && /Diatropic/  { d=$5 }
+             f && /Paratropic/ { p=$5 }
+             f && /Undefined/  { u=$5; f=0 }
+             END { printf("% .8f\t% .8f\t% .8f\n", d, p, u) }' gimic.$i.out >> $wrkdir/tropicity.dat
+    done
+    paste $wrkdir/current.dat $wrkdir/tropicity.dat > $wrkdir/tropicity_profile.dat
+    printf "Tropicity by streamline tracing saved in tropicity_profile.dat\n\n"
+
+    if command -v gnuplot > /dev/null
+    then
+gnuplot << EOF
+# diatropic (green), paratropic (blue), undefined (grey)
+set style line 1 lt 1 lw 5 lc rgb "#007F00"
+set style line 2 lt 3 lw 5 lc rgb "#1E46FF"
+set style line 3 lt 1 lw 3 lc rgb "#888888"
+set format x "%5.2f"
+set format y "%5.2f"
+set xlabel "Distance [bohr]"
+set ylabel "dJ/dx [nA/T / bohr]"
+delta=$delta
+set terminal postscript eps enhanced color 'Helvetica' 22
+set output "$wrkdir/${dirname}_tropicity-profile.eps"
+plot "$wrkdir/tropicity_profile.dat" u 1:(\$3/delta) w l ls 1 title "Diatropic", \
+     "$wrkdir/tropicity_profile.dat" u 1:(\$4/delta) w l ls 2 title "Paratropic", \
+     "$wrkdir/tropicity_profile.dat" u 1:(\$5/delta) w l ls 3 title "Undefined"
+EOF
+        echo "Plot generated at $wrkdir/${dirname}_tropicity-profile.eps"; echo
+    fi
+fi
+
+#######################################################################
 # Find the zeroes on the current profile plot
 
 @SCRIPTS_DIR@/crit_pts.sh $wrkdir

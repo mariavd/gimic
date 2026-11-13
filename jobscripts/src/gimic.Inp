@@ -43,4 +43,6 @@ Advanced {
 
 Essential {
     jmod=off
+    tropicity=off   # on: also split the current of every slice into its diatropic and
+                    # paratropic parts by streamline tracing (tropicity_profile.dat)
 }
