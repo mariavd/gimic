@@ -65,6 +65,19 @@ gimic_test(open-shell/3d)
 gimic_test(open-shell/integration)
 gimic_test(benzene/skip-jmod-integration)
 gimic_test(benzene/magnetizability)
+gimic_test(benzene/divj)
+gimic_test(c4h4/divj-file)
+gimic_test(open-shell/divj)
+# calc=divj against itself and against calc=cdens; see test/divj-consistency/test
+add_test(
+  NAME
+    divj-consistency
+  COMMAND
+    ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/divj-consistency/test
+           --binary-dir=${PROJECT_BINARY_DIR}/bin
+           --work-dir=${PROJECT_BINARY_DIR}/test/divj-consistency
+           --case=${PROJECT_SOURCE_DIR}/test/benzene
+  )
 # a serial build would pass these trivially
 if(ENABLE_OPENMP)
   gimic_thread_test(cdens-closed-shell benzene/3d 1,4,16)
@@ -72,4 +85,5 @@ if(ENABLE_OPENMP)
   gimic_thread_test(integration-closed-shell benzene/integration-gauss 1,4,16)
   gimic_thread_test(integration-open-shell open-shell/integration 1,4,16)
   gimic_thread_test(profile benzene/profile 1,4)
+  gimic_thread_test(divj-closed-shell benzene/divj 1,4,16)
 endif()

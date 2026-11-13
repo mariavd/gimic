@@ -25,6 +25,14 @@ closed-shell calculation:
 * ``jmod.txt``: contains a grid point and the modulus of the current density vector function, x,y,z, f_mod(x,y,z)
 * ``jmod.vti``: contains the signed modulus of the current density vector function 
 
+divergence calculation (``calc=divj``):
+
+* ``divj.txt``: one line per grid point, in the order of the grid points: x,y,z in bohr and the divergence of the current density in atomic units
+* ``divj.vti``: the divergence of the current density, written for evenly spaced grids
+* ``divj.vtu``: the divergence of the current density on the tetrahedral mesh ``grid.1.ele``, written for grids read from a file and for Gauss grids if that file is present
+
+For open-shell calculations the files ``divjalpha``, ``divjbeta`` and ``divjspindens`` are written in addition.
+
 only for open-shell calculations:
 
 * ``jmodalpha.txt``: contains the signed modulus of the alpha current density vector function 

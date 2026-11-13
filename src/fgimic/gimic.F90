@@ -19,6 +19,7 @@ program gimic
     use dens_class
     use jtensor_class
     use jfield_class
+    use divj_class
     use caos_module
     use gaussint_module
     ! acid and jav stuff
@@ -97,6 +98,7 @@ contains
         call getkw(input, 'Advanced.paramag',settings%use_paramag)
         call getkw(input, 'Advanced.screening', settings%use_screening)
         call getkw(input, 'Advanced.screening_thrs', settings%screen_thrs)
+        call getkw(input, 'Advanced.divj_step', settings%divj_step)
 
         call getkw(input, 'Essential.acid', settings%acid)
         call getkw(input, 'Essential.jmod', settings%jmod)
@@ -187,6 +189,8 @@ contains
             call run_cdens(jf,mol,xdens)
         else if (settings%calc(1:8) == 'integral') then
             call run_integral()
+        else if (settings%calc(1:4) == 'divj') then
+            call run_divj(mol,xdens)
         else
             call msg_error('gimic(): Unknown operation!')
         end if
@@ -224,6 +228,33 @@ contains
             call jvector_plots(jf, 'spindens')
         endif
         call del_jfield(jf)
+    end subroutine
+
+    subroutine run_divj(mol,xdens)
+        type(dens_t) :: xdens
+        type(molecule_t) :: mol
+        type(divj_t) :: dj
+
+        call msg_out('Calculating divergence of the current density')
+        call msg_out('*****************************************')
+        call new_divj(dj, grid, magnet)
+
+        if (.not. settings%dryrun) then
+            call calc_divj(dj, mol, xdens)
+            call divj_plots(dj)
+
+            if (settings%is_uhf) then
+                call calc_divj(dj, mol, xdens, 'alpha')
+                call divj_plots(dj, 'alpha')
+
+                call calc_divj(dj, mol, xdens, 'beta')
+                call divj_plots(dj, 'beta')
+
+                call calc_divj(dj, mol, xdens, 'spindens')
+                call divj_plots(dj, 'spindens')
+            end if
+        end if
+        call del_divj(dj)
     end subroutine
 
     subroutine run_integral()

@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from runtest import version_info, get_filter, cli, run
+from runtest_config import configure
+
+assert version_info.major == 2
+
+options = cli()
+
+# div J comes from finite differences: compare on an absolute scale
+f = [get_filter(abs_tolerance=1.0e-8)]
+
+ierr = run(options,
+           configure,
+           input_files=['gimic.inp'],
+           filters={'divj.txt': f,
+                    'divjalpha.txt': f,
+                    'divjbeta.txt': f,
+                    'divjspindens.txt': f,
+                    'divj.vti': f})
+
+sys.exit(ierr)

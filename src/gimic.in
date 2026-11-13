@@ -71,6 +71,7 @@ def parse_keywords(args):
     adv.add_kw('diamag', 'BOOL', (True,))
     adv.add_kw('paramag', 'BOOL', (True,))
     adv.add_kw('lip_order', 'INT', (3,))
+    adv.add_kw('divj_step', 'DBL', (1.0e-3,))
 
     ess=getkw.Section('Essential')
     ess.add_kw('acid', 'BOOL', (False,))
