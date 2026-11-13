@@ -19,6 +19,7 @@ module integral_class
     ! ACID stuff
     use acid_module
     use tensor_module
+    use tropicity_module
     implicit none
 
     type integral_t
@@ -62,6 +63,12 @@ contains
         real(DP), dimension(9) :: tt
         real(DP), dimension(:,:), allocatable :: coords, ttb
         type(jtensor_t) :: jt
+        ! split by tropicity: 1 diatropic, 2 paratropic, 3 undefined
+        logical :: trop
+        integer(I4) :: it
+        integer(I4), dimension(3) :: tcount
+        real(DP), dimension(3) :: tsum, tsum2, tsum3
+        integer(I4), dimension(:), allocatable :: label
 
         if (present(spinn)) spin = spinn
 
@@ -103,28 +110,40 @@ contains
         xsum3=0.d0
         psum3=0.d0
         nsum3=0.d0
+        tsum3=0.d0
+        tcount=0
+        trop=settings%tropicity
+        if (trop .and. mpi_world_size > 1) then
+            call msg_warn('integrate_current(): tropicity not available &
+                &with MPI, skipped')
+            trop=.false.
+        end if
 
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP PRIVATE(i,j,k,r,rr,xsum,psum,nsum,xsum2,psum2,nsum2) &
-!$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb) &
-!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
-!$OMP REDUCTION(+:xsum3,psum3,nsum3)
+!$OMP PRIVATE(jt,w,jp,tt,jvec,coords,ttb,label,it,tsum,tsum2) &
+!$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound,trop) &
+!$OMP REDUCTION(+:xsum3,psum3,nsum3,tsum3,tcount)
         call new_jtensor(jt, mol, xdens)
-        allocate(coords(3,p1), ttb(9,p1))
+        allocate(coords(3,p1), ttb(9,p1), label(p1))
+        label=TROP_UNDEF
         do k=1,p3
             xsum2=0.d0
             psum2=0.d0
             nsum2=0.d0
+            tsum2=0.d0
 
             !$OMP DO
             do j=lo,hi
                 xsum=0.d0
                 psum=0.d0
                 nsum=0.d0
+                tsum=0.d0
                 do i=1,p1
                     coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
                 call ctensor_batch(jt, coords, ttb, spin)
+                if (trop) call tropicity_batch(jt, coords, bb, trim(spin), label)
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
@@ -146,8 +165,21 @@ contains
                         ! get negative contribution
                         nsum=nsum+jp
                     end if
+                    if (trop .and. r <= bound) then
+                        select case (label(i))
+                            case (TROP_DIA)
+                                it=1
+                            case (TROP_PARA)
+                                it=2
+                            case default
+                                it=3
+                        end select
+                        tsum(it)=tsum(it)+jp
+                        tcount(it)=tcount(it)+1
+                    end if
                 end do
                 w=get_weight(this%grid,j,2)
+                tsum2=tsum2+tsum*w
                 xsum2=xsum2+xsum*w
                 psum2=psum2+psum*w
                 nsum2=nsum2+nsum*w
@@ -158,6 +190,7 @@ contains
             xsum3 = xsum3 + w*xsum2
             psum3 = psum3 + w*psum2
             nsum3 = nsum3 + w*nsum2
+            tsum3 = tsum3 + w*tsum2
 
             ! TODO old code used collect_sum
             ! this will be needed for MPI
@@ -166,7 +199,7 @@ contains
 !           call collect_sum(nsum2, nsum)
 
         end do
-        deallocate(coords, ttb)
+        deallocate(coords, ttb, label)
         call del_jtensor(jt)
 !$OMP END PARALLEL
 
@@ -180,6 +213,23 @@ contains
         write(str_g, '(a,f13.6,a,f11.6,a)') &
             '      Negative contribution:', nsum3, '  (',au2si(nsum3),' )'
         call msg_out(str_g)
+        if (trop) then
+            call nl
+            call msg_out('   Split by tropicity (streamline tracing), &
+                &au (nA/T), points:')
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Diatropic            :', tsum3(1), '  (', &
+                au2si(tsum3(1)), ' )', tcount(1)
+            call msg_out(str_g)
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Paratropic           :', tsum3(2), '  (', &
+                au2si(tsum3(2)), ' )', tcount(2)
+            call msg_out(str_g)
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Undefined            :', tsum3(3), '  (', &
+                au2si(tsum3(3)), ' )', tcount(3)
+            call msg_out(str_g)
+        end if
         call nl
         write(str_g, '(a,f13.6)') '   Induced current (nA/T)  :', au2si(xsum3)
         call msg_out(str_g)

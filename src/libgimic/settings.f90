@@ -28,6 +28,12 @@ module settings_module
         logical :: acid=.false.
         logical :: jmod=.false.
         logical :: prop=.false.
+        ! streamline tracing for the tropicity, see tropicity_module
+        logical :: tropicity=.false.
+        real(DP) :: trop_step=0.5d0      ! largest step along the streamline (bohr)
+        real(DP) :: trop_accuracy=1.d-5  ! error allowed in one step (bohr)
+        real(DP) :: trop_tol=0.1d0       ! closure tolerance (bohr)
+        real(DP) :: trop_length=100.d0   ! maximum path length (bohr)
         real(DP) :: screen_thrs
         logical :: use_screening
         integer(I4), dimension(2) :: morange

@@ -6,6 +6,7 @@ add_executable(gimic.bin
     vtkplot.f90
     magnet.f90
     grid.f90
+    tropicity.f90
     jfield.f90
     parallel.F90
     )

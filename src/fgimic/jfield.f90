@@ -18,6 +18,7 @@ module jfield_class
     use parallel_module
     use tensor_module
     use acid_module
+    use tropicity_module
 
     implicit none
 
@@ -30,6 +31,7 @@ module jfield_class
 
     public new_jfield, del_jfield, calc_jtensors, calc_jvectors
     public jfield_t, jvector_plots, jfield_eta, compute_jvectors
+    public tropicity_plots
     private
 
 
@@ -443,6 +445,104 @@ contains
 
     end subroutine
 
+
+! Split the current density into its diatropic, paratropic and undefined
+! parts by following the streamline through every grid point, and write
+! each part to its own vti file (the current is zero where the point does
+! not belong to that part). tropicity.vti holds the label itself:
+! 1 diatropic, -1 paratropic, 0 undefined.
+    subroutine tropicity_plots(this, mol, xdens, tag)
+        use vtkplot_module
+        type(jfield_t), intent(inout) :: this
+        type(molecule_t) :: mol
+        type(dens_t) :: xdens
+        character(*), optional :: tag
+
+        integer(I4) :: i, j, k, p1, p2, p3, n, nn, ip, npts, l
+        character(8) :: spincase
+        character(16) :: sfx
+        integer(I4), dimension(:), allocatable :: label
+        real(DP), dimension(:,:), allocatable :: coords
+        real(DP), dimension(:,:,:,:), allocatable :: jpart
+        real(DP), dimension(:,:,:), allocatable :: val
+        integer(I4), dimension(3), parameter :: &
+            part = (/TROP_DIA, TROP_PARA, TROP_UNDEF/)
+        character(5), dimension(3), parameter :: &
+            pname = (/'dia  ', 'para ', 'undef'/)
+        type(jtensor_t) :: jt
+
+        if (mpi_rank > 0) return
+        if (mpi_world_size > 1) then
+            call msg_warn('tropicity_plots(): not available with MPI, skipped')
+            return
+        end if
+        if (this%grid%gtype /= 'even') then
+            call msg_warn('tropicity_plots(): needs an even grid, skipped')
+            return
+        end if
+
+        spincase='total'
+        sfx=''
+        if (present(tag)) then
+            spincase=tag
+            sfx=tag
+        end if
+
+        call get_grid_size(this%grid, p1, p2, p3)
+        npts=p1*p2*p3
+        allocate(label(npts))
+
+        call msg_out('Following streamlines to assign the tropicity')
+        write(str_g, '(a,f7.3,a,es9.2,a,f7.3,a,f9.2)') '   max_step', &
+            settings%trop_step, '  accuracy', settings%trop_accuracy, &
+            '  tolerance', settings%trop_tol, &
+            '  max_length', settings%trop_length
+        call msg_out(str_g)
+        !$omp parallel default(none) &
+        !$omp private(jt,coords,n,nn,ip,i,j,k) &
+        !$omp shared(this,mol,xdens,spincase,label,npts)
+        call new_jtensor(jt, mol, xdens)
+        allocate(coords(3,JT_BLOCK))
+        ! streamlines differ a lot in length: hand the blocks out dynamically
+        !$omp do schedule(dynamic)
+        do n=1,npts,JT_BLOCK
+            nn=min(JT_BLOCK, npts-n+1)
+            do ip=1,nn
+                call get_grid_index(this%grid, n+ip-1, i, j, k)
+                coords(:,ip)=gridpoint(this%grid, i, j, k)
+            end do
+            call tropicity_batch(jt, coords(:,1:nn), this%b, &
+                trim(spincase), label(n:n+nn-1))
+        end do
+        !$omp end do
+        deallocate(coords)
+        call del_jtensor(jt)
+        !$omp end parallel
+
+        call tropicity_summary(label)
+
+        allocate(jpart(p1,p2,p3,3), val(p1,p2,p3))
+        do l=1,3
+            do k=1,p3
+                do j=1,p2
+                    do i=1,p1
+                        n=i+(j-1)*p1+(k-1)*p1*p2
+                        if (label(n) == part(l)) then
+                            jpart(i,j,k,:)=this%vec(:,n)
+                        else
+                            jpart(i,j,k,:)=0.d0
+                        end if
+                        val(i,j,k)=real(label(n), DP)
+                    end do
+                end do
+            end do
+            call write_vtk_vector_imagedata('jvec_' // trim(pname(l)) // &
+                trim(sfx) // '.vti', this%grid, jpart)
+        end do
+        call write_vtk_imagedata('tropicity' // trim(sfx) // '.vti', &
+            this%grid, val)
+        deallocate(jpart, val, label)
+    end subroutine
 
     subroutine jmod2_vtkplot(this, tag)
     ! based on jmod_vtkplot

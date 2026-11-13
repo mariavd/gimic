@@ -76,6 +76,13 @@ def parse_keywords(args):
     ess.add_kw('acid', 'BOOL', (False,))
     ess.add_kw('jmod', 'BOOL', (False,))
     ess.add_kw('prop', 'BOOL', (False,))
+    ess.add_kw('tropicity', 'BOOL', (False,))
+
+    trop=getkw.Section('Tropicity')
+    trop.add_kw('max_step', 'DBL', (0.5,))
+    trop.add_kw('accuracy', 'DBL', (1.0e-5,))
+    trop.add_kw('tolerance', 'DBL', (0.1,))
+    trop.add_kw('max_length', 'DBL', (100.0,))
 
     grid=getkw.Section('Grid', callback=check_grid)
     grid.set_arg('STR', ('std',))
@@ -103,6 +110,7 @@ def parse_keywords(args):
 
     top.add_sect(adv)
     top.add_sect(ess)
+    top.add_sect(trop)
     top.add_sect(grid)
 
     input=getkw.GetkwParser(top)

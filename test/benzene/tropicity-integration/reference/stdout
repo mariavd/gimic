@@ -1,0 +1,85 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (e64d77b)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ OpenMP threads: 4
+ Fri Nov 13 15:10:15 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+
+ Integration grid data
+ ------------------------------------------------
+ center     2.277078   -0.005328    0.000000
+ origin     7.277078   -0.005328   -5.000000
+ basv1     -0.000000   -0.000000    1.000000
+ basv2     -1.000000   -0.000000   -0.000000
+ basv3      0.000000   -1.000000    0.000000
+ lenghts   10.000000    7.200000    0.000000
+ magnet     0.000000    0.000000   -1.000000
+
+ Grid mode = bond
+ INFO: Integration grid selected.
+ INFO: Adjusted number of grid points for quadrature:    36   36    0
+   Number of grid points <v1,v2>:   36   36    1
+   Total number of grid points  :      1296
+
+ *** Grid plot in grid.xyz
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ Jmod integration skipped.
+ *** Integrating current
+
+ ************************************************************
+    Induced current (au)    :     0.418821
+       Positive contribution:     0.595166  (  16.771417 )
+       Negative contribution:    -0.176344  (  -4.969283 )
+
+    Split by tropicity (streamline tracing), au (nA/T), points:
+       Diatropic            :     0.545378  (  15.368423 )    1038
+       Paratropic           :    -0.126557  (  -3.566290 )     258
+       Undefined            :     0.000000  (   0.000000 )       0
+
+    Induced current (nA/T)  :    11.802134
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       4.94sec (   0.0 h )
+     cpu time:      19.02sec (   0.0 h )
+         user:      19.00sec (   0.0 h )
+          sys:       0.02sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Fri Nov 13 15:10:20 2026
+ Hello World! (tm)
+
+ done.
+

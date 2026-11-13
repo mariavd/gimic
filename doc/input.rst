@@ -236,6 +236,56 @@ integration grid is sensible in “tricky” molecules.
 jmod=off
     Unless necessary, it should be turned off to save computational time.
 
+Tropicity by streamline tracing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The tropicity is a non-local property of the current density: it is the sense
+in which the streamline through a point circulates around the magnetic field.
+With this keyword GIMIC follows the streamline through every grid point until
+it has made one turn and labels the point diatropic, paratropic or undefined.
+The current density is evaluated analytically along the streamline, so the
+result does not depend on the spacing of the grid.
+
+tropicity=off
+    Assign the tropicity of every grid point by following its streamline.
+
+    With ``calc=cdens`` on an even grid, four more files are written:
+    ``jvec_dia.vti``, ``jvec_para.vti`` and ``jvec_undef.vti`` hold the
+    diatropic, paratropic and undefined parts of the current density (the
+    vector is zero where a point does not belong to that part), and
+    ``tropicity.vti`` holds the label itself (1 diatropic, -1 paratropic,
+    0 undefined). The three parts add up to ``jvec.vti``.
+
+    With ``calc=integral`` the integrated current strength is, in addition to
+    the positive and negative contributions, split into its diatropic,
+    paratropic and undefined parts. The three parts add up to the total
+    current strength; the undefined part is the uncertainty of the split.
+
+A streamline is left undefined when it does not make a full turn within the
+maximum path length, when it runs into a point where the current density
+vanishes, or when it circulates in a plane that contains the magnetic field.
+
+Following streamlines is much more expensive than calculating the current
+density itself: expect of the order of a thousand evaluations of the current
+density for every grid point. It is not available in MPI runs.
+
+The optional section ``Tropicity`` tunes the streamline integration. The
+defaults are meant to be safe.
+
+max\_step=0.5
+    Largest step along a streamline, in bohr. The step is chosen adaptively
+    (Dormand-Prince Runge-Kutta) and is much shorter near the nuclei.
+
+accuracy=1.d-5
+    Error allowed in one step, in bohr.
+
+tolerance=0.1
+    A streamline is closed when it returns to within this distance of its
+    starting point, in bohr.
+
+max\_length=100.0
+    Path length after which a streamline that has not made a full turn is
+    given up, in bohr.
+
 Current-density calculations
 ------------------------------
 

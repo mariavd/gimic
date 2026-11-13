@@ -101,6 +101,11 @@ contains
         call getkw(input, 'Essential.acid', settings%acid)
         call getkw(input, 'Essential.jmod', settings%jmod)
         call getkw(input, 'Essential.prop', settings%prop)
+        call getkw(input, 'Essential.tropicity', settings%tropicity)
+        call getkw(input, 'Tropicity.max_step', settings%trop_step)
+        call getkw(input, 'Tropicity.accuracy', settings%trop_accuracy)
+        call getkw(input, 'Tropicity.tolerance', settings%trop_tol)
+        call getkw(input, 'Tropicity.max_length', settings%trop_length)
 
         ierr=hostnm(sys)
         if (mpi_rank == 0) then
@@ -212,16 +217,20 @@ contains
 
         call calc_jvectors(jf, mol, xdens)
         call jvector_plots(jf)
+        if (settings%tropicity) call tropicity_plots(jf, mol, xdens)
 
         if (settings%is_uhf) then
             call calc_jvectors(jf, mol, xdens, 'alpha')
             call jvector_plots(jf, 'alpha')
+            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'alpha')
 
             call calc_jvectors(jf, mol, xdens, 'beta')
             call jvector_plots(jf, 'beta')
+            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'beta')
 
             call calc_jvectors(jf, mol, xdens, 'spindens')
             call jvector_plots(jf, 'spindens')
+            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'spindens')
         endif
         call del_jfield(jf)
     end subroutine
