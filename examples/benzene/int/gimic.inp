@@ -42,5 +42,7 @@ Advanced {
 
 Essential {             # this section is new and only works for master
     acid=on
+    tropicity=off   # split the current strength into diatropic and paratropic
+                    # parts by following streamlines
 }
 

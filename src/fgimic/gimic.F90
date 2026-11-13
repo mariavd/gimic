@@ -106,6 +106,11 @@ contains
         call getkw(input, 'Tropicity.accuracy', settings%trop_accuracy)
         call getkw(input, 'Tropicity.tolerance', settings%trop_tol)
         call getkw(input, 'Tropicity.max_length', settings%trop_length)
+        if (settings%tropicity .and. settings%is_uhf) then
+            call msg_warn('The tropicity is not available for open-shell &
+                &systems, skipped')
+            settings%tropicity=.false.
+        end if
 
         ierr=hostnm(sys)
         if (mpi_rank == 0) then
@@ -222,15 +227,12 @@ contains
         if (settings%is_uhf) then
             call calc_jvectors(jf, mol, xdens, 'alpha')
             call jvector_plots(jf, 'alpha')
-            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'alpha')
 
             call calc_jvectors(jf, mol, xdens, 'beta')
             call jvector_plots(jf, 'beta')
-            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'beta')
 
             call calc_jvectors(jf, mol, xdens, 'spindens')
             call jvector_plots(jf, 'spindens')
-            if (settings%tropicity) call tropicity_plots(jf, mol, xdens, 'spindens')
         endif
         call del_jfield(jf)
     end subroutine

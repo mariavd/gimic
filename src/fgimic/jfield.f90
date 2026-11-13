@@ -451,16 +451,13 @@ contains
 ! each part to its own vti file (the current is zero where the point does
 ! not belong to that part). tropicity.vti holds the label itself:
 ! 1 diatropic, -1 paratropic, 0 undefined.
-    subroutine tropicity_plots(this, mol, xdens, tag)
+    subroutine tropicity_plots(this, mol, xdens)
         use vtkplot_module
         type(jfield_t), intent(inout) :: this
         type(molecule_t) :: mol
         type(dens_t) :: xdens
-        character(*), optional :: tag
 
         integer(I4) :: i, j, k, p1, p2, p3, n, nn, ip, npts, l
-        character(8) :: spincase
-        character(16) :: sfx
         integer(I4), dimension(:), allocatable :: label
         real(DP), dimension(:,:), allocatable :: coords
         real(DP), dimension(:,:,:,:), allocatable :: jpart
@@ -481,13 +478,6 @@ contains
             return
         end if
 
-        spincase='total'
-        sfx=''
-        if (present(tag)) then
-            spincase=tag
-            sfx=tag
-        end if
-
         call get_grid_size(this%grid, p1, p2, p3)
         npts=p1*p2*p3
         allocate(label(npts))
@@ -500,7 +490,7 @@ contains
         call msg_out(str_g)
         !$omp parallel default(none) &
         !$omp private(jt,coords,n,nn,ip,i,j,k) &
-        !$omp shared(this,mol,xdens,spincase,label,npts)
+        !$omp shared(this,mol,xdens,label,npts)
         call new_jtensor(jt, mol, xdens)
         allocate(coords(3,JT_BLOCK))
         ! streamlines differ a lot in length: hand the blocks out dynamically
@@ -511,8 +501,8 @@ contains
                 call get_grid_index(this%grid, n+ip-1, i, j, k)
                 coords(:,ip)=gridpoint(this%grid, i, j, k)
             end do
-            call tropicity_batch(jt, coords(:,1:nn), this%b, &
-                trim(spincase), label(n:n+nn-1))
+            call tropicity_batch(jt, coords(:,1:nn), this%b, 'total', &
+                label(n:n+nn-1))
         end do
         !$omp end do
         deallocate(coords)
@@ -537,10 +527,9 @@ contains
                 end do
             end do
             call write_vtk_vector_imagedata('jvec_' // trim(pname(l)) // &
-                trim(sfx) // '.vti', this%grid, jpart)
+                '.vti', this%grid, jpart)
         end do
-        call write_vtk_imagedata('tropicity' // trim(sfx) // '.vti', &
-            this%grid, val)
+        call write_vtk_imagedata('tropicity.vti', this%grid, val)
         deallocate(jpart, val, label)
     end subroutine
 

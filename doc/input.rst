@@ -266,7 +266,16 @@ vanishes, or when it circulates in a plane that contains the magnetic field.
 
 Following streamlines is much more expensive than calculating the current
 density itself: expect of the order of a thousand evaluations of the current
-density for every grid point. It is not available in MPI runs.
+density for every grid point.
+
+Limitations:
+
+* closed-shell systems only. For open-shell systems (``openshell=true``) the
+  keyword is ignored with a warning;
+* with ``calc=cdens`` the grid must be even (``type=even``). For Gauss grids
+  and grids read from a file the split files are not written;
+* the tropicity is assigned with OpenMP parallelisation only. In an MPI run
+  it is skipped with a warning.
 
 The optional section ``Tropicity`` tunes the streamline integration. The
 defaults are meant to be safe.
