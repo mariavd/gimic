@@ -229,12 +229,31 @@ contains
     subroutine run_integral()
         use integral_class
         type(integral_t) :: it
+        type(cao2sao_t) :: c2s
+        logical :: have_dens
 
         call msg_out('Integrating current density')
         call msg_out('*****************************************')
         call new_integral(it, grid)
 
-        if (settings%dryrun) return
+        if (settings%dryrun) then
+            ! estimate the run time when the density is there to be read
+            inquire(file=settings%xdens, exist=have_dens)
+            if (have_dens) then
+                if (settings%use_spherical) then
+                    call new_c2sop(c2s,mol)
+                    call set_c2sop(mol, c2s)
+                end if
+                call new_dens(xdens, mol)
+                call read_dens(xdens, settings%xdens)
+                call integral_eta(grid, mol, xdens)
+                call del_dens(xdens)
+                if (settings%use_spherical) call del_c2sop(c2s)
+            end if
+            return
+        end if
+
+        call integral_eta(grid, mol, xdens)
 
         if (settings%jmod) then
           call msg_note('Integrating |J|')

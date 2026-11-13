@@ -76,3 +76,27 @@ ACID plots
 
 This is possible with ParaView using the file "acid.vti".
 
+Current profiles over the current density
+------------------------------------------
+
+A current profile (``gimic-profile``, or ``slice_thickness`` in the input)
+writes ``profile_plane_1.2.vtp`` and ``profile_line_1.2.vtp`` (named after
+the bond atoms) next to its data files.
+They show where the integration plane lies and what it cuts through when
+loaded into ParaView together with the ``jvec.vti`` of a separate 3D
+calculation of the same molecule (both in bohr): colour the plane by
+``net`` to see the current through each slice, or make it translucent and
+colour the line by ``net per bohr`` to see the profile itself; the vertices
+of the line are the sign changes of the net current, ``marker`` 1 being the
+vortex origin. A Slice filter on ``jvec.vti`` with the plane's origin and
+normal (printed in ``profile.dat``) gives the vector field in the plane, and
+a Surface LIC or Glyph representation of it shows which vortices the profile
+crosses, and where their centres lie relative to the bond.
+
+``gimic-profile`` writes this pipeline as ``paraview_profile_1.2.py`` next to
+the data (``--jvec path/to/jvec.vti`` includes the slice of the current
+density): run ``paraview --script=paraview_profile_1.2.py``, or load it in
+the Python shell of ParaView, and save a state file from there if you want
+one. The profile is a single polyline in ``profile_line_1.2.vtp``, so it is
+drawn as a continuous line (a tube in the script); no programmable filter
+is needed.
