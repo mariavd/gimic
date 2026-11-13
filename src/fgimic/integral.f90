@@ -213,6 +213,12 @@ contains
         write(str_g, '(a,f13.6,a,f11.6,a)') &
             '      Negative contribution:', nsum3, '  (',au2si(nsum3),' )'
         call msg_out(str_g)
+        call nl
+        write(str_g, '(a,f13.6)') '   Induced current (nA/T)  :', au2si(xsum3)
+        call msg_out(str_g)
+        write(str_g, '(a,f13.6)') '      (conversion factor)  :', au2si(1.d0)
+        call msg_out(str_g)
+        ! after the block that the current-profile scripts read
         if (trop) then
             call nl
             call msg_out('   Split by tropicity (streamline tracing), &
@@ -230,11 +236,6 @@ contains
                 au2si(tsum3(3)), ' )', tcount(3)
             call msg_out(str_g)
         end if
-        call nl
-        write(str_g, '(a,f13.6)') '   Induced current (nA/T)  :', au2si(xsum3)
-        call msg_out(str_g)
-        write(str_g, '(a,f13.6)') '      (conversion factor)  :', au2si(1.d0)
-        call msg_out(str_g)
         call msg_out(repeat('*', 60))
         call nl
 

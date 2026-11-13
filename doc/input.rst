@@ -60,6 +60,20 @@ magnet\_axis=z
     along the direction which is orthogonal to the molecular plane, but 
     parallel to the integration plane.
 
+    .. warning::
+
+       ``magnet\_axis=X`` is not recommended. The field is not derived from
+       the molecule but from the definition of the bond grid: it is
+       perpendicular to the plane through the two bond atoms and the
+       fixpoint. Its direction, and with it the sign of the integrated
+       current, therefore depends on which atoms are chosen and in which
+       order they are given, and it differs between integration planes of
+       the same molecule unless these three atoms always lie in the same
+       plane. In a non-planar molecule it is in general not the direction
+       one has in mind. For reproducible results give the field explicitly
+       with ``magnet=[Bx,By,Bz]`` (or ``magnet\_axis=x``, ``y`` or ``z``) and
+       quote it together with the results.
+
 Grid section
 -----------------
 

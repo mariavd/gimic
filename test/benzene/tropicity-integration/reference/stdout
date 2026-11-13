@@ -13,7 +13,7 @@ This is F-GIMIC.
  ****************************************************************
 
  OpenMP threads: 4
- Fri Nov 13 15:10:15 2026
+ Fri Nov 13 15:44:55 2026
   TITLE:
 
  INFO: Detected TURBOMOLE input
@@ -59,13 +59,13 @@ This is F-GIMIC.
        Positive contribution:     0.595166  (  16.771417 )
        Negative contribution:    -0.176344  (  -4.969283 )
 
+    Induced current (nA/T)  :    11.802134
+       (conversion factor)  :    28.179409
+
     Split by tropicity (streamline tracing), au (nA/T), points:
        Diatropic            :     0.545378  (  15.368423 )    1038
        Paratropic           :    -0.126557  (  -3.566290 )     258
        Undefined            :     0.000000  (   0.000000 )       0
-
-    Induced current (nA/T)  :    11.802134
-       (conversion factor)  :    28.179409
  ************************************************************
 
 
@@ -73,12 +73,12 @@ This is F-GIMIC.
  INFO: Deallocated basis set and atom data
 
  ----------------------------------------------------------------------
-    wall time:       4.94sec (   0.0 h )
-     cpu time:      19.02sec (   0.0 h )
-         user:      19.00sec (   0.0 h )
+    wall time:       5.48sec (   0.0 h )
+     cpu time:      16.32sec (   0.0 h )
+         user:      16.29sec (   0.0 h )
           sys:       0.02sec (   0.0 h )
  ----------------------------------------------------------------------
- Fri Nov 13 15:10:20 2026
+ Fri Nov 13 15:45:01 2026
  Hello World! (tm)
 
  done.

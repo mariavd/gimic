@@ -54,6 +54,7 @@ gimic_test(benzene/skip-jmod-integration)
 gimic_test(benzene/magnetizability)
 gimic_test(benzene/tropicity-cdens)
 gimic_test(benzene/tropicity-integration)
+gimic_test(cot/tropicity-integration)
 # a serial build would pass these trivially
 if(ENABLE_OPENMP)
   gimic_thread_test(cdens-closed-shell benzene/3d 1,4,16)
