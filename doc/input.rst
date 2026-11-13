@@ -287,7 +287,18 @@ vanishes, or when it circulates in a plane that contains the magnetic field.
 
 Following streamlines is much more expensive than calculating the current
 density itself: expect of the order of a thousand evaluations of the current
-density for every grid point.
+density for every streamline.
+
+With ``calc=cdens`` not every grid point is followed. A streamline that has
+been classified gives its label to the grid points it passes within a given
+distance (``capture`` below), and only the points that are left are followed
+themselves. On a three-dimensional grid of benzene with a spacing of 0.4 bohr
+this is ten times faster than following every point, and 1.2 % of the grid
+points get another label than they would on their own. These lie at the
+borders between diatropic and paratropic regions, where a point and the
+streamline next to it can belong to different vortices. Set ``capture=0`` to
+follow every grid point. The integration (``calc=integral``) always follows
+every quadrature point.
 
 Limitations:
 
@@ -315,6 +326,12 @@ tolerance=0.1
 max\_length=100.0
     Path length after which a streamline that has not made a full turn is
     given up, in bohr.
+
+capture=0.5
+    Only for ``calc=cdens``: a grid point within this distance of a
+    classified streamline, in units of the grid spacing, takes the label of
+    that streamline. Smaller values are more accurate and slower; 0 follows
+    every grid point.
 
 Current-density calculations
 ------------------------------

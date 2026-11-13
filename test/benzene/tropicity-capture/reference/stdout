@@ -1,0 +1,73 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (8d9d155)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ OpenMP threads: 4
+ Fri Nov 13 17:09:47 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+ Grid mode = base
+   Number of grid points <v1,v2>:   21   21   11
+   Total number of grid points  :      4851
+
+ *** Grid plot in grid.xyz
+ INFO: Left handed coordinate system, reversing magnetic field
+    Magnetic field <x,y,z> =  -0.00000  -0.00000  -1.00000
+
+ INFO: Closed-shell calculation
+
+ Calculating current density
+ *****************************************
+ INFO: Estimated CPU time for single core calculation:        0.35sec (   0.0 h )
+ INFO: Estimated wall time on 4 threads:       0.09sec (   0.0 h )
+
+ magnetic field
+  -0.0000000000000000       -0.0000000000000000       -1.0000000000000000     
+ 
+ Following streamlines to assign the tropicity
+    max_step  0.500  accuracy 1.00E-05  tolerance  0.100  max_length   100.00
+    capture   0.500 of the grid spacing (  0.300 bohr)
+ Tropicity assigned by streamline tracing (4851 points)
+    diatropic :      4558  ( 93.96 %)
+    paratropic:       282  (  5.81 %)
+    undefined :        11  (  0.23 %)
+
+    393 streamlines followed for 4851 grid points
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       6.49sec (   0.0 h )
+     cpu time:       7.39sec (   0.0 h )
+         user:       7.36sec (   0.0 h )
+          sys:       0.03sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Fri Nov 13 17:09:54 2026
+ Hello World! (tm)
+
+ done.
+

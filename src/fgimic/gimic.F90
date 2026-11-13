@@ -106,6 +106,7 @@ contains
         call getkw(input, 'Tropicity.accuracy', settings%trop_accuracy)
         call getkw(input, 'Tropicity.tolerance', settings%trop_tol)
         call getkw(input, 'Tropicity.max_length', settings%trop_length)
+        call getkw(input, 'Tropicity.capture', settings%trop_capture)
         if (settings%tropicity .and. settings%is_uhf) then
             call msg_warn('The tropicity is not available for open-shell &
                 &systems, skipped')

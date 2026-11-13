@@ -20,6 +20,10 @@
 ! into a region of vanishing current, or that encloses no area with respect
 ! to the field (a loop in a plane containing the field) is left undefined.
 !
+! On a grid most of this work can be saved: a classified streamline gives
+! its label to every grid point it passes (capture_t), so that only a small
+! part of the grid points has to be followed.
+!
 ! Convention: a diatropic current circulates in the right-handed sense
 ! around the magnetic field (A > 0), i.e. clockwise when looking along the
 ! field, and a paratropic current in the left-handed sense (A < 0). This is
@@ -54,7 +58,21 @@ module tropicity_module
     ! steps (accepted or not) after which a streamline is given up
     integer(I4), parameter :: MAXITER = 20000
 
-    public tropicity_batch, tropicity_summary
+    ! An even grid whose points take the label of a streamline that passes
+    ! within radius of them, and the points collected in one call of
+    ! tropicity_batch: node(1:n) are their indices i+(j-1)*p1+(k-1)*p1*p2
+    ! and lab(1:n) the labels.
+    type capture_t
+        real(DP), dimension(3) :: origin   ! grid point (1,1,1)
+        real(DP), dimension(3,3) :: basv   ! orthonormal grid axes
+        real(DP), dimension(3) :: step
+        integer(I4), dimension(3) :: npts
+        real(DP) :: radius
+        integer(I4) :: n = 0
+        integer(I4), dimension(:), allocatable :: node, lab
+    end type
+
+    public tropicity_batch, tropicity_summary, capture_t
     public TROP_UNDEF, TROP_DIA, TROP_PARA
     private
 
@@ -65,12 +83,16 @@ contains
     ! current density is evaluated for many points at a time. Each has its
     ! own step, chosen by the embedded Dormand-Prince 5(4) pair to keep the
     ! estimated error of a step below settings%trop_accuracy.
-    subroutine tropicity_batch(jt, r0, bb, spin, label)
+    !
+    ! With cap, the grid points that a classified streamline passes are
+    ! returned in cap together with its label.
+    subroutine tropicity_batch(jt, r0, bb, spin, label, cap)
         type(jtensor_t) :: jt
         real(DP), dimension(:,:), intent(in) :: r0
         real(DP), dimension(3), intent(in) :: bb
         character(*), intent(in) :: spin
         integer(I4), dimension(:), intent(out) :: label
+        type(capture_t), intent(inout), optional :: cap
 
         ! Dormand-Prince coefficients
         real(DP), parameter :: A21=1.d0/5.d0
@@ -87,7 +109,10 @@ contains
             E4=71.d0/1920.d0, E5=-17253.d0/339200.d0, E6=22.d0/525.d0, &
             E7=-1.d0/40.d0
 
-        integer(I4) :: n, na, ia, ip, iter, st
+        integer(I4) :: n, na, ia, ip, iter, st, m, ns, node, nv
+        logical :: capture
+        integer(I4), dimension(:), allocatable :: nvis
+        integer(I4), dimension(:,:), allocatable :: vis, vtmp
         real(DP) :: hmax, hmin, tol, etol, maxlen, d, pn, err, hh
         real(DP), dimension(3) :: b, dr, rel, p, q
         logical :: done, stuck
@@ -110,6 +135,14 @@ contains
 
         allocate(idx(n), area(n), turn(n), h(n), plen(n), away(n), hasp(n))
         allocate(r(3,n), rs(3,n), pold(3,n), tt(9,n), k(3,7,n))
+
+        capture=present(cap)
+        if (capture) then
+            cap%n=0
+            if (.not.allocated(cap%node)) allocate(cap%node(1024), cap%lab(1024))
+            allocate(nvis(n), vis(256,n))
+            nvis=0
+        end if
 
         na=n
         do ip=1,n
@@ -184,6 +217,27 @@ contains
                     area(ip)=area(ip)+0.5d0*dot_product(cross(rel,dr), b)
                     plen(ip)=plen(ip)+hh
 
+                    ! grid points along this step
+                    if (capture) then
+                        ns=max(1, ceiling(2.d0*sqrt(sum(dr**2))/cap%radius))
+                        do m=1,ns
+                            node=nearest_node(cap, &
+                                r(:,ip)+(real(m,DP)/real(ns,DP))*dr)
+                            if (node < 1) cycle
+                            nv=nvis(ip)
+                            if (nv > 0) then
+                                if (vis(nv,ip) == node) cycle
+                            end if
+                            if (nv == size(vis,1)) then
+                                allocate(vtmp(2*nv,size(vis,2)))
+                                vtmp(1:nv,:)=vis
+                                call move_alloc(vtmp, vis)
+                            end if
+                            nvis(ip)=nv+1
+                            vis(nv+1,ip)=node
+                        end do
+                    end if
+
                     ! turn of the direction of the current around the field
                     p=k(:,7,ip)-dot_product(k(:,7,ip),b)*b
                     pn=sqrt(sum(p**2))
@@ -217,10 +271,22 @@ contains
                     k(:,1,ip)=k(:,7,ip)
                 end if
 
+                ! a classified streamline gives its label to the grid points
+                ! it has passed
+                if (capture .and. done) then
+                    if (label(idx(ip)) /= TROP_UNDEF) then
+                        call collect(cap, vis(1:nvis(ip),ip), label(idx(ip)))
+                    end if
+                end if
+
                 ! keep the unfinished streamlines at the front
                 if (.not.done) then
                     ia=ia+1
                     if (ia /= ip) then
+                        if (capture) then
+                            nvis(ia)=nvis(ip)
+                            vis(1:nvis(ip),ia)=vis(1:nvis(ip),ip)
+                        end if
                         idx(ia)=idx(ip)
                         r(:,ia)=r(:,ip)
                         k(:,1,ia)=k(:,1,ip)
@@ -239,6 +305,7 @@ contains
 
         deallocate(idx, area, turn, h, plen, away, hasp)
         deallocate(r, rs, pold, tt, k)
+        if (capture) deallocate(nvis, vis)
 
     contains
         ! stage st: unit vector along the current at the points x; zero
@@ -263,6 +330,52 @@ contains
                 end if
             end do
         end subroutine
+    end subroutine
+
+    ! index of the grid point within cap%radius of x, or 0
+    function nearest_node(cap, x) result(node)
+        type(capture_t), intent(in) :: cap
+        real(DP), dimension(3), intent(in) :: x
+        integer(I4) :: node
+
+        integer(I4) :: d
+        integer(I4), dimension(3) :: i
+        real(DP) :: u, d2
+
+        node=0
+        d2=0.d0
+        do d=1,3
+            u=dot_product(x-cap%origin, cap%basv(:,d))
+            i(d)=1
+            if (cap%npts(d) > 1) i(d)=nint(u/cap%step(d))+1
+            if (i(d) < 1 .or. i(d) > cap%npts(d)) return
+            if (cap%npts(d) > 1) u=u-real(i(d)-1,DP)*cap%step(d)
+            d2=d2+u**2
+        end do
+        if (d2 > cap%radius**2) return
+        node=i(1)+(i(2)-1)*cap%npts(1)+(i(3)-1)*cap%npts(1)*cap%npts(2)
+    end function
+
+    subroutine collect(cap, nodes, lab)
+        type(capture_t), intent(inout) :: cap
+        integer(I4), dimension(:), intent(in) :: nodes
+        integer(I4), intent(in) :: lab
+
+        integer(I4) :: m
+        integer(I4), dimension(:), allocatable :: tmp
+
+        m=size(nodes)
+        if (cap%n+m > size(cap%node)) then
+            allocate(tmp(2*(cap%n+m)))
+            tmp(1:cap%n)=cap%node(1:cap%n)
+            call move_alloc(tmp, cap%node)
+            allocate(tmp(2*(cap%n+m)))
+            tmp(1:cap%n)=cap%lab(1:cap%n)
+            call move_alloc(tmp, cap%lab)
+        end if
+        cap%node(cap%n+1:cap%n+m)=nodes
+        cap%lab(cap%n+1:cap%n+m)=lab
+        cap%n=cap%n+m
     end subroutine
 
     function sense(x) result(l)

@@ -34,6 +34,9 @@ module settings_module
         real(DP) :: trop_accuracy=1.d-5  ! error allowed in one step (bohr)
         real(DP) :: trop_tol=0.1d0       ! closure tolerance (bohr)
         real(DP) :: trop_length=100.d0   ! maximum path length (bohr)
+        ! grid points within this distance of a streamline, in units of the
+        ! grid spacing, take its label (0: follow every grid point)
+        real(DP) :: trop_capture=0.5d0
         real(DP) :: screen_thrs
         logical :: use_screening
         integer(I4), dimension(2) :: morange

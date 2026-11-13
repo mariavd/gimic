@@ -30,3 +30,7 @@ Advanced {
 Essential {
     tropicity=on
 }
+
+Tropicity {
+    capture=0.0     # follow the streamline of every grid point
+}

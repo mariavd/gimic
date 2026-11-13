@@ -83,6 +83,7 @@ def parse_keywords(args):
     trop.add_kw('accuracy', 'DBL', (1.0e-5,))
     trop.add_kw('tolerance', 'DBL', (0.1,))
     trop.add_kw('max_length', 'DBL', (100.0,))
+    trop.add_kw('capture', 'DBL', (0.5,))
 
     grid=getkw.Section('Grid', callback=check_grid)
     grid.set_arg('STR', ('std',))
