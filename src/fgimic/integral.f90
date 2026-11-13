@@ -21,6 +21,7 @@ module integral_class
     ! ACID stuff
     use acid_module
     use tensor_module
+    use tropicity_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
@@ -156,14 +157,22 @@ contains
         character(*), optional :: spinn
 
         integer(I4) :: i, j, k, p1, p2, p3, lo, hi, nb1, b, order, ndone, nstep
-        real(DP), dimension(3) :: normal, rr, center, bb, tot
+        integer(I4) :: nc, it
+        real(DP), dimension(3) :: normal, rr, center, bb
+        real(DP), dimension(6) :: tot
+        ! split by tropicity (settings%tropicity): the streamline through
+        ! every quadrature point is followed, see tropicity_module
+        logical :: trop
+        integer(I4), dimension(3) :: tcount
+        integer(I4), dimension(:), allocatable :: label
         real(DP) :: w, jp, r, bound
         real(DP), dimension(3) :: jvec
         real(DP), dimension(9) :: tt
         real(DP), dimension(:,:), allocatable :: coords, ttb, rsum
         ! blk(:,b,j): current through column j of the grid, resolved into the
-        ! blocks b of the height axis (net, positive, negative contribution),
-        ! integrated along the height and the third axis but not yet
+        ! blocks b of the height axis (net, positive, negative contribution
+        ! and, with the tropicity, the diatropic, paratropic and undefined
+        ! parts), integrated along the height and the third axis but not yet
         ! weighted along the width. Each column is written by exactly one
         ! thread, so no reduction is needed, the totals are summed in a
         ! fixed order afterwards (independent of the number of threads), and
@@ -210,18 +219,29 @@ contains
         ! blocks along the height: one per slice, or a single one
         nb1=max(1, this%grid%nslice(1))
         order=this%grid%gauss_order
-        allocate(blk(3,nb1,p2))
+        trop=settings%tropicity
+        if (trop .and. mpi_world_size > 1) then
+            call msg_warn('integrate_current(): tropicity not available &
+                &with MPI, skipped')
+            trop=.false.
+        end if
+        nc=3
+        if (trop) nc=6
+        tcount=0
+        allocate(blk(nc,nb1,p2))
         blk=0.d0
         ndone=0
         nstep=max(1, (p2*p3)/10)
         call system_clock(t0, rate)
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP PRIVATE(i,j,k,b,r,rr,w,jp,tt,jvec,jt,coords,ttb,rsum,t1) &
+!$OMP PRIVATE(i,j,k,b,r,rr,w,jp,tt,jvec,jt,coords,ttb,rsum,t1,label,it) &
 !$OMP SHARED(p1,p2,p3,this,center,spin,bb,normal,mol,xdens,lo,hi,bound) &
-!$OMP SHARED(nb1,order,blk,ndone,nstep,t0,rate,mpi_rank)
+!$OMP SHARED(nb1,order,blk,ndone,nstep,t0,rate,mpi_rank,trop,nc) &
+!$OMP REDUCTION(+:tcount)
         call new_jtensor(jt, mol, xdens)
-        allocate(coords(3,p1), ttb(9,p1), rsum(3,nb1))
+        allocate(coords(3,p1), ttb(9,p1), rsum(nc,nb1), label(p1))
+        label=TROP_UNDEF
         do k=1,p3
             ! columns far from the molecule are cheap (screening): balance
             !$OMP DO SCHEDULE(DYNAMIC,4)
@@ -231,6 +251,7 @@ contains
                     coords(:,i)=gridpoint(this%grid, i, j, k)
                 end do
                 call ctensor_batch(jt, coords, ttb, spin)
+                if (trop) call tropicity_batch(jt, coords, bb, trim(spin), label)
                 do i=1,p1
                     rr=coords(:,i)
                     r=sqrt(sum((rr-center)**2))
@@ -251,6 +272,18 @@ contains
                     else
                         ! negative contribution
                         rsum(3,b)=rsum(3,b)+jp
+                    end if
+                    if (trop .and. r <= bound) then
+                        select case (label(i))
+                            case (TROP_DIA)
+                                it=1
+                            case (TROP_PARA)
+                                it=2
+                            case default
+                                it=3
+                        end select
+                        rsum(3+it,b)=rsum(3+it,b)+jp
+                        tcount(it)=tcount(it)+1
                     end if
                 end do
                 w=get_weight(this%grid,k,3)
@@ -273,7 +306,7 @@ contains
             end do
             !$OMP END DO
         end do
-        deallocate(coords, ttb, rsum)
+        deallocate(coords, ttb, rsum, label)
         call del_jtensor(jt)
 !$OMP END PARALLEL
 
@@ -284,7 +317,7 @@ contains
         tot=0.d0
         do j=1,p2
             w=get_weight(this%grid,j,2)
-            tot=tot+w*sum(blk(:,:,j),dim=2)
+            tot(1:nc)=tot(1:nc)+w*sum(blk(:,:,j),dim=2)
         end do
 
         call nl
@@ -302,6 +335,24 @@ contains
         call msg_out(str_g)
         write(str_g, '(a,f13.6)') '      (conversion factor)  :', au2si(1.d0)
         call msg_out(str_g)
+        ! after the block that scripts reading the output rely on
+        if (trop) then
+            call nl
+            call msg_out('   Split by tropicity (streamline tracing), &
+                &au (nA/T), points:')
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Diatropic            :', tot(4), '  (', &
+                au2si(tot(4)), ' )', tcount(1)
+            call msg_out(str_g)
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Paratropic           :', tot(5), '  (', &
+                au2si(tot(5)), ' )', tcount(2)
+            call msg_out(str_g)
+            write(str_g, '(a,f13.6,a,f11.6,a,i8)') &
+                '      Undefined            :', tot(6), '  (', &
+                au2si(tot(6)), ' )', tcount(3)
+            call msg_out(str_g)
+        end if
         call msg_out(repeat('*', 60))
         call nl
 

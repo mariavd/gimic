@@ -62,6 +62,20 @@ magnet\_axis=z
     along the direction which is orthogonal to the molecular plane, but 
     parallel to the integration plane.
 
+    .. warning::
+
+       ``magnet\_axis=X`` is not recommended. The field is not derived from
+       the molecule but from the definition of the bond grid: it is
+       perpendicular to the plane through the two bond atoms and the
+       fixpoint. Its direction, and with it the sign of the integrated
+       current, therefore depends on which atoms are chosen and in which
+       order they are given, and it differs between integration planes of
+       the same molecule unless these three atoms always lie in the same
+       plane. In a non-planar molecule it is in general not the direction
+       one has in mind. For reproducible results give the field explicitly
+       with ``magnet=[Bx,By,Bz]`` (or ``magnet\_axis=x``, ``y`` or ``z``) and
+       quote it together with the results.
+
 Grid section
 -----------------
 
@@ -307,6 +321,92 @@ integration grid is sensible in “tricky” molecules.
 
 jmod=off
     Unless necessary, it should be turned off to save computational time.
+
+Tropicity by streamline tracing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The tropicity is a non-local property of the current density: it is the sense
+in which the streamline through a point circulates around the magnetic field.
+With this keyword GIMIC follows the streamline through every grid point until
+it has made one turn and labels the point diatropic, paratropic or undefined.
+The current density is evaluated analytically along the streamline, so the
+result does not depend on the spacing of the grid.
+
+tropicity=off
+    Assign the tropicity of every grid point by following its streamline.
+
+    With ``calc=cdens`` on an even grid, four more files are written:
+    ``jvec_dia.vti``, ``jvec_para.vti`` and ``jvec_undef.vti`` hold the
+    diatropic, paratropic and undefined parts of the current density (the
+    vector is zero where a point does not belong to that part), and
+    ``tropicity.vti`` holds the label itself (1 diatropic, -1 paratropic,
+    0 undefined). The three parts add up to ``jvec.vti``.
+
+    With ``calc=integral`` the integrated current strength is, in addition to
+    the positive and negative contributions, split into its diatropic,
+    paratropic and undefined parts. The three parts add up to the total
+    current strength; the undefined part is the uncertainty of the split.
+    For a current profile (``slice_thickness`` in the grid section) the split
+    of every slice is written to ``tropicity_profile.dat``; see the chapter
+    on the scripts.
+
+The split of the current strength converges more slowly with the number of
+quadrature points than the total current strength does, because the diatropic
+and paratropic parts end abruptly where the two kinds of streamlines meet.
+For benzene the two parts change by a few tenths of nA/T between the default
+grid and a converged one, while the total is already converged. Increase
+``grid_points`` (or reduce ``spacing``) until the split is stable.
+
+A streamline is left undefined when it does not make a full turn within the
+maximum path length, when it runs into a point where the current density
+vanishes, or when it circulates in a plane that contains the magnetic field.
+
+Following streamlines is much more expensive than calculating the current
+density itself: expect of the order of a thousand evaluations of the current
+density for every streamline.
+
+With ``calc=cdens`` not every grid point is followed. A streamline that has
+been classified gives its label to the grid points it passes within a given
+distance (``capture`` below), and only the points that are left are followed
+themselves. On a three-dimensional grid of benzene with a spacing of 0.4 bohr
+this is ten times faster than following every point, and 1.2 % of the grid
+points get another label than they would on their own. These lie at the
+borders between diatropic and paratropic regions, where a point and the
+streamline next to it can belong to different vortices. Set ``capture=0`` to
+follow every grid point. The integration (``calc=integral``) always follows
+every quadrature point.
+
+Limitations:
+
+* closed-shell systems only. For open-shell systems (``openshell=true``) the
+  keyword is ignored with a warning;
+* with ``calc=cdens`` the grid must be even (``type=even``). For Gauss grids
+  and grids read from a file the split files are not written;
+* the tropicity is assigned with OpenMP parallelisation only. In an MPI run
+  it is skipped with a warning.
+
+The optional section ``Tropicity`` tunes the streamline integration. The
+defaults are meant to be safe.
+
+max\_step=0.5
+    Largest step along a streamline, in bohr. The step is chosen adaptively
+    (Dormand-Prince Runge-Kutta) and is much shorter near the nuclei.
+
+accuracy=1.d-5
+    Error allowed in one step, in bohr.
+
+tolerance=0.1
+    A streamline is closed when it returns to within this distance of its
+    starting point, in bohr.
+
+max\_length=100.0
+    Path length after which a streamline that has not made a full turn is
+    given up, in bohr.
+
+capture=0.5
+    Only for ``calc=cdens``: a grid point within this distance of a
+    classified streamline, in units of the grid spacing, takes the label of
+    that streamline. Smaller values are more accurate and slower; 0 follows
+    every grid point.
 
 Current-density calculations
 ------------------------------

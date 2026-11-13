@@ -32,5 +32,7 @@ Advanced {
 
 Essential {        # this section only works for master
     acid=on
+    tropicity=off   # split J into jvec_dia.vti, jvec_para.vti and jvec_undef.vti
+                    # by following streamlines; costly on fine 3D grids
 }
 

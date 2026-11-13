@@ -31,7 +31,7 @@ import shutil
 import subprocess
 import sys
 
-INTEGRAL_RE = re.compile(r'Induced|contribution')
+INTEGRAL_RE = re.compile(r'Induced|contribution|Diatropic|Paratropic|Undefined')
 NONFINITE_RE = re.compile(r'\b(nan|inf|infinity)\b', re.IGNORECASE)
 # lines that legitimately differ between runs (timings, dates, estimates)
 VOLATILE_RE = re.compile(r'wall time|cpu time|user:|sys:|Estimated|OpenMP threads|'

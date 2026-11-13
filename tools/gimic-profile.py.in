@@ -271,6 +271,7 @@ Advanced {{
 
 Essential {{
     jmod=off
+    tropicity={tropicity}
 }}
 """
 
@@ -291,6 +292,7 @@ def write_input(p, dirname):
                         comment='%s profile across bond %d-%d' % (p['mode'], p['bond'][0], p['bond'][1]),
                         title='%s profile %d-%d' % (p['mode'], p['bond'][0], p['bond'][1]),
                         openshell='true' if p['openshell'] else 'false',
+                        tropicity='on' if p.get('tropicity') else 'off',
                         magnet_line=magnet_line, a1=p['bond'][0], a2=p['bond'][1],
                         tx=p['towards'][0], ty=p['towards'][1], tz=p['towards'][2],
                         distance=p['distance'], spacing_h=p['spacing'], spacing_w=p['spacing_w'],
@@ -543,6 +545,26 @@ def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False,
             ax.legend(loc='upper right')
             save(fig, 'current_profile_annotated' if annotated else 'current_profile')
 
+        # the split by streamline tracing (Essential.tropicity=on)
+        if os.path.exists(os.path.join(dirname, 'tropicity_profile.dat')):
+            DIA, PARA, UNDEF = '#007F00', '#7A1FA2', '#999999'
+            tnet, tdia, tpara, tundef = [], [], [], []
+            with open(os.path.join(dirname, 'tropicity_profile.dat')) as ft:
+                for line in ft:
+                    w = line.split()
+                    if len(w) >= 5 and not line.startswith('#'):
+                        tnet.append(float(w[1])); tdia.append(float(w[2]))
+                        tpara.append(float(w[3])); tundef.append(float(w[4]))
+            if len(tnet) == len(X):
+                fig, ax = plt.subplots(figsize=(9.8, 5.4))
+                ax.plot(X, [v / delta for v in tdia], color=DIA, lw=2.5, label='diatropic, %.2f nA/T' % sum(tdia))
+                ax.plot(X, [v / delta for v in tpara], color=PARA, lw=2.5, label='paratropic, %.2f nA/T' % sum(tpara))
+                ax.plot(X, [v / delta for v in tundef], color=UNDEF, lw=1.5, label='undefined, %.2f nA/T' % sum(tundef))
+                ax.plot(X, [v / delta for v in tnet], color=NET, lw=1.2, ls='--', label='net')
+                frame(ax, 'tropicity by streamline tracing, %s: net %.2f nA/T' % (bondname, sum(tnet)))
+                ax.legend(loc='upper right')
+                save(fig, 'tropicity_profile')
+
         # comparison with other profiles: one figure with the net currents, one
         # with the positive and negative contributions
         if overlay:
@@ -771,6 +793,9 @@ def parse_args():
     ap.add_argument('--rotation', nargs=3, type=float, default=[0.0, 0.0, 0.0], metavar='DEG', help='rotate the plane (Euler angles, degrees)')
     ap.add_argument('--rotation-origin', nargs=3, type=float, metavar='C', help='origin of the rotation [bond midpoint]')
     ap.add_argument('--openshell', action='store_true', help='open-shell density')
+    ap.add_argument('--tropicity', action='store_true',
+                    help='also split the current into its diatropic and paratropic parts by following the streamline '
+                         'through every grid point (tropicity_profile.dat); much slower, closed-shell only')
     ap.add_argument('--suffix', default='', help='suffix for the directory name')
     ap.add_argument('--threads', type=int, help='OpenMP threads [all cores]')
     ap.add_argument('--slurm', action='store_true', help='write a SLURM job script instead of running')
@@ -851,7 +876,8 @@ def main():
         return i
 
     mode = args.mode or (rec and rec['mode']) or 'current'
-    p = {'mode': mode, 'openshell': args.openshell or bool(rec and rec.get('openshell'))}
+    p = {'mode': mode, 'openshell': args.openshell or bool(rec and rec.get('openshell')),
+         'tropicity': args.tropicity or bool(rec and rec.get('tropicity'))}
 
     # the bond
     if args.bond:

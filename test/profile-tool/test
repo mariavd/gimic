@@ -3,7 +3,8 @@
 gimic-profile end to end on benzene: --yes with all options given, the
 geometry taken from MOL alone (no coord file), a coarse profile. Checks that
 the command runs, writes its files, records its settings, and that the total
-current agrees with the bond-grid reference (11.802 nA/T for this plane).
+current agrees with the bond-grid reference (11.802 nA/T for this plane),
+and that --tropicity writes a consistent tropicity profile.
 
 Usage: test --binary-dir=DIR --work-dir=DIR
 """
@@ -26,7 +27,7 @@ env = dict(os.environ, PATH=a.binary_dir + os.pathsep + os.environ.get('PATH', '
            OPENBLAS_NUM_THREADS='1', MPLBACKEND='Agg')
 cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-profile'), '--bond', '1', '2', '--ring', '1', '2', '3', '4', '5', '6',
        '--in', '2.2', '--out', '5', '--up', '5', '--down', '5', '--slice', '0.5', '--spacing', '0.28',
-       '--threads', '2', '--yes']
+       '--threads', '2', '--tropicity', '--yes']
 r = subprocess.run(cmd, cwd=a.work_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 if a.verbose or r.returncode != 0:
     print(r.stdout)
@@ -53,4 +54,17 @@ if total is None or abs(total - 11.802) > 0.02:
 s = sum(float(l.split()[1]) for l in open(os.path.join(d, 'current_profile.dat')))
 if abs(s - total) > 1e-5:
     sys.exit('slices sum to %f, total %f' % (s, total))
+# --tropicity: the diatropic, paratropic and undefined parts of every slice
+# add up to its net current, and the split is that of this plane (about
+# 15.2 and -3.4 nA/T; it converges slowly with the grid, see doc/input.rst)
+dia = para = 0.0
+for l in open(os.path.join(d, 'tropicity_profile.dat')):
+    w = [float(x) for x in l.split()]
+    if abs(w[1] - (w[2] + w[3] + w[4])) > 1e-6:
+        sys.exit('tropicity_profile.dat: the parts do not add up to the net current: ' + l)
+    dia += w[2]; para += w[3]
+if abs(dia - 15.2) > 0.5 or abs(para + 3.4) > 0.5:
+    sys.exit('tropicity split %.3f / %.3f nA/T, expected about 15.2 / -3.4' % (dia, para))
+if not rec.get('tropicity'):
+    sys.exit('profile.json does not record --tropicity')
 print('gimic-profile: total %.4f nA/T, files written, settings recorded' % total)

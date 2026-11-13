@@ -112,6 +112,23 @@ Results
   integration: distance, net, positive and negative current (nA/T). A plane
   cannot tell the tropicity of a current; by the sign convention a diatropic
   ring current comes out positive.
+* ``tropicity_profile.dat``, with ``--tropicity`` (``tropicity=on`` in the
+  ``Essential`` section of the input): one line per slice with the distance,
+  the net current and its diatropic, paratropic and undefined parts (nA/T),
+  which add up to the net current. Here the tropicity is assigned by
+  following the streamline through every grid point until it has made one
+  turn around the field, see the ``tropicity`` keyword in the input
+  chapter. A current that circulates locally, around a bond or an atom,
+  crosses the plane twice and cancels in these columns, whereas it is
+  counted once as positive and once as negative in
+  ``current_profile.dat``. The vertical and the squares profile write
+  ``tropicity_vertical_profile.dat`` and ``tropicity_squares_profile.dat``.
+  ``tropicity_profile.png`` and ``.pdf`` are the plot. The run takes much
+  longer, since every grid point costs some hundreds of evaluations of the
+  current density, and it is available for closed-shell molecules only.
+  The functions ``antropicity`` and ``revtropicity`` in
+  ``jobscripts/useful-aliases`` sum the columns between two distances and
+  reverse their sign.
 * ``profile_points.dat``: maxima and minima of the current per bohr, the
   zero crossings of the net current with the current integrated between
   them, and the blobs of the positive and the negative contribution with

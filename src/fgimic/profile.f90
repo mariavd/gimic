@@ -45,6 +45,15 @@
 !                         loaded side by side. Coordinates in bohr, like
 !                         jvec.vti, so that the profile can be laid over the
 !                         current density.
+!   tropicity_profile.dat, tropicity_vertical_profile.dat,
+!   tropicity_squares_profile.dat
+!                         with Essential.tropicity=on: like the three
+!                         profiles, with the diatropic, paratropic and
+!                         undefined parts assigned by following the streamline
+!                         through every quadrature point in place of the
+!                         positive and negative contributions: distance, net,
+!                         diatropic, paratropic, undefined. The squares
+!                         profile is written as a list with coordinates.
 !   squares_profile.dat   when both axes are sliced: the net current through
 !                         each rectangle, as a matrix (rows: height slices,
 !                         columns: width slices) for plotting with image
@@ -65,22 +74,26 @@ contains
 
     ! blk(:,b,j): (net, positive, negative) current through column j of the
     ! grid, resolved into the blocks b of the height axis and integrated along
-    ! the height, but not yet weighted along the width (see integral.f90)
+    ! the height, but not yet weighted along the width (see integral.f90).
+    ! With the tropicity (Essential.tropicity) it also holds the diatropic,
+    ! paratropic and undefined parts, as components 4 to 6.
     subroutine write_profile(g, blk, normal, bb, spin)
         type(grid_t), intent(in) :: g
         real(DP), dimension(:,:,:), intent(in) :: blk
         real(DP), dimension(3), intent(in) :: normal, bb
         character(*), intent(in) :: spin
 
-        integer(I4) :: nb1, nb2, p2, j, b1, b2, order, n
+        integer(I4) :: nb1, nb2, p2, j, b1, b2, order, n, nc
         real(DP), dimension(:,:,:), allocatable :: s
         real(DP), dimension(:,:), allocatable :: node
         real(DP), dimension(:), allocatable :: zx
-        real(DP), dimension(3) :: tot, c
+        real(DP), dimension(6) :: tot
+        real(DP), dimension(3) :: c
         real(DP) :: w, d1, d2, x, t, dir
         character(16) :: suffix
         logical :: from_in
 
+        nc=size(blk,1)
         nb1=size(blk,2)
         p2=size(blk,3)
         order=g%gauss_order
@@ -98,7 +111,7 @@ contains
         from_in = (trim(g%mode) == 'bond')
 
         ! slice integrals (au) and the current per unit length at the nodes
-        allocate(s(3,nb1,nb2), node(3,p2))
+        allocate(s(nc,nb1,nb2), node(nc,p2))
         s=0.d0
         do j=1,p2
             w=get_weight(g,j,2)
@@ -107,7 +120,8 @@ contains
             s(:,:,b2)=s(:,:,b2)+w*blk(:,:,j)
             node(:,j)=sum(blk(:,:,j),dim=2)
         end do
-        tot=sum(sum(s,dim=3),dim=2)
+        tot=0.d0
+        tot(1:nc)=sum(sum(s,dim=3),dim=2)
 
         ! ---- current_profile.dat: the format of the slice scripts --------
         if (g%nslice(2) > 0) then
@@ -121,6 +135,52 @@ contains
             end do
             close(PFD)
             call msg_out('Current profile written to current_profile'//trim(suffix)//'.dat')
+        end if
+
+        ! ---- tropicity_profile.dat: the split by streamline tracing -----
+        if (nc == 6 .and. g%nslice(2) > 0) then
+            open(PFD, file='tropicity_profile'//trim(suffix)//'.dat')
+            do n=1,nb2
+                b2=slice_index(n, nb2, from_in)
+                x=real(n-1,DP)*d2
+                write(PFD, '(f5.2,4(a,f11.8))') x, char(9), &
+                    au2si(sum(s(1,:,b2))), char(9), au2si(sum(s(4,:,b2))), &
+                    char(9), au2si(sum(s(5,:,b2))), char(9), &
+                    au2si(sum(s(6,:,b2)))
+            end do
+            close(PFD)
+            call msg_out('Tropicity profile written to tropicity_profile'//trim(suffix)//'.dat')
+        end if
+        if (nc == 6 .and. g%nslice(1) > 0) then
+            open(PFD, file='tropicity_vertical_profile'//trim(suffix)//'.dat')
+            do b1=1,nb1
+                x=real(b1-1,DP)*d1
+                write(PFD, '(f5.2,4(a,f11.8))') x, char(9), &
+                    au2si(sum(s(1,b1,:))), char(9), au2si(sum(s(4,b1,:))), &
+                    char(9), au2si(sum(s(5,b1,:))), char(9), &
+                    au2si(sum(s(6,b1,:)))
+            end do
+            close(PFD)
+            call msg_out('Tropicity profile along the height written to &
+                &tropicity_vertical_profile'//trim(suffix)//'.dat')
+        end if
+        if (nc == 6 .and. g%nslice(1) > 0 .and. g%nslice(2) > 0) then
+            open(PFD, file='tropicity_squares_profile'//trim(suffix)//'.dat')
+            write(PFD, '(a)') '# GIMIC squares profile, split by tropicity (streamline tracing) [nA/T]'
+            write(PFD, '(a)') '# x_centre  s_centre  cx  cy  cz  net  diatropic  paratropic  undefined'
+            do b1=1,nb1
+                do n=1,nb2
+                    b2=slice_index(n, nb2, from_in)
+                    c=slice_centre(g, (real(b1,DP)-0.5d0)*d1, (real(b2,DP)-0.5d0)*d2)
+                    write(PFD, '(2f12.5,3f14.6,4f14.8)') (real(n,DP)-0.5d0)*d2, &
+                        (real(b1,DP)-0.5d0)*d1, c, au2si(s(1,b1,b2)), &
+                        au2si(s(4,b1,b2)), au2si(s(5,b1,b2)), au2si(s(6,b1,b2))
+                end do
+                write(PFD, '(a)') ''
+            end do
+            close(PFD)
+            call msg_out('Tropicity squares profile written to &
+                &tropicity_squares_profile'//trim(suffix)//'.dat')
         end if
 
         allocate(zx(0))
