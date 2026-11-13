@@ -4,7 +4,7 @@ Thread-count independence test.
 
 Runs one GIMIC test case with several values of OMP_NUM_THREADS and
 requires:
-  * every pointwise output file (.vti, .xyz, .txt) to be bitwise identical
+  * every pointwise output file (.vti, .xyz, .txt, .dat) to be bitwise identical
     across runs: each grid point is computed independently of how the
     points are distributed over threads, so nothing but the arithmetic
     order of the integrals may depend on the thread count;
@@ -31,7 +31,7 @@ import shutil
 import subprocess
 import sys
 
-INTEGRAL_RE = re.compile(r'Induced|contribution')
+INTEGRAL_RE = re.compile(r'Induced|contribution|Diatropic|Paratropic|Undefined')
 NONFINITE_RE = re.compile(r'\b(nan|inf|infinity)\b', re.IGNORECASE)
 # lines that legitimately differ between runs (timings, dates, estimates)
 VOLATILE_RE = re.compile(r'wall time|cpu time|user:|sys:|Estimated|OpenMP threads|'

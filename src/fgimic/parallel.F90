@@ -9,7 +9,7 @@ module parallel_module
 #endif
 
     public init_mpi, stop_mpi, get_mpi_rank, rankname, schedule
-    public gather_data, collect_sum
+    public gather_data, collect_sum, collect_array
     private
 
 #ifdef HAVE_MPI
@@ -103,6 +103,27 @@ contains
         call mpi_gather(source, size(source), MPI_DOUBLE_PRECISION, &
             dest, size(source), MPI_DOUBLE_PRECISION, 0, &
             MPI_COMM_WORLD, ierr)
+#endif
+    end subroutine
+
+    ! Sum an array over all ranks onto rank 0 (in place). Every rank fills
+    ! its own share of the array and leaves the rest zero.
+    subroutine collect_array(buf, n)
+        integer(I4), intent(in) :: n
+        real(DP), dimension(n), intent(inout) :: buf
+#ifdef HAVE_MPI
+        real(DP), dimension(1) :: dummy
+#endif
+
+        if (mpi_world_size == 1) return
+#ifdef HAVE_MPI
+        if (rank == 0) then
+            call mpi_reduce(MPI_IN_PLACE, buf, n, MPI_DOUBLE_PRECISION, &
+                MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+        else
+            call mpi_reduce(buf, dummy, n, MPI_DOUBLE_PRECISION, &
+                MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+        end if
 #endif
     end subroutine
 

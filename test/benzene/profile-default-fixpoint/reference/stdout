@@ -1,0 +1,114 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (1e2f83a)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ OpenMP threads: 1
+ Mon Nov  9 08:58:38 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+ INFO: No fixed point given: using the bond midpoint displaced along B x bond:    1.2771    0.0000    0.0000
+ INFO: The integration starts on this side of the bond; swap the bond atoms to start on the other side
+
+ Integration grid data
+ ------------------------------------------------
+ center     2.277078   -0.000028    0.000000
+ origin    10.277078   -0.000028   -8.000000
+ basv1     -0.000000   -0.000000    1.000000
+ basv2     -1.000000   -0.000000   -0.000000
+ basv3      0.000000   -1.000000    0.000000
+ lenghts   16.000000   10.600000    0.000000
+ magnet     0.000000    0.000000   -1.000000
+
+ Grid mode = bond
+ INFO: Integration grid selected.
+   Axis 2:    53 slices of    0.20000 bohr
+   Number of grid points <v1,v2>:   72  477    1
+   Total number of grid points  :     34344
+   Reference centre (towards)   :    1.277078    0.000000    0.000000
+
+ *** Grid plot in grid.xyz
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ INFO: Estimated CPU time for the integration on one core:        0.90sec (   0.0 h )
+
+ Jmod integration skipped.
+ *** Integrating current
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Currents are positive when they flow in the diatropic sense around the reference centre
+
+ ************************************************************
+    Induced current (au)    :     0.422563
+       Positive contribution:     0.599173  (  16.884332 )
+       Negative contribution:    -0.176610  (  -4.976770 )
+
+    Induced current (nA/T)  :    11.907562
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+ Current profile written to current_profile.dat
+
+ Current profile: extrema of dJ/dx [nA/T/bohr]
+   net        minimum    1.721 at (   1.398  -0.000   0.000 )    -3.7127
+   net        maximum    3.186 at (   2.863  -0.000   0.000 )    10.8567
+   net        minimum    6.870 at (   6.547  -0.000   0.000 )    -0.0118
+   positive   minimum    0.591 at (   0.268  -0.000   0.000 )    -0.0057
+   positive   maximum    3.186 at (   2.863  -0.000   0.000 )    10.8567
+   negative   minimum    1.815 at (   1.492  -0.000   0.000 )    -4.1276
+   negative   minimum    6.368 at (   6.045  -0.000   0.000 )    -0.0269
+
+ Current profile: zero crossings of the net current and the current between them [nA/T]
+      0.000 to   0.323:     0.09390     0.10002    -0.00612
+      0.323 to   2.287:    -3.93381     0.46691    -4.40072
+      2.287 to   6.343:    15.76405    16.30727    -0.54322
+      6.343 to  10.600:    -0.01657     0.01013    -0.02671
+
+ Current profile: positive and negative blobs (range, peak, current [nA/T])
+   positive     0.000 to   0.200  peak at    0.100    0.4293     0.08586
+   positive     1.400 to   5.800  peak at    3.100   10.7286    16.72157
+   negative     0.400 to   2.600  peak at    1.900   -4.0634    -4.93007
+ Profile analysis written to profile_points.dat
+ Profile details written to profile.dat
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       0.85sec (   0.0 h )
+     cpu time:       0.84sec (   0.0 h )
+         user:       0.84sec (   0.0 h )
+          sys:       0.00sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Mon Nov  9 08:58:39 2026
+ Hello World! (tm)
+
+ done.
+

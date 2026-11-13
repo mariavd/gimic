@@ -17,4 +17,8 @@ Example: benzene B3LYP/def2-TZVP
 - 2D VTK vti file for JVEC
     - visualization as vectors and streamlines LIC
 
+- Divergence of the current density (divj)
+    - gimic.inp: on an evenly spaced 3D grid, written to divj.txt and divj.vti
+    - gimic.file.inp: in the points listed in points.grd, written to divj.txt
+
 Run the code with "gimic > gimic.out" 

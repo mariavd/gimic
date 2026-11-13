@@ -1,0 +1,32 @@
+# The profile of benzene/profile with no fixed point and no reference centre:
+# the plane is set upright along the field on the side of the bond given by the
+# atom order, and the profile must be the same (same reference files).
+
+calc=integral
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet=[0.0, 0.0, -1.0]
+
+Grid(bond) {
+    type=gauss
+    bond=[1,2]
+    distance=1.3147
+    gauss_order=9
+    grid_points=[72, 0, 0]   # the width is set by the slices
+    height=[-8.0, 8.0]
+    width=[-2.6, 8.0]
+    slice_thickness=[0.2, 0.0]        # 53 slices of 0.2 bohr along the width
+}
+
+Advanced {
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}

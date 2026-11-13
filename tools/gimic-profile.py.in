@@ -1,0 +1,1123 @@
+#!@PYTHON_SHEBANG@
+# -*- coding: utf-8 -*-
+"""
+gimic-profile: set up, run and plot current profiles with GIMIC.
+
+A current profile is the current through an integration plane, perpendicular
+to a bond, resolved into slices from the start of the integration (typically
+the centre of a ring) outwards. GIMIC computes all slices in one run.
+
+Every parameter can be given as an option; whatever is missing is asked for,
+with the default in brackets (Enter accepts it). With --yes nothing is asked.
+
+    gimic-profile --bond 1 2 --ring 1 2 3 4 5 6
+    gimic-profile --bond 1 2 --ring 1 2 3 4 5 6 --in 2.9 --out 8 --slice 0.02 --threads 8 --yes
+    gimic-profile --mode squares --bond 1 2 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
+    gimic-profile --rerun current_profile_1.2/profile.json --slice 0.01
+    gimic-profile --plot current_profile_1.2 --zero origin --mark 7 "9 10 11"
+
+Needs MOL and XDENS in the working directory. The geometry is taken from
+coord (Turbomole, bohr), coord.xyz (Angstrom) or, failing both, from MOL.
+"""
+
+import argparse
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+VERSION = '@PROJECT_VERSION@'
+BOHR = 0.52917721          # Angstrom per bohr
+HOME = os.path.expanduser('~')
+
+# -------------------------------------------------------------- geometry
+
+def read_coord(fname='coord'):
+    atoms = []
+    with open(fname) as f:
+        inside = False
+        for line in f:
+            if line.startswith('$coord'):
+                inside = True
+                continue
+            if line.startswith('$'):
+                inside = False
+            if inside:
+                w = line.split()
+                if len(w) >= 4:
+                    atoms.append((w[3].capitalize(), float(w[0]), float(w[1]), float(w[2])))
+    return atoms
+
+
+def read_xyz(fname='coord.xyz'):
+    atoms = []
+    with open(fname) as f:
+        lines = f.readlines()
+    for line in lines[2:]:
+        w = line.split()
+        if len(w) >= 4:
+            atoms.append((w[0].capitalize(), float(w[1]) / BOHR, float(w[2]) / BOHR, float(w[3]) / BOHR))
+    return atoms
+
+
+def read_mol(fname='MOL'):
+    """atom lines of a MOL file: a label and three coordinates in bohr"""
+    atoms = []
+    num = re.compile(r'^-?\d+\.\d*(?:[eEdD][-+]?\d+)?$')
+    with open(fname) as f:
+        for line in f:
+            w = line.split()
+            if len(w) == 5 and re.match(r'^[A-Z][a-z]?$', w[0]) and all(num.match(x) for x in w[2:5]):
+                atoms.append((w[0], float(w[2]), float(w[3]), float(w[4])))
+            elif len(w) == 4 and re.match(r'^[A-Z][a-z]?\d*$', w[0]) and all(num.match(x) for x in w[1:4]):
+                atoms.append((re.sub(r'\d+$', '', w[0]), float(w[1]), float(w[2]), float(w[3])))
+    return atoms
+
+
+def write_coord(atoms, fname='coord'):
+    with open(fname, 'w') as f:
+        f.write('$coord\n')
+        for sym, x, y, z in atoms:
+            f.write('%20.14f %20.14f %20.14f  %s\n' % (x, y, z, sym.lower()))
+        f.write('$end\n')
+
+
+def write_xyz(atoms, fname='coord.xyz'):
+    with open(fname, 'w') as f:
+        f.write('%d\nconverted by gimic-profile\n' % len(atoms))
+        for sym, x, y, z in atoms:
+            f.write('%s %14.8f %14.8f %14.8f\n' % (sym, x * BOHR, y * BOHR, z * BOHR))
+
+
+def load_geometry():
+    for name in ('MOL', 'XDENS'):
+        if not os.path.exists(name):
+            sys.exit('%s not found: run gimic-profile in the directory with MOL and XDENS' % name)
+    if os.path.exists('coord'):
+        atoms = read_coord()
+    elif os.path.exists('coord.xyz'):
+        atoms = read_xyz()
+        write_coord(atoms)
+        print('coord (bohr) created from coord.xyz')
+    else:
+        atoms = read_mol()
+        if not atoms:
+            sys.exit('no coord or coord.xyz, and no coordinates found in MOL')
+        write_coord(atoms)
+        print('coord (bohr) created from the coordinates in MOL (%d atoms)' % len(atoms))
+    if not os.path.exists('coord.xyz'):
+        write_xyz(atoms)
+    if not atoms:
+        sys.exit('no atoms found in coord')
+    return atoms
+
+
+def vec(a, b):
+    return [b[i] - a[i] for i in range(3)]
+
+
+def norm(v):
+    return math.sqrt(sum(x * x for x in v))
+
+
+def unit(v):
+    n = norm(v)
+    return [x / n for x in v]
+
+
+def cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def dot(a, b):
+    return sum(a[i] * b[i] for i in range(3))
+
+
+def centroid(atoms, idx):
+    pts = [atoms[i - 1][1:] for i in idx]
+    return [sum(p[k] for p in pts) / len(pts) for k in range(3)]
+
+
+def plane_normal(atoms, idx):
+    """unit normal of the mean plane through the atoms; z component negative
+    like the default field (0, 0, -1)"""
+    pts = [atoms[i - 1][1:] for i in idx]
+    c = centroid(atoms, idx)
+    n = [0.0, 0.0, 0.0]
+    for i in range(len(pts)):
+        a = vec(c, pts[i])
+        b = vec(c, pts[(i + 1) % len(pts)])
+        x = cross(a, b)
+        n = [n[k] + x[k] for k in range(3)]
+    if norm(n) < 1e-8:
+        return None
+    n = unit(n)
+    big = max(n, key=abs)
+    if (abs(n[2]) > 1e-6 and n[2] > 0) or (abs(n[2]) <= 1e-6 and big > 0):
+        n = [-x for x in n]
+    return n
+
+
+# covalent radii in Angstrom (Cordero et al. 2008), for telling a bond from
+# two reference points; anything missing counts as 1.5
+COVALENT = {'H': 0.31, 'He': 0.28, 'Li': 1.28, 'Be': 0.96, 'B': 0.84, 'C': 0.76, 'N': 0.71, 'O': 0.66,
+            'F': 0.57, 'Ne': 0.58, 'Na': 1.66, 'Mg': 1.41, 'Al': 1.21, 'Si': 1.11, 'P': 1.07, 'S': 1.05,
+            'Cl': 1.02, 'Ar': 1.06, 'K': 2.03, 'Ca': 1.76, 'Ti': 1.60, 'Fe': 1.32, 'Co': 1.26, 'Ni': 1.24,
+            'Cu': 1.32, 'Zn': 1.22, 'Ga': 1.22, 'Ge': 1.20, 'As': 1.19, 'Se': 1.20, 'Br': 1.20, 'Kr': 1.16,
+            'Sn': 1.39, 'Sb': 1.39, 'Te': 1.38, 'I': 1.39, 'Xe': 1.40, 'Pt': 1.36, 'Au': 1.36, 'Hg': 1.32,
+            'Pb': 1.46, 'Bi': 1.48}
+
+
+def is_bond(atoms, a1, a2):
+    """True when the two atoms are within 1.25 times the sum of their covalent radii"""
+    s1, s2 = atoms[a1 - 1][0], atoms[a2 - 1][0]
+    d = norm(vec(atoms[a1 - 1][1:], atoms[a2 - 1][1:]))
+    rsum = (COVALENT.get(s1, 1.5) + COVALENT.get(s2, 1.5)) / BOHR
+    return d <= 1.25 * rsum, d, rsum
+
+
+def atom_label(atoms, i):
+    sym, x, y, z = atoms[i - 1]
+    return '%s%d (%.3f, %.3f, %.3f)' % (sym, i, x, y, z)
+
+# -------------------------------------------------------------- questions
+
+class Asker:
+    def __init__(self, yes, angstrom):
+        self.yes = yes
+        self.angstrom = angstrom
+        self.unit = 'A' if angstrom else 'bohr'
+
+    def to_bohr(self, value):
+        return value / BOHR if self.angstrom else value
+
+    def show(self, bohr):
+        return bohr * BOHR if self.angstrom else bohr
+
+    def ask(self, prompt, default, convert=str):
+        """ask until the answer converts; Enter gives the default. The default
+        is shown as typed (display units) and goes through the same conversion
+        as an answer, so a length default is converted to bohr too."""
+        if self.yes:
+            return convert(str(default))
+        while True:
+            try:
+                ans = input('%s [%s]: ' % (prompt, default)).strip()
+            except EOFError:
+                ans = ''
+            if ans == '':
+                ans = str(default)
+            try:
+                return convert(ans)
+            except ValueError as e:
+                print('  %s' % e)
+
+    def length(self, text):
+        """a length with an optional unit: '2.5', '2.5 A', '1.3 bohr'"""
+        w = text.replace(',', ' ').split()
+        if len(w) == 1:
+            return self.to_bohr(float(w[0]))
+        if len(w) == 2 and w[1].lower() in ('a', 'ang', 'angstrom', 'å'):
+            return float(w[0]) / BOHR
+        if len(w) == 2 and w[1].lower() in ('bohr', 'au', 'b'):
+            return float(w[0])
+        raise ValueError('a number, optionally followed by a unit (A or bohr)')
+
+    def atoms_or_length(self, text):
+        """integers are atom indices, a decimal number is a length"""
+        w = text.replace(',', ' ').split()
+        if w and all(re.match(r'^\d+$', x) for x in w):
+            return ('atoms', [int(x) for x in w])
+        return ('length', self.length(text))
+
+# -------------------------------------------------------------- input file
+
+INPUT = """# GIMIC input written by gimic-profile {version} on {date}
+# {comment}
+
+calc=integral
+title="{title}"
+basis="../MOL"
+xdens="../XDENS"
+debug=1
+openshell={openshell}
+{magnet_line}
+
+Grid(bond) {{
+    type=gauss
+    bond=[{a1},{a2}]
+    towards_coord=[{tx:.6f}, {ty:.6f}, {tz:.6f}]   # reference centre: fixed point and sign convention (diatropic positive)
+    distance={distance:.6f}                       # along the bond from atom {a1}
+    gauss_order=9
+    spacing=[{spacing_h:.4f}, {spacing_w:.4f}, 1.0]     # along the height, along the width (ignored on sliced axes)
+    height=[{down:.4f}, {up:.4f}]
+    width=[{inn:.4f}, {out:.4f}]
+    slice_thickness=[{dw:.4f}, {dh:.4f}]{rotation}
+}}
+
+Advanced {{
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}}
+
+Essential {{
+    jmod=off
+    tropicity={tropicity}
+}}
+"""
+
+
+def write_input(p, dirname):
+    if p['field'] == 'X':
+        magnet_line = 'magnet_axis=X'
+    else:
+        magnet_line = 'magnet=[%.6f, %.6f, %.6f]' % tuple(p['field'])
+    rotation = ''
+    if any(abs(a) > 0 for a in p['rotation']):
+        rotation = '\n    rotation=[%.4f, %.4f, %.4f]' % tuple(p['rotation'])
+        if p.get('rotation_origin'):
+            rotation += '\n    rotation_origin=[%.6f, %.6f, %.6f]' % tuple(p['rotation_origin'])
+    dw, dh = {'current': (p['slice'], 0.0), 'vertical': (0.0, p['slice']),
+              'squares': (p['slice'], p['slice']), 'integral': (0.0, 0.0)}[p['mode']]
+    text = INPUT.format(version=VERSION, date=time.strftime('%Y-%m-%d %H:%M'),
+                        comment='%s profile across bond %d-%d' % (p['mode'], p['bond'][0], p['bond'][1]),
+                        title='%s profile %d-%d' % (p['mode'], p['bond'][0], p['bond'][1]),
+                        openshell='true' if p['openshell'] else 'false',
+                        tropicity='on' if p.get('tropicity') else 'off',
+                        magnet_line=magnet_line, a1=p['bond'][0], a2=p['bond'][1],
+                        tx=p['towards'][0], ty=p['towards'][1], tz=p['towards'][2],
+                        distance=p['distance'], spacing_h=p['spacing'], spacing_w=p['spacing_w'],
+                        down=-p['down'], up=p['up'], inn=-p['in'], out=p['out'],
+                        dw=dw, dh=dh, rotation=rotation)
+    with open(os.path.join(dirname, 'gimic.inp'), 'w') as f:
+        f.write(text)
+
+
+def gimic_dryrun(dirname):
+    env = dict(os.environ)
+    r = subprocess.run(['gimic', '--dryrun', 'gimic.inp'], cwd=dirname, env=env,
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    keep = re.compile(r'slices|grid points|Reference centre|Estimated|WARN|ERROR|No fixed point|extended|changed from', re.I)
+    lines = [l.rstrip() for l in r.stdout.splitlines() if keep.search(l)]
+    return r.returncode, lines, r.stdout
+
+
+def plane_corners(dirname):
+    """the four X points of grid.xyz, in bohr"""
+    corners = []
+    try:
+        with open(os.path.join(dirname, 'grid.xyz')) as f:
+            for line in f:
+                w = line.split()
+                if len(w) == 4 and w[0] == 'X':
+                    corners.append([float(x) / BOHR for x in w[1:4]])
+    except IOError:
+        pass
+    return corners
+
+# -------------------------------------------------------------- SLURM
+
+SLURM_HEADER_DEFAULT = """#!/bin/bash -l
+##SBATCH -p partition         # the partition of your cluster
+##SBATCH --account=project    # your account
+#SBATCH -e jobfile.err%J
+#SBATCH -o jobfile.out%J
+## LIST ANY MODULES NEEDED TO RUN GIMIC, e.g.
+## module load gimic
+"""
+
+
+def slurm_header(path):
+    for cand in [path, os.environ.get('GIMIC_SLURM_HEADER'),
+                 os.path.join(HOME, '.gimic', 'jobscript-header'),
+                 os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'share', 'gimic', 'jobscript-header')]:
+        if cand and os.path.isfile(cand):
+            with open(cand) as f:
+                return f.read(), cand
+    return SLURM_HEADER_DEFAULT, None
+
+
+def write_job(dirname, threads, hours, header_path):
+    header, used = slurm_header(header_path)
+    job = header.rstrip('\n') + """
+
+# written by gimic-profile; GIMIC runs in parallel with OpenMP over the columns of the grid
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+cd "%s"
+date
+gimic gimic.inp > gimic.out
+date
+grep "Induced current (nA/T)" gimic.out
+sacct -j $SLURM_JOB_ID --format=jobid,jobname,AllocCPUs,CPUTime,MaxRSS 2>/dev/null
+""" % os.path.abspath(dirname)
+    jobfile = os.path.join(dirname, 'job.sh')
+    with open(jobfile, 'w') as f:
+        f.write(job)
+    cmd = ['sbatch', '--ntasks=1', '--cpus-per-task=%d' % threads, '--job-name=%s' % os.path.basename(dirname),
+           '--time=%d:00:00' % hours, jobfile]
+    return jobfile, cmd, used
+
+# -------------------------------------------------------------- analysis and plots
+
+def read_profile(dirname, name='current_profile.dat'):
+    xs, net, dia, para = [], [], [], []
+    with open(os.path.join(dirname, name)) as f:
+        for line in f:
+            w = line.split()
+            if len(w) >= 4 and not line.startswith('#'):
+                xs.append(float(w[0])); net.append(float(w[1])); dia.append(float(w[2])); para.append(float(w[3]))
+    return xs, net, dia, para
+
+
+def read_points(dirname):
+    """from profile_points.dat: the zero crossings (x) of the net current, the
+    ranges between them with their integrated net, positive and negative
+    current, and the blobs (quantity, x_from, x_to, x_peak, peak, current)"""
+    zeros, ranges, blobs = [], [], []
+    fname = os.path.join(dirname, 'profile_points.dat')
+    if not os.path.exists(fname):
+        return zeros, ranges, blobs
+    with open(fname) as f:
+        section = None
+        for line in f:
+            if line.startswith('# zero crossings'):
+                section = 'zeros'
+                continue
+            if line.startswith('# blobs'):
+                section = 'blobs'
+                continue
+            if line.startswith('#') or not line.strip():
+                continue
+            w = line.split()
+            if section == 'zeros':
+                if len(w) >= 5:
+                    ranges.append((float(w[0]), float(w[1]), float(w[2]), float(w[3]), float(w[4])))
+                if len(w) >= 8:
+                    zeros.append(float(w[1]))
+            elif section == 'blobs' and len(w) >= 6:
+                blobs.append((w[0], float(w[1]), float(w[2]), float(w[3]), float(w[4]), float(w[5])))
+    return zeros, ranges, blobs
+
+
+def read_matrix(dirname):
+    rows = []
+    with open(os.path.join(dirname, 'squares_profile.dat')) as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            if not line.strip():
+                if rows:
+                    break
+                continue
+            rows.append([float(x) for x in line.split()])
+    return rows
+
+
+def plot(dirname, record, zero='start', lines=None, yrange=None, angstrom=False, overlay=None):
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print('matplotlib is not available: no plot (the data are in %s/current_profile.dat)' % dirname)
+        return []
+    out = []
+    mode = record.get('mode', 'current')
+    unit = 'Å' if angstrom else '$a_0$'
+    f = BOHR if angstrom else 1.0
+    POS, NEG, NET = '#C00000', '#1E46FF', '#333333'   # positive, negative, net
+    delta = record['slice']
+    bond = record['bond']
+    ylab = r'd$\mathcal{J}$/d$x$ [nA/T / %s]' % unit
+    if mode in ('current', 'squares'):
+        xs, net, dia, para = read_profile(dirname)
+        xs = [x + 0.5 * delta for x in xs]            # slice centres
+        zeros, ranges, blobs = read_points(dirname)
+        x0 = 0.0
+        if zero == 'origin' and zeros:
+            x0 = zeros[0]
+        elif zero == 'bond':
+            x0 = record['in']
+        X = [(x - x0) * f for x in xs]
+
+        bondname = ('bond %d-%d' if record.get('is_bond', True) else 'atoms %d-%d') % tuple(bond)
+        midname = ('bond %d-%d' if record.get('is_bond', True) else 'midpoint %d-%d') % tuple(bond)
+
+        def frame(ax, title):
+            ax.axhline(0, color='k', lw=0.8)
+            ax.axvline((record['in'] - x0) * f, color='#999999', lw=1.5, ls=':', label=midname)
+            # atoms the plane passes through: a mark at the axis with the label
+            if not record.get('no_atom_marks'):
+                for k, (lab, along, off) in enumerate(record.get('atoms_in_plane', [])):
+                    ax.plot([(along - x0) * f], [0], marker='o', ms=7, color='#666666', mfc='white', zorder=5,
+                            label='atoms in the plane' if k == 0 else None)
+                    ax.annotate(lab, xy=((along - x0) * f, 0), xytext=(4, 4), textcoords='offset points',
+                                fontsize=8, color='#666666')
+            if zero == 'origin' and zeros:
+                ax.axvline(0, color='#00DCFF', lw=1.0, label='vortex origin')
+            for lab, pos in (lines or []):
+                ax.axvline((pos - x0) * f, color='#AA00AA', lw=1.2, ls='-.')
+                ax.annotate(lab, xy=((pos - x0) * f, 1), xycoords=('data', 'axes fraction'), xytext=(3, -12),
+                            textcoords='offset points', fontsize=8, color='#AA00AA')
+            ax.set_xlim(min(X), max(X))
+            if yrange:
+                ax.set_ylim(*yrange)
+            ax.set_xlabel('distance [%s]' % unit)
+            ax.set_ylabel(ylab)
+            ax.set_title(title)
+
+        def save(fig, stem):
+            fig.tight_layout()
+            for ext in ('png', 'pdf'):
+                name = os.path.join(dirname, stem + '.' + ext)
+                fig.savefig(name, dpi=150)
+                out.append(name)
+            plt.close(fig)
+
+        title = '%s profile, %s: net %.2f nA/T' % (mode, bondname, sum(net))
+        # two figures: a plain one, and one with the strengths of the features:
+        # the current integrated between the zero crossings of the net current
+        # along the top, and for every positive and negative blob its
+        # boundaries (lines from the axis to the peak) and integrated current
+        for annotated in (False, True):
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive')
+            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative')
+            ax.plot(X, [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
+            frame(ax, title)
+            if annotated:
+                # the other sign changes of the net current; the first one is the
+                # vortex origin (already drawn when it is the zero of the axis)
+                for k, z in enumerate(zeros):
+                    if zero == 'origin' and k == 0:
+                        continue
+                    ax.axvline((z - x0) * f, color='#00DCFF', lw=0.8, ls='--',
+                               label='sign change of the net current' if k == (1 if zero == 'origin' else 0) else None)
+                if not yrange:
+                    # room for the labels above the peaks and along the bottom
+                    ymin, ymax = ax.get_ylim()
+                    ax.set_ylim(ymin - 0.12 * (ymax - ymin), ymax + 0.10 * (ymax - ymin))
+                ymin, ymax = ax.get_ylim()
+                xlo, xhi = ax.get_xlim()
+                tick = 0.08 * (ymax - ymin)
+
+                def clamp(xt):
+                    """keep a label inside the frame"""
+                    if xt - xlo < 0.06 * (xhi - xlo):
+                        return 'left', xlo + 0.005 * (xhi - xlo)
+                    if xhi - xt < 0.06 * (xhi - xlo):
+                        return 'right', xhi - 0.005 * (xhi - xlo)
+                    return 'center', xt
+
+                # the net current between consecutive zero crossings, along the bottom
+                for (xa, xb, vnet, vpos, vneg) in ranges:
+                    if abs(vnet) < 0.05 or (xb - xa) * f < 0.08 * (xhi - xlo):
+                        continue
+                    if zero == 'origin' and xb <= x0 + 1e-6:
+                        continue                      # before the vortex origin: only there to locate it
+                    ha, xt = clamp((0.5 * (xa + xb) - x0) * f)
+                    ax.annotate('net %+.2f' % vnet, xy=(xt, ymin), xytext=(0, 4), textcoords='offset points',
+                                ha=ha, va='bottom', fontsize=9, color='#444444')
+                # every blob: short marks at its boundaries, from the axis up or
+                # down, and its integrated current at the peak
+                for (q, xa, xb, xpk, peak, cur) in blobs:
+                    if abs(cur) < 0.05:
+                        continue
+                    if zero == 'origin' and xpk < x0:
+                        continue                      # before the vortex origin
+                    col = POS if q == 'positive' else NEG
+                    sign = 1.0 if q == 'positive' else -1.0
+                    for xe in (xa, xb):
+                        ax.plot([(xe - x0) * f] * 2, [0, sign * tick], color=col, lw=1.2)
+                    ha, xt = clamp((xpk - x0) * f)
+                    ax.annotate('%+.2f nA/T' % cur, xy=(xt, peak),
+                                xytext=(0, 6 if peak > 0 else -6), textcoords='offset points',
+                                ha=ha, va='bottom' if peak > 0 else 'top', fontsize=9, color=col)
+            ax.legend(loc='upper right')
+            save(fig, 'current_profile_annotated' if annotated else 'current_profile')
+
+        # the split by streamline tracing (Essential.tropicity=on)
+        if os.path.exists(os.path.join(dirname, 'tropicity_profile.dat')):
+            DIA, PARA, UNDEF = '#007F00', '#7A1FA2', '#999999'
+            tnet, tdia, tpara, tundef = [], [], [], []
+            with open(os.path.join(dirname, 'tropicity_profile.dat')) as ft:
+                for line in ft:
+                    w = line.split()
+                    if len(w) >= 5 and not line.startswith('#'):
+                        tnet.append(float(w[1])); tdia.append(float(w[2]))
+                        tpara.append(float(w[3])); tundef.append(float(w[4]))
+            if len(tnet) == len(X):
+                fig, ax = plt.subplots(figsize=(9.8, 5.4))
+                ax.plot(X, [v / delta for v in tdia], color=DIA, lw=2.5, label='diatropic, %.2f nA/T' % sum(tdia))
+                ax.plot(X, [v / delta for v in tpara], color=PARA, lw=2.5, label='paratropic, %.2f nA/T' % sum(tpara))
+                ax.plot(X, [v / delta for v in tundef], color=UNDEF, lw=1.5, label='undefined, %.2f nA/T' % sum(tundef))
+                ax.plot(X, [v / delta for v in tnet], color=NET, lw=1.2, ls='--', label='net')
+                frame(ax, 'tropicity by streamline tracing, %s: net %.2f nA/T' % (bondname, sum(tnet)))
+                ax.legend(loc='upper right')
+                save(fig, 'tropicity_profile')
+
+        # comparison with other profiles: one figure with the net currents, one
+        # with the positive and negative contributions
+        if overlay:
+            others = []
+            for other in overlay:
+                try:
+                    with open(os.path.join(other, 'profile.json')) as fo:
+                        orec = json.load(fo)
+                    oxs, onet, odia, opara = read_profile(other)
+                    od = orec['slice']
+                    oxs = [x + 0.5 * od for x in oxs]
+                    ox0 = 0.0
+                    if zero == 'origin':
+                        oz, _, _ = read_points(other)
+                        ox0 = oz[0] if oz else 0.0
+                    elif zero == 'bond':
+                        ox0 = orec['in']
+                    others.append((('bond %d-%d' if orec.get('is_bond', True) else 'atoms %d-%d') % tuple(orec['bond']),
+                                   [(x - ox0) * f for x in oxs],
+                                   [v / od for v in onet], [v / od for v in odia], [v / od for v in opara]))
+                except (IOError, KeyError, IndexError) as e:
+                    print('cannot compare with %s: %s' % (other, e))
+            this = bondname
+            styles = ['-', '--', '-.', ':']
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in net], color=NET, lw=2.0, label='net, ' + this)
+            for k, (lab, ox, onet, odia, opara) in enumerate(others):
+                ax.plot(ox, onet, lw=2.0, ls=styles[(k + 1) % 4], label='net, ' + lab)
+            frame(ax, 'net current: ' + ', '.join([this] + [o[0] for o in others]))
+            ax.legend(loc='upper right')
+            save(fig, 'compare_net')
+            fig, ax = plt.subplots(figsize=(9.8, 5.4))
+            ax.plot(X, [v / delta for v in dia], color=POS, lw=2.5, label='positive, ' + this)
+            ax.plot(X, [v / delta for v in para], color=NEG, lw=2.5, label='negative, ' + this)
+            for k, (lab, ox, onet, odia, opara) in enumerate(others):
+                ls = styles[(k + 1) % 4]
+                ax.plot(ox, odia, color=POS, lw=1.5, ls=ls, label='positive, ' + lab)
+                ax.plot(ox, opara, color=NEG, lw=1.5, ls=ls, label='negative, ' + lab)
+            frame(ax, 'positive and negative contributions: ' + ', '.join([this] + [o[0] for o in others]))
+            ax.legend(loc='upper right')
+            save(fig, 'compare_contributions')
+    if mode == 'vertical':
+        xs, net, dia, para = read_profile(dirname, 'vertical_profile.dat')
+        s0 = record['down']                           # the molecular plane (the bond) is 'down' above the lower edge
+        xs = [x + 0.5 * delta - s0 for x in xs]
+        fig, ax = plt.subplots(figsize=(9.8, 5.4))
+        ax.axhline(0, color='k', lw=0.8)
+        ax.axvline(0, color='#999999', lw=1.5, ls=':', label='plane of the bond')
+        ax.plot([x * f for x in xs], [v / delta for v in dia], color=POS, lw=2.5, label='positive')
+        ax.plot([x * f for x in xs], [v / delta for v in para], color=NEG, lw=2.5, label='negative')
+        ax.plot([x * f for x in xs], [v / delta for v in net], color=NET, lw=1.2, ls='--', label='net')
+        ax.set_xlim(min(xs) * f, max(xs) * f)
+        ax.set_xlabel('height above the plane of the bond [%s]' % unit)
+        ax.set_ylabel(r'd$\mathcal{J}$/d$s$ [nA/T / %s]' % unit)
+        ax.set_title('vertical profile, bond %d-%d: net %.2f nA/T' % (bond[0], bond[1], sum(net)))
+        if yrange:
+            ax.set_ylim(*yrange)
+        ax.legend()
+        fig.tight_layout()
+        for ext in ('png', 'pdf'):
+            name = os.path.join(dirname, 'vertical_profile.' + ext)
+            fig.savefig(name, dpi=150)
+            out.append(name)
+        plt.close(fig)
+    if mode == 'squares':
+        rows = read_matrix(dirname)
+        fig, ax = plt.subplots(figsize=(8, 8 * len(rows) / max(1, len(rows[0]))))
+        vmax = max(abs(v) for r in rows for v in r) or 1.0
+        im = ax.imshow(rows, origin='lower', cmap='RdBu_r', vmin=-vmax, vmax=vmax, aspect='equal',
+                       extent=[0, len(rows[0]) * delta * f, 0, len(rows) * delta * f])
+        ax.axvline(record['in'] * f, color='#444444', lw=1.0, ls=':')
+        ax.axhline(record['down'] * f, color='#444444', lw=1.0, ls=':')
+        ax.set_xlabel('distance [%s]  (dotted: bond)' % unit)
+        ax.set_ylabel('height [%s]  (dotted: plane of the bond)' % unit)
+        fig.colorbar(im, ax=ax, label='net current through the square [nA/T]')
+        ax.set_title('squares profile, bond %d-%d: net %.2f nA/T' % (bond[0], bond[1], sum(sum(r) for r in rows)))
+        fig.tight_layout()
+        for ext in ('png', 'pdf'):
+            name = os.path.join(dirname, 'squares_profile.' + ext)
+            fig.savefig(name, dpi=150)
+            out.append(name)
+        plt.close(fig)
+    return out
+
+
+def show_analysis(dirname):
+    fname = os.path.join(dirname, 'profile_points.dat')
+    if os.path.exists(fname):
+        print()
+        with open(fname) as f:
+            sys.stdout.write(f.read())
+
+# -------------------------------------------------------------- ParaView
+
+PARAVIEW_SCRIPT = r"""# ParaView pipeline for the current profile {tag}, written by gimic-profile.
+# Run it with  paraview --script=THIS_FILE  or load it in ParaView's Python
+# shell (View > Python Shell > Run Script), then save a state file from there.
+# The plane is coloured by the current through each slice, the profile runs
+# along the middle of the plane as a tube coloured by the current per bohr,
+# and the sign changes of the net current are spheres (the first one is the
+# vortex origin). With a jvec.vti of a 3D calculation of the same molecule
+# (given to gimic-profile with --jvec), a slice of the current density in the
+# plane of the profile is added, as arrows (and as Surface LIC if that
+# plugin is available).
+from paraview.simple import *
+import os
+
+here = os.path.dirname(os.path.abspath(__file__))
+view = GetActiveViewOrCreate('RenderView')
+
+# the plane, translucent, coloured by the net current through each slice
+plane = XMLPolyDataReader(registrationName='plane {tag}', FileName=[os.path.join(here, '{plane}')])
+pd = Show(plane, view)
+pd.SetRepresentationType('Surface')
+ColorBy(pd, ('CELLS', 'net'))
+pd.Opacity = 0.6
+lut = GetColorTransferFunction('net')
+lut.ApplyPreset('Cool to Warm', True)
+pd.SetScalarBarVisibility(view, True)
+
+# the profile: one continuous polyline, drawn as a tube
+line = XMLPolyDataReader(registrationName='profile {tag}', FileName=[os.path.join(here, '{line}')])
+tube = Tube(registrationName='profile tube {tag}', Input=line)
+tube.Radius = {tube_radius}
+tube.NumberOfSides = 16
+td = Show(tube, view)
+ColorBy(td, ('POINTS', 'net per bohr'))
+GetColorTransferFunction('net per bohr').ApplyPreset('Cool to Warm', True)
+
+# the sign changes of the net current (marker 1: vortex origin, 2: others)
+marks = Threshold(registrationName='sign changes {tag}', Input=line)
+marks.Scalars = ['POINTS', 'marker']
+try:
+    marks.LowerThreshold = 0.5
+    marks.UpperThreshold = 2.5
+    marks.ThresholdMethod = 'Between'
+except AttributeError:          # ParaView before 5.10
+    marks.ThresholdRange = [0.5, 2.5]
+spheres = Glyph(registrationName='sign change spheres {tag}', Input=marks, GlyphType='Sphere')
+spheres.ScaleArray = ['POINTS', 'No scale array']
+spheres.ScaleFactor = {sphere_radius}
+spheres.GlyphMode = 'All Points'
+sd = Show(spheres, view)
+ColorBy(sd, ('POINTS', 'marker'))
+
+jvec = {jvec!r}
+if jvec and os.path.exists(jvec):
+    # the current density of the 3D calculation in the plane of the profile
+    field = XMLImageDataReader(registrationName='jvec', FileName=[jvec])
+    cut = Slice(registrationName='current density in the plane {tag}', Input=field)
+    cut.SliceType = 'Plane'
+    cut.SliceType.Origin = {origin}
+    cut.SliceType.Normal = {normal}
+    arrows = Glyph(registrationName='arrows {tag}', Input=cut, GlyphType='Arrow')
+    arrows.OrientationArray = ['POINTS', field.PointData.keys()[0]]
+    arrows.ScaleArray = ['POINTS', 'No scale array']
+    arrows.ScaleFactor = 0.4
+    arrows.GlyphMode = 'Every Nth Point'
+    arrows.Stride = 3
+    Show(arrows, view)
+    try:
+        LoadDistributedPlugin('SurfaceLIC', remote=False, ns=globals())
+        cd = Show(cut, view)
+        cd.SetRepresentationType('Surface LIC')
+        cd.SelectInputVectors = ['POINTS', field.PointData.keys()[0]]
+    except Exception:
+        pass
+
+view.ResetCamera()
+Render()
+"""
+
+
+def write_paraview_script(dirname, record, jvec=None):
+    """write a paraview.simple script that assembles the profile files"""
+    bond = record['bond']
+    tag = '%d.%d' % tuple(bond)
+    plane = 'profile_plane_%s.vtp' % tag
+    line = 'profile_line_%s.vtp' % tag
+    if not os.path.exists(os.path.join(dirname, plane)):
+        return None
+    # plane origin and normal from profile.dat (bohr)
+    origin, normal, lengths, basv1, basv2 = None, None, None, None, None
+    with open(os.path.join(dirname, 'profile.dat')) as f:
+        for l in f:
+            if l.startswith('# grid origin'):
+                origin = [float(x) for x in l.split(':')[1].split()]
+            elif l.startswith('# basv1'):
+                basv1 = [float(x) for x in l.split(':')[1].split()]
+            elif l.startswith('# basv2'):
+                basv2 = [float(x) for x in l.split(':')[1].split()]
+            elif l.startswith('# basv3'):
+                normal = [float(x) for x in l.split(':')[1].split()]
+            elif l.startswith('# lengths'):
+                lengths = [float(x) for x in l.split(':')[1].split()]
+            if origin and normal and lengths and basv1 and basv2:
+                break
+    centre = [origin[k] + 0.5 * lengths[0] * basv1[k] + 0.5 * lengths[1] * basv2[k] for k in range(3)]
+    text = PARAVIEW_SCRIPT.format(tag=tag, plane=plane, line=line, jvec=os.path.abspath(jvec) if jvec else '',
+                                  origin=[round(x, 6) for x in centre], normal=[round(x, 6) for x in normal],
+                                  tube_radius=0.05, sphere_radius=0.25)
+    name = os.path.join(dirname, 'paraview_profile_%s.py' % tag)
+    with open(name, 'w') as f:
+        f.write(text)
+    return name
+
+# -------------------------------------------------------------- main
+
+def parse_args():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--mode', choices=['current', 'vertical', 'squares', 'integral'], default=None,
+                    help='slices along the width (current), the height (vertical), both (squares), or no slices (integral)')
+    ap.add_argument('--bond', nargs=2, type=int, metavar=('A1', 'A2'), help='the two atoms of the bond (1-based)')
+    ap.add_argument('--ring', nargs='+', type=int, metavar='ATOM',
+                    help='atoms whose centroid is the start of the integration and the reference centre')
+    ap.add_argument('--in', dest='inn', type=str, metavar='X', help='start of the integration: distance from the bond towards the ring (default: the ring centroid)')
+    ap.add_argument('--out', type=str, metavar='X', help='end of the integration beyond the bond [8]')
+    ap.add_argument('--up', type=str, metavar='X', help='extent of the plane along the field [8]')
+    ap.add_argument('--down', type=str, metavar='X', help='extent of the plane against the field [8]')
+    ap.add_argument('--distance', type=str, metavar='X', help='position of the plane along the bond from atom A1 [midpoint]')
+    ap.add_argument('--slice', type=str, metavar='X', help='slice thickness [0.02; squares 0.25]')
+    ap.add_argument('--spacing', type=str, metavar='X', help='grid spacing along the height [from the slice thickness]')
+    ap.add_argument('--field', nargs='+', metavar='B', help='magnetic field: three components, "ring" (normal of the ring plane) or "X" (magnet_axis=X) [0 0 -1]')
+    ap.add_argument('--fixpoint', type=int, metavar='ATOM', help='use this atom as reference centre instead of the ring centroid')
+    ap.add_argument('--fixcoord', nargs=3, type=float, metavar='C', help='reference centre as coordinates (bohr, or Angstrom with --angstrom)')
+    ap.add_argument('--rotation', nargs=3, type=float, default=[0.0, 0.0, 0.0], metavar='DEG', help='rotate the plane (Euler angles, degrees)')
+    ap.add_argument('--rotation-origin', nargs=3, type=float, metavar='C', help='origin of the rotation [bond midpoint]')
+    ap.add_argument('--openshell', action='store_true', help='open-shell density')
+    ap.add_argument('--tropicity', action='store_true',
+                    help='also split the current into its diatropic and paratropic parts by following the streamline '
+                         'through every grid point (tropicity_profile.dat); much slower, closed-shell only')
+    ap.add_argument('--suffix', default='', help='suffix for the directory name')
+    ap.add_argument('--threads', type=int, help='OpenMP threads [all cores]')
+    ap.add_argument('--slurm', action='store_true', help='write a SLURM job script instead of running')
+    ap.add_argument('--submit', action='store_true', help='with --slurm: submit it')
+    ap.add_argument('--time', type=int, default=12, metavar='H', help='SLURM time limit in hours [12]')
+    ap.add_argument('--slurm-header', metavar='FILE', help='file with the #SBATCH lines and module loads')
+    ap.add_argument('--angstrom', action='store_true', help='lengths are given and shown in Angstrom')
+    ap.add_argument('--yes', '-y', action='store_true', help='accept all defaults, ask nothing')
+    ap.add_argument('--dry-run', action='store_true', help='write the input and show the dry run, do not run')
+    ap.add_argument('--no-plot', action='store_true', help='do not plot')
+    ap.add_argument('--rerun', metavar='FILE', help='take all settings from the profile.json of a previous run')
+    ap.add_argument('--plot', metavar='DIR', help='only plot the results in DIR')
+    ap.add_argument('--compare', nargs='+', metavar='DIR', help='with --plot: compare with these profiles (compare_net and compare_contributions figures)')
+    ap.add_argument('--zero', choices=['start', 'origin', 'bond'], default='start', help='x = 0 of the plot [start]')
+    ap.add_argument('--mark', '--lines', dest='mark', nargs='+', metavar='"ATOMS"',
+                    help='mark these atoms, or the centroid of a quoted group of atoms, along the profile (e.g. --mark 7 "9 10 11")')
+    ap.add_argument('--no-atom-marks', action='store_true', help='do not mark the atoms the plane passes through')
+    ap.add_argument('--yrange', nargs=2, type=float, metavar=('MIN', 'MAX'), help='y range of the plot')
+    ap.add_argument('--overwrite', action='store_true', help='overwrite an existing directory without asking')
+    ap.add_argument('--jvec', metavar='FILE', help='jvec.vti of a 3D calculation of the molecule, for the ParaView script')
+    return ap.parse_args()
+
+
+def marks_along(atoms, specs, record):
+    """(label, position along the profile from its start) for atoms or quoted groups"""
+    marks = []
+    M = record['bond_midpoint']
+    in_dir = record['in_direction']
+    for spec in specs or []:
+        idx = [int(x) for x in str(spec).replace(',', ' ').split()]
+        if not idx:
+            continue
+        c = centroid(atoms, idx)
+        along = record['in'] - dot(vec(M, c), in_dir)
+        label = '%s%d' % (atoms[idx[0] - 1][0], idx[0]) if len(idx) == 1 else 'atoms ' + ' '.join(str(i) for i in idx)
+        marks.append((label, along))
+    return marks
+
+
+def centroid_distance(atoms, idx, point):
+    c = centroid(atoms, idx)
+    return norm(vec(c, point)), c
+
+
+def main():
+    args = parse_args()
+
+    if args.plot:
+        with open(os.path.join(args.plot, 'profile.json')) as f:
+            record = json.load(f)
+        if args.mark:
+            atoms = load_geometry()
+            record['marks'] = marks_along(atoms, args.mark, record)
+        if args.no_atom_marks:
+            record['no_atom_marks'] = True
+        files = plot(args.plot, record, args.zero, record.get('marks'), args.yrange, args.angstrom, args.compare)
+        for f in files:
+            print('written %s' % f)
+        pv = write_paraview_script(args.plot, record, args.jvec)
+        if pv:
+            print('ParaView script: %s (paraview --script=%s)' % (pv, pv))
+        return
+
+    ask = Asker(args.yes, args.angstrom)
+    atoms = load_geometry()
+    natoms = len(atoms)
+    print('%d atoms (coordinates in bohr)' % natoms)
+
+    rec = None
+    if args.rerun:
+        with open(args.rerun) as f:
+            rec = json.load(f)
+
+    def atom_index(text):
+        i = int(text)
+        if not 1 <= i <= natoms:
+            raise ValueError('atom index between 1 and %d' % natoms)
+        return i
+
+    mode = args.mode or (rec and rec['mode']) or 'current'
+    p = {'mode': mode, 'openshell': args.openshell or bool(rec and rec.get('openshell')),
+         'tropicity': args.tropicity or bool(rec and rec.get('tropicity'))}
+
+    # the bond
+    if args.bond:
+        a1, a2 = args.bond
+    elif rec:
+        a1, a2 = rec['bond']
+    else:
+        a1 = ask.ask('Atom 1 of the bond', 1, atom_index)
+        a2 = ask.ask('Atom 2 of the bond', 2, atom_index)
+    for a in (a1, a2):
+        if not 1 <= a <= natoms:
+            sys.exit('atom index %d out of range (1..%d)' % (a, natoms))
+    p['bond'] = [a1, a2]
+    bonded, blen, rsum = is_bond(atoms, a1, a2)
+    p['is_bond'] = bonded
+    if bonded:
+        print('Bond: %s -- %s (%.3f bohr)' % (atom_label(atoms, a1), atom_label(atoms, a2), blen))
+    else:
+        print('Reference points: %s -- %s, %.3f bohr apart, more than a bond (covalent radii sum %.2f bohr):'
+              % (atom_label(atoms, a1), atom_label(atoms, a2), blen, rsum))
+        print('  the plane is perpendicular to their connection line; check the dry run where it crosses the molecule')
+    A1 = list(atoms[a1 - 1][1:]); A2 = list(atoms[a2 - 1][1:])
+    d = vec(A1, A2)
+    length = norm(d)
+    dhat = unit(d)
+
+    # distance along the bond
+    if args.distance:
+        p['distance'] = ask.length(args.distance)
+    elif rec and not args.bond:
+        p['distance'] = rec['distance']
+    else:
+        p['distance'] = ask.ask('Position of the plane along the bond from atom %d (%s)' % (a1, ask.unit),
+                                round(ask.show(0.5 * length), 4), ask.length)
+    M = [A1[k] + p['distance'] * dhat[k] for k in range(3)]
+    p['bond_midpoint'] = M
+
+    # the start of the integration: the ring, or a value
+    ring = args.ring or (rec and rec.get('ring'))
+    inn = None
+    if args.inn:
+        inn = ask.length(args.inn)
+    elif rec and rec.get('in') is not None and not args.ring:
+        inn = rec['in']
+    if ring is None and inn is None:
+        kind, val = ask.ask('Start of the integration: atoms of the ring (indices) or a distance from the bond (%s)' % ask.unit,
+                            '1 2 3 4 5 6', ask.atoms_or_length)
+        if kind == 'atoms':
+            ring = val
+        else:
+            inn = val
+    if ring:
+        for a in ring:
+            if not 1 <= a <= natoms:
+                sys.exit('ring atom %d out of range' % a)
+        dist, C = centroid_distance(atoms, ring, M)
+        print('Ring: ' + ', '.join('%s%d' % (atoms[i - 1][0], i) for i in ring))
+        print('Centroid (%.3f, %.3f, %.3f), %.4f %s from the plane' % (C[0], C[1], C[2], ask.show(dist), ask.unit))
+        if inn is None:
+            inn = ask.ask('Start of the integration (%s), a little more than the centroid distance shows the vortex origin' % ask.unit,
+                          round(ask.show(dist), 4), ask.length)
+    p['ring'] = ring
+    p['in'] = inn
+
+    # the other extents
+    def extent(name, key, default):
+        if getattr(args, key):
+            return ask.length(getattr(args, key))
+        if rec and key in rec:
+            return rec[key]
+        return ask.ask('%s (%s)' % (name, ask.unit), round(ask.show(default), 4), ask.length)
+    p['out'] = extent('End of the integration beyond the bond', 'out', 8.0)
+    p['up'] = extent('Extent of the plane along the field', 'up', 8.0)
+    p['down'] = extent('Extent of the plane against the field', 'down', 8.0)
+
+    # slices
+    if mode != 'integral':
+        default_slice = 0.25 if mode == 'squares' else 0.02
+        if args.slice:
+            p['slice'] = ask.length(args.slice)
+        elif rec and rec.get('slice'):
+            p['slice'] = rec['slice']
+        else:
+            p['slice'] = ask.ask('Slice thickness (%s)' % ask.unit, round(ask.show(default_slice), 4), ask.length)
+    else:
+        p['slice'] = 0.0
+    # grid spacing along the axes that are not sliced (the old scripts' rule: 0.025 per 0.02 of slice)
+    f = (p['slice'] or 0.02) / 0.02
+    default_spacing = round(0.025 * f, 4)
+    if args.spacing:
+        p['spacing'] = ask.length(args.spacing)
+    elif rec and rec.get('spacing'):
+        p['spacing'] = rec['spacing']
+    else:
+        p['spacing'] = ask.ask('Grid spacing along the height (%s)' % ask.unit, round(ask.show(default_spacing), 4), ask.length) \
+            if mode in ('current', 'integral') else default_spacing
+    p['spacing_w'] = 0.01 * f if mode != 'integral' else 0.01
+
+    # whole slices: the far end is extended by GIMIC; say so now
+    if p['slice'] > 0:
+        for name, start, end, sliced in (('out', p['in'], p['out'], mode in ('current', 'squares')),
+                                        ('up', p['down'], p['up'], mode in ('vertical', 'squares'))):
+            if not sliced:
+                continue
+            n = int((start + end) / p['slice'] - 1e-9)
+            if n * p['slice'] < start + end - 1e-9:
+                n += 1
+            new_end = n * p['slice'] - start
+            if new_end - end > 1e-6:
+                print('NOTE: %s = %.4f %s is not a whole number of slices from the start; GIMIC will extend the plane to %s = %.4f %s (%d slices of %.4f %s)'
+                      % (name, ask.show(end), ask.unit, name, ask.show(new_end), ask.unit, n, ask.show(p['slice']), ask.unit))
+
+    # the field
+    field = args.field or (rec and rec.get('field_spec'))
+    if not field:
+        default = 'ring' if ring else '0 0 -1'
+        field = ask.ask('Magnetic field: three components, "ring" for the normal of the ring plane, or "X"', default, str).split()
+    p['field_spec'] = field
+    if len(field) == 1 and field[0].lower() == 'ring':
+        if not ring:
+            sys.exit('--field ring needs the ring atoms')
+        n = plane_normal(atoms, ring)
+        if n is None:
+            sys.exit('the ring atoms do not define a plane')
+        p['field'] = n
+        print('Field: normal of the ring plane (%.4f, %.4f, %.4f)' % tuple(n))
+    elif len(field) == 1 and field[0] == 'X':
+        p['field'] = 'X'
+    else:
+        if len(field) != 3:
+            sys.exit('--field needs three components, "ring" or "X"')
+        p['field'] = [float(x) for x in field]
+
+    # reference centre: the ring centroid, an atom, coordinates, or a point on the inner side
+    B = p['field'] if p['field'] != 'X' else [0.0, 0.0, -1.0]
+    if args.fixcoord:
+        p['towards'] = [ask.to_bohr(x) for x in args.fixcoord]
+    elif args.fixpoint:
+        p['towards'] = list(atoms[args.fixpoint - 1][1:])
+    elif ring:
+        p['towards'] = C
+    else:
+        u = cross(B, d)
+        if norm(u) < 1e-8:
+            sys.exit('the field is parallel to the bond: give --fixpoint or --fixcoord')
+        u = unit(u)
+        p['towards'] = [M[k] + u[k] for k in range(3)]
+        print('No ring given: the integration starts on the side of the bond given by the atom order (B x bond)')
+    # direction from the bond midpoint towards the start of the integration (for the plots)
+    p['in_direction'] = unit(vec(M, p['towards'])) if norm(vec(M, p['towards'])) > 1e-8 else [0.0, 0.0, 0.0]
+    p['rotation'] = args.rotation if args.rotation else (rec and rec.get('rotation')) or [0.0, 0.0, 0.0]
+    p['rotation_origin'] = [ask.to_bohr(x) for x in args.rotation_origin] if args.rotation_origin else (rec and rec.get('rotation_origin'))
+
+    # atoms the plane passes through (within 0.6 bohr of it), with their
+    # position along the profile from its start: what the profile crosses
+    in_dir = p['in_direction']
+    crossed = []
+    for i, (sym, x, y, z) in enumerate(atoms, 1):
+        r = vec(M, [x, y, z])
+        off = dot(r, dhat)                 # distance from the plane
+        if abs(off) <= 0.6:
+            along = p['in'] - dot(r, in_dir)   # from the start of the integration
+            if -0.5 <= along <= p['in'] + p['out'] + 0.5:
+                crossed.append(('%s%d' % (sym, i), along, off))
+    p['atoms_in_plane'] = crossed
+    if crossed:
+        print('The plane passes through: ' + ', '.join('%s (%.2f bohr from the start, %.2f off the plane)' % c for c in crossed))
+
+    # directory
+    suffix = ('_' + args.suffix) if args.suffix else ''
+    dirname = '%s_profile_%d.%d%s' % (mode, a1, a2, suffix) if mode != 'integral' else 'bond_int_%d.%d%s' % (a1, a2, suffix)
+    if os.path.isdir(dirname):
+        if not args.overwrite and ask.ask('%s exists; overwrite?' % dirname, 'n', str).lower() != 'y':
+            sys.exit('stopped')
+        shutil.rmtree(dirname)
+    os.makedirs(dirname)
+
+    # input, dry run
+    write_input(p, dirname)
+    rc, info, full = gimic_dryrun(dirname)
+    if rc != 0:
+        print(full)
+        sys.exit('the dry run failed')
+    print('\nDry run of %s/gimic.inp:' % dirname)
+    for l in info:
+        print('  ' + l)
+    corners = plane_corners(dirname)
+    if corners:
+        print('  Plane corners (bohr): ' + '; '.join('(%.2f, %.2f, %.2f)' % tuple(c) for c in corners))
+    print('  The plane and the molecule are in %s/grid.xyz (corners X, field Be)' % dirname)
+
+    p['marks'] = marks_along(atoms, args.mark, p) if args.mark else (rec and rec.get('marks')) or []
+    p['no_atom_marks'] = bool(args.no_atom_marks)
+    p['threads'] = args.threads or (rec and rec.get('threads')) or os.cpu_count() or 4
+    p['dirname'] = dirname
+    p['angstrom'] = args.angstrom
+    p['gimic_profile_version'] = VERSION
+    p['date'] = time.strftime('%Y-%m-%d %H:%M')
+    with open(os.path.join(dirname, 'profile.json'), 'w') as f:
+        json.dump(p, f, indent=2)
+
+    if args.dry_run:
+        print('Input and profile.json written; not running (--dry-run)')
+        return
+
+    if args.slurm:
+        hours = args.time
+        if not args.yes and not args.time:
+            hours = ask.ask('Time limit (hours)', 12, int)
+        jobfile, cmd, used = write_job(dirname, p['threads'], hours, args.slurm_header)
+        print('SLURM script written to %s (header from %s)' % (jobfile, used or 'the built-in template: edit the #SBATCH lines'))
+        print(' '.join(cmd))
+        if args.submit or (not args.yes and ask.ask('Submit now?', 'y', str).lower() == 'y'):
+            subprocess.call(cmd)
+        return
+
+    if not args.yes:
+        p['threads'] = ask.ask('OpenMP threads', p['threads'], int)
+        if ask.ask('Run now?', 'y', str).lower() != 'y':
+            print('Not running. Later: cd %s && OMP_NUM_THREADS=%d gimic gimic.inp > gimic.out' % (dirname, p['threads']))
+            return
+    env = dict(os.environ, OMP_NUM_THREADS=str(p['threads']))
+    print('\nRunning GIMIC with %d threads (progress below)...' % p['threads'])
+    t0 = time.time()
+    with open(os.path.join(dirname, 'gimic.out'), 'w') as out:
+        rc = subprocess.call(['gimic', 'gimic.inp'], cwd=dirname, env=env, stdout=out)
+    print('GIMIC finished in %.0f s (exit code %d)' % (time.time() - t0, rc))
+    with open(os.path.join(dirname, 'gimic.out')) as f:
+        for line in f:
+            if 'Induced current (nA/T)' in line or 'Positive contribution' in line or 'Negative contribution' in line:
+                print(line.rstrip())
+    show_analysis(dirname)
+    if not args.no_plot and mode != 'integral':
+        for f in plot(dirname, p, args.zero, p['marks'], args.yrange, args.angstrom):
+            print('written %s' % f)
+    pv = write_paraview_script(dirname, p, args.jvec)
+    if pv:
+        print('ParaView script: %s (paraview --script=%s; add --jvec FILE for the current density)' % (pv, pv))
+    print('Settings recorded in %s/profile.json (rerun with --rerun, replot with --plot %s)' % (dirname, dirname))
+
+
+if __name__ == '__main__':
+    main()

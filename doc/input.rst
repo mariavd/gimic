@@ -24,10 +24,12 @@ Keywords
 
 The top level section defines a few global parameters:
 
-calc=cdens,integral
-    This keyword determines what is to be calculated, and in what order.
+calc=cdens,integral,divj
+    This keyword determines what is to be calculated.
     The possible options are: ’cdens’ – calculate current densities,
-    ’integral’ – integrate the current flow through a cut-plane. Each of these options
+    ’integral’ – integrate the current flow through a cut-plane,
+    ’divj’ – calculate the divergence of the current density in every
+    grid point (see below). Each of these options
     have their own respective sections to specify options and grids.
 
 title
@@ -59,6 +61,20 @@ magnet\_axis=z
     Note that ``magnet\_axis=X`` is used to specify the magnetic field 
     along the direction which is orthogonal to the molecular plane, but 
     parallel to the integration plane.
+
+    .. warning::
+
+       ``magnet\_axis=X`` is not recommended. The field is not derived from
+       the molecule but from the definition of the bond grid: it is
+       perpendicular to the plane through the two bond atoms and the
+       fixpoint. Its direction, and with it the sign of the integrated
+       current, therefore depends on which atoms are chosen and in which
+       order they are given, and it differs between integration planes of
+       the same molecule unless these three atoms always lie in the same
+       plane. In a non-planar molecule it is in general not the direction
+       one has in mind. For reproducible results give the field explicitly
+       with ``magnet=[Bx,By,Bz]`` (or ``magnet\_axis=x``, ``y`` or ``z``) and
+       quote it together with the results.
 
 Grid section
 -----------------
@@ -115,6 +131,10 @@ fixpoint=c
     Alternatively, specify an arbitrary point using the keyword ``fixcoord``.
 
 fixcoord=[x, y, z]
+
+    Alternatively, specify the atoms of the ring the integration starts from with ``towards``: their centroid is then the fixed point, and the sign of the current is chosen such that diatropic currents are positive, whatever the order of the bond atoms (see the section on grids).
+
+towards=[1, 2, 3, 4, 5, 6]
     Specify an arbitrary point in 3D as the third point defining the integration plane.
     Alternatively, specify an atomic index using the keyword ``fixpoint``.
     
@@ -178,6 +198,26 @@ rotation_origin=[x, y, z]
     done at the middle of the bond for a bond grid and at the centre of the grid 
     for a base grid.
 
+Grid from a file
+~~~~~~~~~~~~~~~~~~
+
+An arbitrary set of points can be read from a file with
+
+Grid(file) {
+  file=points.grd
+}
+
+file=points.grd
+    Name of a text file with one grid point per line, given as the three
+    Cartesian coordinates ``x y z`` in bohr. Results are written in the
+    order of the points in the file.
+
+A grid of this type has no basis vectors, so the magnetic field has to be
+given with ``magnet=[Bx,By,Bz]`` or ``magnet_axis=x,y,z``; it is used exactly
+as given. Note that for base and bond grids GIMIC reverses the field if it
+has a positive component along the third basis vector of the grid, which
+changes the sign of the current density and of its divergence.
+
 Advanced section
 -----------------
 
@@ -194,6 +234,9 @@ lip_order=5
     If a calculation has been preformed on a even spaced grid, generate a
     grid suitable for Gaussian integration by doing Lagrange interpolation
 
+
+divj_step=1.0e-3
+    Step length in bohr of the finite differences used by ``calc=divj``.
 
 spherical=off
     Use spherical cartesians (i.e. 5d/7f/10g…). This is usually handled
@@ -213,6 +256,49 @@ screening=on
 
 screen\_thrs=1.d-8
     Screening threshold
+
+Divergence of the current density
+-----------------------------------
+
+With ``calc=divj`` the divergence of the current density (the current
+leakage) is calculated in every point of the grid. All grids can be used:
+evenly spaced base and bond grids as well as a list of points read from
+a file with ``Grid(file)``. For example:
+
+calc=divj
+
+Grid(file) {
+  file=points.grd
+}
+
+Advanced {
+  divj_step=1.0e-3
+}
+
+The divergence is obtained with central differences. For each grid point
+**r** the current density is calculated in the six points displaced by
+:math:`\pm h` along the Cartesian axes, and
+
+.. math::
+
+   \nabla \cdot \mathbf{J}(\mathbf{r}) \approx \sum_{a=x,y,z}
+   \frac{J_a(\mathbf{r} + h\mathbf{e}_a) - J_a(\mathbf{r} - h\mathbf{e}_a)}{2h}
+
+The step *h* is set with ``divj_step`` in the Advanced section. The points of
+the stencil are generated around each grid point separately, so the accuracy
+does not depend on the spacing or the regularity of the grid, and a calculation
+costs six times as much as a ``calc=cdens`` calculation on the same grid. The
+error of the central difference is proportional to :math:`h^2`. It is largest
+close to the nuclei; repeat the calculation with a different step to check it.
+
+The results are in atomic units and are written to ``divj.txt``, ``divj.vti``
+and ``divj.vtu``, see the description of the generated files. The largest
+absolute value, its position and the root mean square over the grid are
+printed in the output.
+
+The divergence vanishes for the exact current density. With finite basis
+sets it does not, and its magnitude shows where and how much charge
+conservation is violated.
 
 Section: Essential
 ----------------------
@@ -235,6 +321,92 @@ integration grid is sensible in “tricky” molecules.
 
 jmod=off
     Unless necessary, it should be turned off to save computational time.
+
+Tropicity by streamline tracing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The tropicity is a non-local property of the current density: it is the sense
+in which the streamline through a point circulates around the magnetic field.
+With this keyword GIMIC follows the streamline through every grid point until
+it has made one turn and labels the point diatropic, paratropic or undefined.
+The current density is evaluated analytically along the streamline, so the
+result does not depend on the spacing of the grid.
+
+tropicity=off
+    Assign the tropicity of every grid point by following its streamline.
+
+    With ``calc=cdens`` on an even grid, four more files are written:
+    ``jvec_dia.vti``, ``jvec_para.vti`` and ``jvec_undef.vti`` hold the
+    diatropic, paratropic and undefined parts of the current density (the
+    vector is zero where a point does not belong to that part), and
+    ``tropicity.vti`` holds the label itself (1 diatropic, -1 paratropic,
+    0 undefined). The three parts add up to ``jvec.vti``.
+
+    With ``calc=integral`` the integrated current strength is, in addition to
+    the positive and negative contributions, split into its diatropic,
+    paratropic and undefined parts. The three parts add up to the total
+    current strength; the undefined part is the uncertainty of the split.
+    For a current profile (``slice_thickness`` in the grid section) the split
+    of every slice is written to ``tropicity_profile.dat``; see the chapter
+    on the scripts.
+
+The split of the current strength converges more slowly with the number of
+quadrature points than the total current strength does, because the diatropic
+and paratropic parts end abruptly where the two kinds of streamlines meet.
+For benzene the two parts change by a few tenths of nA/T between the default
+grid and a converged one, while the total is already converged. Increase
+``grid_points`` (or reduce ``spacing``) until the split is stable.
+
+A streamline is left undefined when it does not make a full turn within the
+maximum path length, when it runs into a point where the current density
+vanishes, or when it circulates in a plane that contains the magnetic field.
+
+Following streamlines is much more expensive than calculating the current
+density itself: expect of the order of a thousand evaluations of the current
+density for every streamline.
+
+With ``calc=cdens`` not every grid point is followed. A streamline that has
+been classified gives its label to the grid points it passes within a given
+distance (``capture`` below), and only the points that are left are followed
+themselves. On a three-dimensional grid of benzene with a spacing of 0.4 bohr
+this is ten times faster than following every point, and 1.2 % of the grid
+points get another label than they would on their own. These lie at the
+borders between diatropic and paratropic regions, where a point and the
+streamline next to it can belong to different vortices. Set ``capture=0`` to
+follow every grid point. The integration (``calc=integral``) always follows
+every quadrature point.
+
+Limitations:
+
+* closed-shell systems only. For open-shell systems (``openshell=true``) the
+  keyword is ignored with a warning;
+* with ``calc=cdens`` the grid must be even (``type=even``). For Gauss grids
+  and grids read from a file the split files are not written;
+* the tropicity is assigned with OpenMP parallelisation only. In an MPI run
+  it is skipped with a warning.
+
+The optional section ``Tropicity`` tunes the streamline integration. The
+defaults are meant to be safe.
+
+max\_step=0.5
+    Largest step along a streamline, in bohr. The step is chosen adaptively
+    (Dormand-Prince Runge-Kutta) and is much shorter near the nuclei.
+
+accuracy=1.d-5
+    Error allowed in one step, in bohr.
+
+tolerance=0.1
+    A streamline is closed when it returns to within this distance of its
+    starting point, in bohr.
+
+max\_length=100.0
+    Path length after which a streamline that has not made a full turn is
+    given up, in bohr.
+
+capture=0.5
+    Only for ``calc=cdens``: a grid point within this distance of a
+    classified streamline, in units of the grid spacing, takes the label of
+    that streamline. Smaller values are more accurate and slower; 0 follows
+    every grid point.
 
 Current-density calculations
 ------------------------------

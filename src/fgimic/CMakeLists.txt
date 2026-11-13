@@ -3,10 +3,13 @@ add_executable(gimic.bin
     gimic.F90
     getkw.f90
     integral.f90
+    profile.f90
     vtkplot.f90
     magnet.f90
     grid.f90
+    tropicity.f90
     jfield.f90
+    divj.f90
     parallel.F90
     )
 target_link_libraries(gimic.bin gimic2)

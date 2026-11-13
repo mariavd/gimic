@@ -1,0 +1,29 @@
+# Divergence of the current density (current leakage) in points read from
+# a file: here 72 points on a circle of radius 2.6 bohr, 0.5 bohr above the
+# molecular plane. Writes divj.txt, with the points in the order of the file.
+#
+# Run with: gimic gimic.file.inp
+
+calc=divj           # cdens, integral, divj
+title=""
+basis="../MOL"
+xdens="../XDENS"
+debug=1           # debug print level
+openshell=false
+# A grid read from a file has no basis vectors: give the field with magnet
+# or magnet_axis=x,y,z. It is used exactly as given.
+magnet=[0.0, 0.0, -1.0]
+
+Grid(file) {
+    file=points.grd   # one point per line: x y z in bohr
+}
+
+Advanced {
+    spherical=off  # don't touch, unless you REALLY know what you are doing
+    diamag=on      # turn on/off diamagnetic contributions
+    paramag=on     # turn on/off paramagnetic contributions
+    GIAO=on        # turn on/off GIAOs. Don't change unless you know why.
+    screening=on   # use screening to speed up
+    screening_thrs=1.d-8   # Screening threshold
+    divj_step=1.0e-3   # step of the finite differences in bohr
+}

@@ -1,0 +1,36 @@
+# Current density on a plane 1 bohr above benzene, split into its diatropic,
+# paratropic and undefined parts (jvec_dia.vti, jvec_para.vti, jvec_undef.vti)
+calc=cdens
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet_axis=z
+
+Grid(base) {
+    type=even
+    origin=[-6.0, -6.0, 1.0]
+    ivec=[1.0, 0.0, 0.0]
+    jvec=[0.0, 1.0, 0.0]
+    lengths=[12.0, 12.0, 0.0]
+    grid_points=[17, 17, 30]
+}
+
+Advanced {
+    lip_order=5
+    spherical=off
+    diamag=on
+    paramag=on
+    GIAO=on
+    screening=on
+    screening_thrs=1.d-8
+}
+
+Essential {
+    tropicity=on
+}
+
+Tropicity {
+    capture=0.0     # follow the streamline of every grid point
+}
