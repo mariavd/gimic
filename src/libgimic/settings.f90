@@ -32,6 +32,7 @@ module settings_module
         logical :: use_screening
         integer(I4), dimension(2) :: morange
         integer(I4) :: lip_order
+        real(DP) :: divj_step=1.d-3
     end type
 
     type(settings_t), save :: settings

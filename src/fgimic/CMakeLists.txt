@@ -8,6 +8,7 @@ add_executable(gimic.bin
     magnet.f90
     grid.f90
     jfield.f90
+    divj.f90
     parallel.F90
     )
 target_link_libraries(gimic.bin gimic2)

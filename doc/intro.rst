@@ -26,9 +26,10 @@ The following features have been implemented in the program
 
 -  The (signed) modulus of the current
 
--  The divergence of the current (this is useful for checking gauge
-   invariance vs. gauge independence). Note, this module does not
-   work at the moment.
+-  The divergence of the current density by finite differences, on an
+   evenly spaced grid or in arbitrary points read from a file (this is
+   useful for checking gauge invariance vs. gauge independence and for
+   locating current leakage)
 
 -  Vector representation of the current in 2D or 3D
 

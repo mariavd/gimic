@@ -24,10 +24,12 @@ Keywords
 
 The top level section defines a few global parameters:
 
-calc=cdens,integral
-    This keyword determines what is to be calculated, and in what order.
+calc=cdens,integral,divj
+    This keyword determines what is to be calculated.
     The possible options are: ’cdens’ – calculate current densities,
-    ’integral’ – integrate the current flow through a cut-plane. Each of these options
+    ’integral’ – integrate the current flow through a cut-plane,
+    ’divj’ – calculate the divergence of the current density in every
+    grid point (see below). Each of these options
     have their own respective sections to specify options and grids.
 
 title
@@ -182,6 +184,26 @@ rotation_origin=[x, y, z]
     done at the middle of the bond for a bond grid and at the centre of the grid 
     for a base grid.
 
+Grid from a file
+~~~~~~~~~~~~~~~~~~
+
+An arbitrary set of points can be read from a file with
+
+Grid(file) {
+  file=points.grd
+}
+
+file=points.grd
+    Name of a text file with one grid point per line, given as the three
+    Cartesian coordinates ``x y z`` in bohr. Results are written in the
+    order of the points in the file.
+
+A grid of this type has no basis vectors, so the magnetic field has to be
+given with ``magnet=[Bx,By,Bz]`` or ``magnet_axis=x,y,z``; it is used exactly
+as given. Note that for base and bond grids GIMIC reverses the field if it
+has a positive component along the third basis vector of the grid, which
+changes the sign of the current density and of its divergence.
+
 Advanced section
 -----------------
 
@@ -198,6 +220,9 @@ lip_order=5
     If a calculation has been preformed on a even spaced grid, generate a
     grid suitable for Gaussian integration by doing Lagrange interpolation
 
+
+divj_step=1.0e-3
+    Step length in bohr of the finite differences used by ``calc=divj``.
 
 spherical=off
     Use spherical cartesians (i.e. 5d/7f/10g…). This is usually handled
@@ -217,6 +242,49 @@ screening=on
 
 screen\_thrs=1.d-8
     Screening threshold
+
+Divergence of the current density
+-----------------------------------
+
+With ``calc=divj`` the divergence of the current density (the current
+leakage) is calculated in every point of the grid. All grids can be used:
+evenly spaced base and bond grids as well as a list of points read from
+a file with ``Grid(file)``. For example:
+
+calc=divj
+
+Grid(file) {
+  file=points.grd
+}
+
+Advanced {
+  divj_step=1.0e-3
+}
+
+The divergence is obtained with central differences. For each grid point
+**r** the current density is calculated in the six points displaced by
+:math:`\pm h` along the Cartesian axes, and
+
+.. math::
+
+   \nabla \cdot \mathbf{J}(\mathbf{r}) \approx \sum_{a=x,y,z}
+   \frac{J_a(\mathbf{r} + h\mathbf{e}_a) - J_a(\mathbf{r} - h\mathbf{e}_a)}{2h}
+
+The step *h* is set with ``divj_step`` in the Advanced section. The points of
+the stencil are generated around each grid point separately, so the accuracy
+does not depend on the spacing or the regularity of the grid, and a calculation
+costs six times as much as a ``calc=cdens`` calculation on the same grid. The
+error of the central difference is proportional to :math:`h^2`. It is largest
+close to the nuclei; repeat the calculation with a different step to check it.
+
+The results are in atomic units and are written to ``divj.txt``, ``divj.vti``
+and ``divj.vtu``, see the description of the generated files. The largest
+absolute value, its position and the root mean square over the grid are
+printed in the output.
+
+The divergence vanishes for the exact current density. With finite basis
+sets it does not, and its magnitude shows where and how much charge
+conservation is violated.
 
 Section: Essential
 ----------------------
