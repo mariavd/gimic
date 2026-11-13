@@ -1,0 +1,114 @@
+This is F-GIMIC.
+
+ ****************************************************************
+ ***                                                          ***
+ ***           GIMIC 2.2.1 (1e2f83a)                          ***
+ ***           Written by Jonas Juselius and co-authors       ***
+ ***                                                          ***
+ ***  This software is copyright (c) 2003-2023 by             ***
+ ***  GIMIC authors.                                          ***
+ ***                                                          ***
+ ***  You are free to distribute this software under the      ***
+ ***  terms of the GNU General Public License                 ***
+ ****************************************************************
+
+ OpenMP threads: 1
+ Mon Nov  9 08:58:39 2026
+  TITLE:
+
+ INFO: Detected TURBOMOLE input
+
+ Number of atoms =  12
+
+ Normalizing basis
+
+   Total number of primitive  GTO's    354
+   Total number of contracted GTO's    252
+
+ *** Calculating screening coefficients
+ INFO: Screening threshold:   0.1000E-07
+
+ INFO: Reordering densities [TURBOMOLE]
+ INFO: Fixed point set to the reference centre (towards)
+ WARNING: Plane out changed from    5.00000 to    5.30000 bohr to hold     15 whole slices of   0.5000 bohr
+
+ Integration grid data
+ ------------------------------------------------
+ center     2.277078   -0.000028    0.000000
+ origin     7.577078   -0.000028   -5.000000
+ basv1     -0.000000   -0.000000    1.000000
+ basv2     -1.000000   -0.000000   -0.000000
+ basv3      0.000000   -1.000000    0.000000
+ lenghts   10.000000    7.500000    0.000000
+ magnet     0.000000    0.000000   -1.000000
+
+ Grid mode = bond
+ INFO: Integration grid selected.
+   Axis 1:     5 slices of    2.00000 bohr
+   Axis 2:    15 slices of    0.50000 bohr
+   Number of grid points <v1,v2>:   45  135    1
+   Total number of grid points  :      6075
+   Reference centre (towards)   :    0.000000    0.000000    0.000000
+
+ *** Grid plot in grid.xyz
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Closed-shell calculation
+
+ Integrating current density
+ *****************************************
+ INFO: Estimated CPU time for the integration on one core:        0.37sec (   0.0 h )
+
+ Jmod integration skipped.
+ *** Integrating current
+    Magnetic field <x,y,z> =   0.00000   0.00000  -1.00000
+
+ INFO: Currents are positive when they flow in the diatropic sense around the reference centre
+
+ ************************************************************
+    Induced current (au)    :     0.418757
+       Positive contribution:     0.595100  (  16.769578 )
+       Negative contribution:    -0.176343  (  -4.969251 )
+
+    Induced current (nA/T)  :    11.800327
+       (conversion factor)  :    28.179409
+ ************************************************************
+
+ Current profile written to current_profile.dat
+
+ Current profile: extrema of dJ/dx [nA/T/bohr]
+   net        minimum    1.205 at (   1.282  -0.000   0.000 )    -3.5549
+   net        maximum    2.837 at (   2.914  -0.000   0.000 )    10.6350
+   net        minimum    6.525 at (   6.602  -0.000   0.000 )    -0.0110
+   positive   maximum    2.831 at (   2.908  -0.000   0.000 )    10.6186
+   negative   minimum    1.334 at (   1.411  -0.000   0.000 )    -3.8510
+   negative   minimum    6.010 at (   6.087  -0.000   0.000 )    -0.0248
+
+ Current profile: zero crossings of the net current and the current between them [nA/T]
+      0.000 to   1.851:    -3.90622     0.90867    -4.81489
+      1.851 to   6.070:    15.72030    15.85135    -0.13105
+      6.070 to   7.500:    -0.01376     0.00956    -0.02332
+
+ Current profile: positive and negative blobs (range, peak, current [nA/T])
+   positive     1.000 to   5.500  peak at    2.750   10.5302    16.71673
+   negative     0.000 to   2.500  peak at    1.250   -3.8161    -4.93220
+ Profile analysis written to profile_points.dat
+ Vertical profile written to vertical_profile.dat
+ Profile details written to profile.dat
+ Squares profile written to squares_profile.dat
+
+
+ *** Deallocated grid data
+ INFO: Deallocated basis set and atom data
+
+ ----------------------------------------------------------------------
+    wall time:       0.34sec (   0.0 h )
+     cpu time:       0.33sec (   0.0 h )
+         user:       0.32sec (   0.0 h )
+          sys:       0.00sec (   0.0 h )
+ ----------------------------------------------------------------------
+ Mon Nov  9 08:58:39 2026
+ Hello World! (tm)
+
+ done.
+

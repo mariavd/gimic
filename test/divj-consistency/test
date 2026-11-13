@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""
+Consistency of calc=divj, without reference files.
+
+Runs GIMIC on the molecule of a test case and requires:
+  * the divergence in a set of points to be the same whether the points
+    are those of an evenly spaced grid or are read from a file;
+  * the divergence to agree with central differences of the current
+    density of a calc=cdens run (jvec.vti) around the same point;
+  * the result to converge quadratically with the step: halving the step
+    must reduce the change by about a factor of four;
+  * no non-finite value anywhere.
+
+Usage: test --binary-dir=DIR --work-dir=DIR --case=DIR
+"""
+import argparse
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+ORIGIN = (-3.0, -3.0, -1.0)
+LENGTHS = (6.0, 6.0, 2.0)
+NPTS = (7, 7, 3)
+# point for the comparison with calc=cdens, and the spacing of that grid
+POINT = (-2.0, 1.0, 0.0)
+SPACING = 0.05
+
+INPUT = """calc={calc}
+basis="MOL"
+xdens="XDENS"
+debug=1
+openshell=false
+magnet=[0.0, 0.0, -1.0]
+
+{grid}
+
+Advanced {{
+    spherical=off
+    screening=on
+    screening_thrs=1.d-8
+    divj_step={step}
+}}
+"""
+
+BASE = """Grid(base) {{
+    type=even
+    origin=[{o[0]}, {o[1]}, {o[2]}]
+    ivec=[1.0, 0.0, 0.0]
+    jvec=[0.0, 1.0, 0.0]
+    lengths=[{l[0]}, {l[1]}, {l[2]}]
+    grid_points=[{n[0]}, {n[1]}, {n[2]}]
+}}"""
+
+FILE = """Grid(file) {
+    file=points.grd
+}"""
+
+
+def fail(msg):
+    print('FAILED: ' + msg)
+    sys.exit(1)
+
+
+def run(binary_dir, case, work, calc, grid, step=1.0e-3, points=None):
+    if os.path.isdir(work):
+        shutil.rmtree(work)
+    os.makedirs(work)
+    for name in ('MOL', 'XDENS'):
+        shutil.copy(os.path.realpath(os.path.join(case, name)), os.path.join(work, name))
+    if points is not None:
+        with open(os.path.join(work, 'points.grd'), 'w') as f:
+            for p in points:
+                f.write('{0:.10f} {1:.10f} {2:.10f}\n'.format(*p))
+    with open(os.path.join(work, 'gimic.inp'), 'w') as f:
+        f.write(INPUT.format(calc=calc, grid=grid, step=step))
+    env = dict(os.environ, OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1')
+    with open(os.path.join(work, 'stdout'), 'w') as out, \
+            open(os.path.join(work, 'stderr'), 'w') as err:
+        rc = subprocess.call([os.path.join(binary_dir, 'gimic'), 'gimic.inp'],
+                             cwd=work, env=env, stdout=out, stderr=err)
+    if rc != 0:
+        fail('gimic exited with status {0} in {1}'.format(rc, work))
+    return work
+
+
+def read_divj(work):
+    path = os.path.join(work, 'divj.txt')
+    if not os.path.isfile(path):
+        fail('no divj.txt in {0}'.format(work))
+    points, div = [], []
+    with open(path) as f:
+        for line in f:
+            x = [float(v) for v in line.split()]
+            if len(x) != 4 or not all(math.isfinite(v) for v in x):
+                fail('bad line in {0}: {1}'.format(path, line.strip()))
+            points.append(tuple(x[:3]))
+            div.append(x[3])
+    return points, div
+
+
+def read_jvec(work):
+    with open(os.path.join(work, 'jvec.vti')) as f:
+        text = f.read()
+    data = re.search(r'<DataArray[^>]*>(.*?)</DataArray>', text, re.S).group(1)
+    v = [float(x) for x in data.split()]
+    # 3x3x3 points, x running fastest, three components each
+    return lambda i, j, k, c: v[3*(i + 3*j + 9*k) + c]
+
+
+def maxdiff(a, b):
+    return max(abs(x - y) for x, y in zip(a, b))
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--binary-dir', required=True)
+    p.add_argument('--work-dir', required=True)
+    p.add_argument('--case', required=True)
+    args = p.parse_args()
+
+    def go(name, *a, **kw):
+        return run(args.binary_dir, args.case, os.path.join(args.work_dir, name), *a, **kw)
+
+    base = BASE.format(o=ORIGIN, l=LENGTHS, n=NPTS)
+
+    # 1. evenly spaced grid against the same points read from a file
+    points, even = read_divj(go('even', 'divj', base))
+    if len(points) != NPTS[0]*NPTS[1]*NPTS[2]:
+        fail('expected {0} points, got {1}'.format(NPTS[0]*NPTS[1]*NPTS[2], len(points)))
+    scale = max(abs(x) for x in even)
+    if scale < 1.0e-6:
+        fail('div J vanishes everywhere; the test would pass trivially')
+    fpoints, fromfile = read_divj(go('file', 'divj', FILE, points=points))
+    if fpoints != points:
+        fail('the points of the file grid are not written in the order they were read')
+    d = maxdiff(even, fromfile)
+    print('even grid vs file grid: max difference {0:.3e} (max |div J| {1:.3e})'.format(d, scale))
+    if d > 1.0e-12:
+        fail('even and file grids differ by {0:.3e}'.format(d))
+
+    # 2. against central differences of J from calc=cdens
+    h = SPACING
+    grid = BASE.format(o=tuple(x - h for x in POINT), l=(2*h, 2*h, 2*h), n=(3, 3, 3))
+    jv = read_jvec(go('cdens', 'cdens', grid))
+    ref = ((jv(2, 1, 1, 0) - jv(0, 1, 1, 0)) + (jv(1, 2, 1, 1) - jv(1, 0, 1, 1))
+           + (jv(1, 1, 2, 2) - jv(1, 1, 0, 2)))/(2*h)
+    _, one = read_divj(go('point', 'divj', FILE, step=h, points=[POINT]))
+    print('divj vs differences of jvec.vti: {0:.6e} vs {1:.6e}'.format(one[0], ref))
+    # jvec.vti carries six digits: about 1e-5 in the differences
+    if abs(ref) < 1.0e-2:
+        fail('div J is too small in the comparison point to test anything')
+    if abs(one[0] - ref) > 1.0e-3*abs(ref):
+        fail('divj does not agree with the differences of the current density')
+
+    # 3. quadratic convergence with the step
+    _, h4 = read_divj(go('step4', 'divj', FILE, step=4.0e-3, points=points))
+    _, h2 = read_divj(go('step2', 'divj', FILE, step=2.0e-3, points=points))
+    _, h1 = read_divj(go('step1', 'divj', FILE, step=1.0e-3, points=points))
+    d42, d21 = maxdiff(h4, h2), maxdiff(h2, h1)
+    print('step 4e-3 -> 2e-3: {0:.3e}; 2e-3 -> 1e-3: {1:.3e}; ratio {2:.2f}'
+          .format(d42, d21, d42/d21 if d21 > 0 else float('inf')))
+    if d21 > 1.0e-3*scale:
+        fail('div J is not converged with the step')
+    if not 3.0 < d42/d21 < 5.0:
+        fail('the error does not decrease quadratically with the step')
+
+    print('PASSED')
+
+
+if __name__ == '__main__':
+    main()

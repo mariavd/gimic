@@ -1,0 +1,22 @@
+calc=divj           # cdens, integral, divj
+title=""
+basis="MOL"
+xdens="XDENS"
+debug=1           # debug print level
+openshell=false
+magnet=[0.0, 0.0, -1.0]
+
+# divergence of the current density in arbitrary points: one point per
+# line, x y z in bohr
+Grid(file) {
+    file=points.grd
+}
+
+Advanced {
+    spherical=off     # don't touch, unless you REALLY know what you are doing
+    diamag=on           # turn on/off diamagnetic contributions
+    paramag=on          # turn on/off paramagnetic contributions
+    GIAO=on             # turn on/off GIAOs. Don't change unless you know why.
+    screening=on        # use screening to speed up
+    screening_thrs=1.d-8   # Screening threshold
+}

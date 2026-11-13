@@ -16,6 +16,7 @@ configure_file(jfilter.py.in jfilter.py)
 configure_file(turbo2gimic.py.in turbo2gimic.py)
 configure_file(sortorbitals.py.in sortorbitals.py)
 configure_file(unstructured_grid_gen.py.in unstructured_grid_gen.py)
+configure_file(gimic-profile.py.in gimic-profile)
 
 install(PROGRAMS 
     ${CMAKE_CURRENT_BINARY_DIR}/MOL2mol.sh
@@ -25,7 +26,13 @@ install(PROGRAMS
     ${CMAKE_CURRENT_BINARY_DIR}/turbo2gimic.py
     ${CMAKE_CURRENT_BINARY_DIR}/sortorbitals.py
     ${CMAKE_CURRENT_BINARY_DIR}/unstructured_grid_gen.py
+    ${CMAKE_CURRENT_BINARY_DIR}/gimic-profile
     DESTINATION bin
+    )
+
+# the SLURM header gimic-profile uses for --slurm (copy to ~/.gimic/jobscript-header and edit)
+install(FILES ${PROJECT_SOURCE_DIR}/jobscripts/src/jobscript-header
+    DESTINATION share/gimic
     )
 
 install(DIRECTORY QCTools 

@@ -19,6 +19,7 @@ program gimic
     use dens_class
     use jtensor_class
     use jfield_class
+    use divj_class
     use caos_module
     use gaussint_module
     ! acid and jav stuff
@@ -97,6 +98,7 @@ contains
         call getkw(input, 'Advanced.paramag',settings%use_paramag)
         call getkw(input, 'Advanced.screening', settings%use_screening)
         call getkw(input, 'Advanced.screening_thrs', settings%screen_thrs)
+        call getkw(input, 'Advanced.divj_step', settings%divj_step)
 
         call getkw(input, 'Essential.acid', settings%acid)
         call getkw(input, 'Essential.jmod', settings%jmod)
@@ -198,6 +200,8 @@ contains
             call run_cdens(jf,mol,xdens)
         else if (settings%calc(1:8) == 'integral') then
             call run_integral()
+        else if (settings%calc(1:4) == 'divj') then
+            call run_divj(mol,xdens)
         else
             call msg_error('gimic(): Unknown operation!')
         end if
@@ -238,15 +242,61 @@ contains
         call del_jfield(jf)
     end subroutine
 
+    subroutine run_divj(mol,xdens)
+        type(dens_t) :: xdens
+        type(molecule_t) :: mol
+        type(divj_t) :: dj
+
+        call msg_out('Calculating divergence of the current density')
+        call msg_out('*****************************************')
+        call new_divj(dj, grid, magnet)
+
+        if (.not. settings%dryrun) then
+            call calc_divj(dj, mol, xdens)
+            call divj_plots(dj)
+
+            if (settings%is_uhf) then
+                call calc_divj(dj, mol, xdens, 'alpha')
+                call divj_plots(dj, 'alpha')
+
+                call calc_divj(dj, mol, xdens, 'beta')
+                call divj_plots(dj, 'beta')
+
+                call calc_divj(dj, mol, xdens, 'spindens')
+                call divj_plots(dj, 'spindens')
+            end if
+        end if
+        call del_divj(dj)
+    end subroutine
+
     subroutine run_integral()
         use integral_class
         type(integral_t) :: it
+        type(cao2sao_t) :: c2s
+        logical :: have_dens
 
         call msg_out('Integrating current density')
         call msg_out('*****************************************')
         call new_integral(it, grid)
 
-        if (settings%dryrun) return
+        if (settings%dryrun) then
+            ! estimate the run time when the density is there to be read
+            inquire(file=settings%xdens, exist=have_dens)
+            if (have_dens) then
+                if (settings%use_spherical) then
+                    call new_c2sop(c2s,mol)
+                    call set_c2sop(mol, c2s)
+                end if
+                call new_dens(xdens, mol)
+                call read_dens(xdens, settings%xdens)
+                call integral_eta(grid, mol, xdens)
+                call del_dens(xdens)
+                if (settings%use_spherical) call del_c2sop(c2s)
+            end if
+            return
+        end if
+
+        call integral_eta(grid, mol, xdens)
 
         if (settings%jmod) then
           call msg_note('Integrating |J|')
