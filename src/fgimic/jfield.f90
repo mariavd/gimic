@@ -190,8 +190,14 @@ contains
         !$omp end parallel
     end subroutine
 
-! Estimate the run time from the cost of one block of grid points, evaluated
-! exactly as in the main loop (ctensor_batch), with the wall clock.
+! Estimate the run time from the cost of a few blocks of grid points,
+! evaluated exactly as in the main loop (ctensor_batch), with the wall clock.
+! The blocks are spread evenly over the whole grid: with screening a point
+! far from the molecule is much cheaper than one inside it, so the first
+! points of the grid (a corner of the box) alone would not be typical. Each
+! block is a run of neighbouring points, as in the main loop. The estimate
+! itself costs at most a few per cent of the calculation: a small grid is
+! sampled with fewer blocks.
     subroutine jfield_eta(this, mol, xdens, fac)
         !$ use omp_lib
         type(jfield_t) :: this
@@ -199,32 +205,46 @@ contains
         type(dens_t) :: xdens
         real(DP), intent(in), optional :: fac
 
-        integer(I4) :: i, j, k, ip, nn, p1, p2, p3, nthreads
-        integer(8) :: t0, t1, rate
-        real(DP) :: delta_t, cpu_est
+        integer(I4), parameter :: MAX_BLOCKS=16
+        integer(I4) :: i, j, k, ip, nn, p1, p2, p3, nthreads, nblk, ib, rep
+        integer(8) :: t0, t1, rate, ntot, first
+        real(DP) :: delta_t, cpu_est, best
         real(DP), dimension(:,:), allocatable :: coords, tens
         type(jtensor_t) :: jt
 
         call get_grid_size(this%grid, p1, p2, p3)
-        nn=min(JT_BLOCK, p1*p2*p3)
+        ntot=int(p1,8)*int(p2,8)*int(p3,8)
+        nn=int(min(int(JT_BLOCK,8), ntot))
         if (nn < 1) return
+        nblk=int(max(1_8, min(int(MAX_BLOCKS,8), ntot/(64*nn))))
 
         allocate(coords(3,nn), tens(9,nn))
-        do ip=1,nn
-            call get_grid_index(this%grid, ip, i, j, k)
-            coords(:,ip)=gridpoint(this%grid, i, j, k)
-        end do
-
         call new_jtensor(jt, mol, xdens)
-        call system_clock(t0, rate)
-        call ctensor_batch(jt, coords, tens, 'total')
-        call system_clock(t1)
+        delta_t=0.d0
+        do ib=1,nblk
+            first=1
+            if (nblk > 1) first=1+(int(ib-1,8)*(ntot-nn))/int(nblk-1,8)
+            do ip=1,nn
+                call get_grid_index(this%grid, int(first)+ip-1, i, j, k)
+                coords(:,ip)=gridpoint(this%grid, i, j, k)
+            end do
+            ! the shortest of three timings: the samples take milliseconds,
+            ! anything else the machine does in between adds to them, and
+            ! the very first call also pays for what is set up once
+            best=huge(1.d0)
+            do rep=1,3
+                call system_clock(t0, rate)
+                call ctensor_batch(jt, coords, tens, 'total')
+                call system_clock(t1)
+                best=min(best, real(t1-t0, DP)/real(rate, DP))
+            end do
+            delta_t=delta_t+best
+        end do
         call del_jtensor(jt)
         deallocate(coords, tens)
 
-        delta_t=real(t1-t0, DP)/real(rate, DP)
         if (present(fac)) delta_t=delta_t*fac
-        cpu_est=delta_t*real(p1*p2*p3, DP)/real(nn, DP)
+        cpu_est=delta_t*real(ntot, DP)/real(nn*nblk, DP)
 
         call msg_info(time_string('Estimated CPU time for single core calculation: ', cpu_est))
         nthreads=1

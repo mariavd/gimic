@@ -449,13 +449,13 @@ over (there is a partial retry menu for seven of the parameters). Concrete
 suggestions, roughly in order of value for effort:
 
 1. **One command instead of five scripts, in Python.** GIMIC already requires
-   Python for the `gimic` launcher and the converters. A `gimic-profile`
+   Python for the `gimic` launcher and the converters. A `gimic-prepare`
    command with `argparse` gives non-interactive use for free:
 
    ```
-   gimic-profile --bond 1 2 --ring 1 2 3 4 5 6 --out 8 --height 8 --slice 0.02 --field 0 0 -1
-   gimic-profile --squares 0.25 ...
-   gimic-profile --from current_profile_1.2/profile.json   # rerun or tweak
+   gimic-prepare --bond 1 2 --ring 1 2 3 4 5 6 --out 8 --height 8 --slice 0.02 --field 0 0 -1
+   gimic-prepare --squares 0.25 ...
+   gimic-prepare --from current_profile_1.2/profile.json   # rerun or tweak
    ```
 
    Interactive prompting only for arguments that are missing, with the default
@@ -493,7 +493,7 @@ suggestions, roughly in order of value for effort:
    workflows still work.
 8. **Cluster use.** `--slurm` writes a job file next to the input with the
    partition, account and modules taken from a small user config
-   (`~/.gimic-profile.toml`) and prints the `sbatch` line (`--submit` runs
+   (`~/.gimic-prepare.toml`) and prints the `sbatch` line (`--submit` runs
    it). No editing of `jobscript-header` before `setup.sh`, and no `setup.sh`
    at all: the command is installed by CMake like `gimic` is.
 9. **Interactive scripts as thin wrappers.** `gcurrent`, `gsquares` and the
@@ -533,8 +533,8 @@ from the plan:
   submit scripts and `jobscript-squares` are gone; `crit_pts.sh` reads the
   plane end points from `profile.dat`.
 
-* Interface (section 4) implemented as `tools/gimic-profile.py.in`, installed
-  as `gimic-profile`: every parameter an option, questions only for what is
+* Interface (section 4) implemented as `tools/gimic-prepare.py.in`, installed
+  as `gimic-prepare`: every parameter an option, questions only for what is
   missing with defaults in brackets, `--yes`, atom echo with symbols and
   coordinates, `--angstrom`, geometry from coord/coord.xyz/MOL, dry run with
   grid size, slices, warnings and run-time estimate (the estimate is new in

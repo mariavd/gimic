@@ -14,6 +14,7 @@ configure_file(
     )
 
 add_subdirectory(tools)
+add_subdirectory(jobscripts)
 
 enable_testing()
 add_subdirectory(test)

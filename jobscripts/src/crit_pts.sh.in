@@ -1,0 +1,3 @@
+#!/bin/bash
+# the analysis of a profile (extrema, sign changes, blobs) is written by GIMIC
+exec cat "${1:-.}"/profile_points.dat

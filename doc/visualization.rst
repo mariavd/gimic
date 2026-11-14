@@ -86,10 +86,12 @@ Streamlines
 Follow the instructions under ``/examples/benzene/ParaView-README``
 
 File needed: "jvec.vti"
-Note, you need to generate your own molecule file, eg. in cml format,
-which is readable in ParaView. You can use for example Avogadro
-(https://avogadro.cc/) and read in mol.xyz and export it to mol.cml.
-Then you need to convert the mol.cml file to bohr.
+ParaView also needs the molecule in a format it can read, with the
+coordinates in bohr like those of jvec.vti. ``gimic-prepare --mode 3d``
+(see the section on the scripts) writes it as ``mol-bohr.cml`` next to
+``jvec.vti``. For a calculation set up by hand, export mol.xyz to mol.cml
+with for example Avogadro (https://avogadro.cc/) and convert the
+coordinates in mol.cml to bohr.
 
 Note that animations are also possible using ParaView.
 
@@ -106,7 +108,7 @@ This is possible with ParaView using the file "acid.vti".
 Current profiles over the current density
 ------------------------------------------
 
-A current profile (``gimic-profile``, or ``slice_thickness`` in the input)
+A current profile (``gimic-prepare``, or ``slice_thickness`` in the input)
 writes ``profile_plane_1.2.vtp`` and ``profile_line_1.2.vtp`` (named after
 the bond atoms) next to its data files.
 They show where the integration plane lies and what it cuts through when
@@ -120,7 +122,7 @@ normal (printed in ``profile.dat``) gives the vector field in the plane, and
 a Surface LIC or Glyph representation of it shows which vortices the profile
 crosses, and where their centres lie relative to the bond.
 
-``gimic-profile`` writes this pipeline as ``paraview_profile_1.2.py`` next to
+``gimic-prepare`` writes this pipeline as ``paraview_profile_1.2.py`` next to
 the data (``--jvec path/to/jvec.vti`` includes the slice of the current
 density): run ``paraview --script=paraview_profile_1.2.py``, or load it in
 the Python shell of ParaView, and save a state file from there if you want

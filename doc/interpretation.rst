@@ -32,16 +32,16 @@ https://www.youtube.com/channel/UC_5dN4qhYTOtr-itnsjoE0w/videos.
 -----------------
 
 A current density calculation can be performed using the ``cdens`` set of
-keywords in the input file. It is possible to use the interactive script called
-``3D-run.sh`` to define a box around the molecule and specify the distance
-between the grid points. We recommend to use Paraview to visualise the results
+keywords in the input file. The command ``gimic-prepare --mode 3d`` (also
+available as ``3D-run.sh``) defines a box around the molecule, asks for the
+distance between the grid points and runs the calculation, see the section
+on the scripts. We recommend to use Paraview to visualise the results
 (https://www.paraview.org/). Our recommended setup for Paraview can be seen in
 this video (https://www.youtube.com/watch?v=NngG1g3Bb7Q&t=5s). 
 
-The ``jvec.vti`` files is what concerns us the most. Also, it is necessary to
-convert the molecular coordinates to CML format and bohr units. This is easily
-done using the bash function ``molecule`` given in the description of the
-section on the interactive scripts. 
+The ``jvec.vti`` files is what concerns us the most. ParaView also needs the
+molecular coordinates in CML format and bohr units: ``gimic-prepare --mode 3d``
+writes them as ``mol-bohr.cml`` next to ``jvec.vti``.
 
 It is possible to do streamline plots using the StreamTracer tool. Slices on a
 plane can be done using the Surface LIC (line integral convolution) plug-in to
@@ -56,9 +56,8 @@ Streamline (spaghetti) plots
 In this video (https://www.youtube.com/watch?v=Pjy_0jucmGQ&t=28s) we present in
 short how to create the streamline "spaghetti" plots using Paraview. A
 pre-requisite is to have performed a current density calculations and that the
-jvec.vti and mol-bohr.cml files exist. The latter is not directly written by
-GIMIC but in the documentation we have suggested a bash function which creates
-it. 
+jvec.vti and mol-bohr.cml files exist. Both are written by
+``gimic-prepare --mode 3d``.
 
 After the two files are loaded on the blank board we see the molecule and a
 rectangular object which shows the boundaries of the defined integration grid
