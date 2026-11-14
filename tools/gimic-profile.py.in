@@ -32,6 +32,12 @@ import time
 
 VERSION = '@PROJECT_VERSION@'
 BOHR = 0.52917721          # Angstrom per bohr
+
+# the gimic launcher of this installation, so that the profile scripts work
+# without gimic on the PATH; fall back to the PATH (e.g. an uninstalled copy)
+GIMIC = '@CMAKE_INSTALL_FULL_BINDIR@/gimic'
+if not os.path.isfile(GIMIC):
+    GIMIC = shutil.which('gimic') or 'gimic'
 HOME = os.path.expanduser('~')
 
 # -------------------------------------------------------------- geometry
@@ -302,7 +308,7 @@ def write_input(p, dirname):
 
 def gimic_dryrun(dirname):
     env = dict(os.environ)
-    r = subprocess.run(['gimic', '--dryrun', 'gimic.inp'], cwd=dirname, env=env,
+    r = subprocess.run([GIMIC, '--dryrun', 'gimic.inp'], cwd=dirname, env=env,
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     keep = re.compile(r'slices|grid points|Reference centre|Estimated|WARN|ERROR|No fixed point|extended|changed from', re.I)
     lines = [l.rstrip() for l in r.stdout.splitlines() if keep.search(l)]
@@ -352,11 +358,11 @@ def write_job(dirname, threads, hours, header_path):
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 cd "%s"
 date
-gimic gimic.inp > gimic.out
+"%s" gimic.inp > gimic.out
 date
 grep "Induced current (nA/T)" gimic.out
 sacct -j $SLURM_JOB_ID --format=jobid,jobname,AllocCPUs,CPUTime,MaxRSS 2>/dev/null
-""" % os.path.abspath(dirname)
+""" % (os.path.abspath(dirname), GIMIC)
     jobfile = os.path.join(dirname, 'job.sh')
     with open(jobfile, 'w') as f:
         f.write(job)
@@ -1077,7 +1083,7 @@ def main():
     print('\nRunning GIMIC with %d threads (progress below)...' % p['threads'])
     t0 = time.time()
     with open(os.path.join(dirname, 'gimic.out'), 'w') as out:
-        rc = subprocess.call(['gimic', 'gimic.inp'], cwd=dirname, env=env, stdout=out)
+        rc = subprocess.call([GIMIC, 'gimic.inp'], cwd=dirname, env=env, stdout=out)
     print('GIMIC finished in %.0f s (exit code %d)' % (time.time() - t0, rc))
     with open(os.path.join(dirname, 'gimic.out')) as f:
         for line in f:
