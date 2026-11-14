@@ -37,3 +37,7 @@ jobs:
         make
         make install
         OMP_NUM_THREADS=${{ matrix.omp-threads }} ctest --output-on-failure
+    - name: Test the GPU offload code path on the host
+      run: |
+        cd build
+        GIMIC_OFFLOAD=host OMP_NUM_THREADS=${{ matrix.omp-threads }} ctest --output-on-failure

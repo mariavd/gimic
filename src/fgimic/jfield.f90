@@ -10,6 +10,7 @@ module jfield_class
     use globals_module
     use settings_module
     use jtensor_class
+    use jtensor_offload
     use timer_module
     use dens_class
     use grid_class
@@ -112,6 +113,17 @@ contains
 
         call jfield_eta(this, mol, xdens)
 
+        if (offload_active()) then
+            ! whole range in one call; ctensor_offload blocks it internally
+            allocate(coords(3,npts))
+            do n=lo,hi
+                call get_grid_index(this%grid, n, i, j, k)
+                coords(:,n-lo+1) = gridpoint(this%grid, i, j, k)
+            end do
+            call ctensor_offload(coords, tens(:,1:npts), spincase)
+            deallocate(coords)
+        else
+
         !$omp parallel default(none) &
         !$omp private(jt,coords,n,nn,ip,i,j,k) &
         !$omp shared(this,mol,xdens,spincase,tens,lo,hi)
@@ -134,6 +146,8 @@ contains
         deallocate(coords)
         call del_jtensor(jt)
         !$omp end parallel
+
+        end if
 
         if (mpi_world_size > 1) then
             call gather_data(tens(:,first:last), this%tens(:,first:))
@@ -227,6 +241,12 @@ contains
         cpu_est=delta_t*real(p1*p2*p3, DP)/real(nn, DP)
 
         call msg_info(time_string('Estimated CPU time for single core calculation: ', cpu_est))
+        if (offload_active()) then
+            ! the estimate times the CPU code; the run itself uses the GPU
+            call msg_info('Current tensors are computed by the offload code path; the estimate above is for the CPU code')
+            call nl
+            return
+        end if
         nthreads=1
         !$ nthreads=omp_get_max_threads()
         if (nthreads > 1) then

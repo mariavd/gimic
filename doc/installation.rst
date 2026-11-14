@@ -62,6 +62,31 @@ cores and runs several times slower.
 MPI parallelization is in the works.
 
 
+GPU offload
+-----------
+
+The evaluation of the current tensor (basis functions, density-matrix
+products and contractions) can run on a GPU through OpenMP target
+offload. With GNU compilers and the nvptx offload back end installed
+(Debian/Ubuntu: ``gcc-<version>-offload-nvptx``)::
+
+  $ ./setup --offload
+
+For AMD GPUs pass ``--cmake-options="-DOFFLOAD_TARGET=amdgcn-amdhsa"``
+as well. Other compilers need their offload flags in ``--extra-fc-flags``.
+
+At run time the environment variable ``GIMIC_OFFLOAD`` selects the path:
+
+* ``auto`` (default): use the GPU if one is present, otherwise the CPU code
+* ``host``: run the offload code path on the CPU (for testing)
+* ``off``: always use the CPU code
+
+The GPU path currently requires a Cartesian basis (``spherical=off``, the
+default) and prints the block size and device memory it uses. To check
+a GPU build, ``tools/offload-check.sh`` runs the benzene 3D test case on
+the CPU and on the GPU and compares the results.
+
+
 Clusters with containerised conda (CSC Tykky)
 ---------------------------------------------
 

@@ -18,6 +18,7 @@ program gimic
     use basis_class
     use dens_class
     use jtensor_class
+    use jtensor_offload
     use jfield_class
     use divj_class
     use caos_module
@@ -194,6 +195,7 @@ contains
 
             call new_dens(xdens, mol)
             call read_dens(xdens, settings%xdens)
+            call offload_init(mol, xdens)
         end if
 
         call new_grid(grid, input, mol)
@@ -229,6 +231,7 @@ contains
             if (settings%use_spherical) then
                 call del_c2sop(c2s)
             end if
+            call offload_finalize()
             call del_dens(xdens)
         end if
         call del_grid(grid)
