@@ -67,7 +67,7 @@ the ".vti" file, in bohr, with x running fastest; the data are in the units of
 the file. A ".vti" file describes a grid along the Cartesian axes, so the
 coordinates are those of the grid points only if the basis vectors of the grid
 point along x, y and z; for a rotated grid take the positions from the grid
-definition instead. Both binary and text ".vti" files are read. The command needs only
+definition instead (see the note in :doc:`visualization`). Both binary and text ".vti" files are read. The command needs only
 Python and is installed next to ``gimic``.
 
 A CSV file is several times larger than the binary ".vti" file, so convert
