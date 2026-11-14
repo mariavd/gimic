@@ -261,10 +261,11 @@ contains
         call get_grid_size(grid, npts(1), npts(2), npts(3))
         qmin=gridpoint(grid,1,1,1)
         qmax=gridpoint(grid,npts(1),npts(2),npts(3))
-        ! as in the text files: a direction with a single point has spacing 0
+        ! a direction with a single point has spacing 0; the spacing is
+        ! negative if the grid runs towards smaller values
         do i=1,3
            step(i) = qmax(i) - qmin(i)
-           if ( step(i) > 1E-8 ) then
+           if ( abs(step(i)) > 1E-8 ) then
                step(i) = step(i) / ( npts(i) - 1)
            end if
         end do
@@ -324,6 +325,7 @@ contains
         integer(I4) :: k, fd
         integer(I4), dimension(3) :: npts
         integer(int64) :: nbytes
+        real(real32), allocatable :: buf(:,:)
 
         call open_vtk_imagedata_binary(fd, fname, grid, npts)
         call put(fd, '      <PointData Scalars="scalars">')
@@ -336,9 +338,12 @@ contains
 
         nbytes = 4_int64*npts(1)*npts(2)*npts(3)
         write(fd) nbytes
+        allocate(buf(npts(1),npts(2)))
         do k=1,npts(3)
-            write(fd) real(pdata(1:npts(1),1:npts(2),k), real32)
+            buf = real(pdata(1:npts(1),1:npts(2),k), real32)
+            write(fd) buf
         end do
+        deallocate(buf)
 
         call put(fd, '')
         call put(fd, '  </AppendedData>')

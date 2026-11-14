@@ -192,6 +192,9 @@ def main():
     except Unreadable as e:
         sys.stderr.write('vti2csv: {0}: {1}\n'.format(args.vti, e))
         return 1
+    except ValueError:
+        sys.stderr.write('vti2csv: {0}: malformed header\n'.format(args.vti))
+        return 1
 
     target = args.output or os.path.splitext(args.vti)[0] + '.csv'
     try:

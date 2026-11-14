@@ -69,7 +69,7 @@ program gimic
 
 contains
     subroutine initialize()
-        integer(I4) :: hostnm, ierr
+        integer(I4) :: hostnm, ierr, i
         character(BUFLEN) :: fdate, sys
         character(BUFLEN) :: vti_format
 
@@ -102,10 +102,16 @@ contains
         call getkw(input, 'Advanced.divj_step', settings%divj_step)
         vti_format = 'binary'
         call getkw(input, 'Advanced.vti_format', vti_format)
+        ! not case sensitive
+        do i=1,len_trim(vti_format)
+            if (vti_format(i:i) >= 'A' .and. vti_format(i:i) <= 'Z') then
+                vti_format(i:i) = achar(iachar(vti_format(i:i)) + 32)
+            end if
+        end do
         select case (trim(adjustl(vti_format)))
-        case ('binary', 'BINARY')
+        case ('binary')
             settings%vti_ascii = .false.
-        case ('ascii', 'ASCII')
+        case ('ascii')
             settings%vti_ascii = .true.
         case default
             call msg_error('vti_format must be binary or ascii, not ' // &

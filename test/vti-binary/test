@@ -26,7 +26,7 @@ def fail(msg):
     sys.exit(1)
 
 
-def gimic(binary_dir, case, work, fmt):
+def gimic(binary_dir, case, work, fmt, edit=None):
     """Run the case in work; fmt is None (default), or a vti_format value."""
     if os.path.isdir(work):
         shutil.rmtree(work)
@@ -35,6 +35,8 @@ def gimic(binary_dir, case, work, fmt):
         shutil.copy(os.path.realpath(os.path.join(case, name)), os.path.join(work, name))
     with open(os.path.join(case, 'gimic.inp')) as f:
         lines = [l for l in f if not re.match(r'\s*vti_format\s*=', l)]
+    if edit is not None:
+        lines = [edit(l) for l in lines]
     with open(os.path.join(work, 'gimic.inp'), 'w') as f:
         for l in lines:
             f.write(l)
@@ -149,6 +151,28 @@ def main():
         if f.read() != g.read():
             fail('vti_format=binary differs from the default')
 
+    # the value is not case sensitive
+    wc = os.path.join(args.work_dir, '2d-case')
+    if gimic(args.binary_dir, os.path.join(args.case, '2d'), wc, 'Ascii') != 0:
+        fail('gimic failed with vti_format=Ascii')
+    with open(os.path.join(wc, 'jvec.vti'), 'rb') as f, \
+            open(os.path.join(args.work_dir, '2d-ascii', 'jvec.vti'), 'rb') as g:
+        if f.read() != g.read():
+            fail('vti_format=Ascii differs from vti_format=ascii')
+
+    # a grid that runs towards negative x: the coordinates must follow it
+    def reverse(line):
+        line = line.replace('origin=[-8.0, -8.0, 0.0]', 'origin=[8.0, -8.0, 0.0]')
+        return line.replace('ivec=[1.0, 0.0, 0.0]', 'ivec=[-1.0, 0.0, 0.0]')
+    wr = os.path.join(args.work_dir, '2d-reversed')
+    if gimic(args.binary_dir, os.path.join(args.case, '2d'), wr, None, edit=reverse) != 0:
+        fail('gimic failed on the reversed grid')
+    head, rows = table(args.binary_dir, os.path.join(wr, 'jvec.vti'))
+    step = 16.0/29
+    for n, want in ((0, (8.0, -8.0)), (1, (8.0 - step, -8.0)), (29, (-8.0, -8.0)), (30, (8.0, -8.0 + step))):
+        if abs(rows[n][0] - want[0]) > 1e-8 or abs(rows[n][1] - want[1]) > 1e-8:
+            fail('reversed grid: point {0} at {1}, expected {2}'.format(n, rows[n][:2], want))
+
     # an unknown format stops the run
     wx = os.path.join(args.work_dir, 'unknown')
     rc = gimic(args.binary_dir, os.path.join(args.case, '2d'), wx, 'foo')
@@ -168,7 +192,9 @@ def main():
         data = f.read()
     with open(os.path.join(bad, 'short.vti'), 'wb') as f:
         f.write(data[:len(data)//2])
-    for name in ('missing.vti', 'grid.vtu', 'junk.vti', 'short.vti'):
+    with open(os.path.join(bad, 'offset.vti'), 'wb') as f:
+        f.write(data.replace(b'offset="0"', b'offset="x"'))
+    for name in ('missing.vti', 'grid.vtu', 'junk.vti', 'short.vti', 'offset.vti'):
         rc, out, err = vti2csv(args.binary_dir, os.path.join(bad, name), '-o', '-')
         if rc != 1:
             fail('vti2csv {0}: exit status {1}'.format(name, rc))
