@@ -8,7 +8,8 @@ ideally all of the packages collected in
 the ``requirements.txt`` file.
 To build and run GIMIC you need Python 3 with ``pyparsing >= 3.0`` and
 ``pyyaml``; the tests need ``runtest``; ``numpy`` is used by some of the
-tools. Cython and the Python development headers are no longer needed
+tools. ``setup`` stops with an error when ``pyparsing`` is missing or older
+than 3.0 for the Python that will run ``gimic``, and says how to install it. Cython and the Python development headers are no longer needed
 (the experimental Python backend that used them was removed).
 
 A convenient way to install the packages listed in ``requirements.txt``
