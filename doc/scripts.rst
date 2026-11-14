@@ -27,13 +27,19 @@ Quick summary
    gimic-profile --bond 4 5 --ring 1 2 3 4 5 6 --in 2.9 --slice 0.02 --threads 8 --yes
    gimic-profile --mode squares --bond 4 5 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
    gimic-profile --rerun current_profile_4.5/profile.json --slice 0.01 --suffix fine
-   gimic-profile --plot current_profile_4.5 --zero origin --lines "7 8 9 10 11 12"
+   gimic-profile --plot current_profile_4.5 --zero origin --mark "7 8 9 10 11 12"
    gimic-profile --help
 
 The old script names (``current-profile-local.sh``, ``current-profile-cluster.sh``,
 ``vertical-profile-*.sh``, ``squares-profile-*.sh``, ``gimic-run.sh``,
-``plot-current-profile.sh``) still exist in ``jobscripts`` as thin wrappers
-around ``gimic-profile`` with the corresponding options.
+``plot-current-profile.sh``, ``crit_pts.sh``) remain as thin wrappers around
+``gimic-profile`` with the corresponding options. ``make install`` configures
+them, together with ``3D-run.sh``, and installs them next to ``gimic``, so no
+separate setup step is needed: with the ``bin`` directory of the installation
+on the ``PATH`` they can be called by name, and they find ``gimic-profile``
+and ``gimic`` of their own installation even without it.
+``jobscripts/setup.sh`` still prepares the same scripts inside the
+``jobscripts`` directory for those who prefer to run them from there.
 
 The questions
 -----------------------------

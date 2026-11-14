@@ -16,7 +16,7 @@ configure_file(jfilter.py.in jfilter.py)
 configure_file(turbo2gimic.py.in turbo2gimic.py)
 configure_file(sortorbitals.py.in sortorbitals.py)
 configure_file(unstructured_grid_gen.py.in unstructured_grid_gen.py)
-configure_file(gimic-profile.py.in gimic-profile)
+configure_file(gimic-profile.py.in gimic-profile @ONLY)
 configure_file(vti2csv.py.in vti2csv)
 
 install(PROGRAMS 
