@@ -17,6 +17,7 @@ configure_file(turbo2gimic.py.in turbo2gimic.py)
 configure_file(sortorbitals.py.in sortorbitals.py)
 configure_file(unstructured_grid_gen.py.in unstructured_grid_gen.py)
 configure_file(gimic-profile.py.in gimic-profile)
+configure_file(vti2csv.py.in vti2csv)
 
 install(PROGRAMS 
     ${CMAKE_CURRENT_BINARY_DIR}/MOL2mol.sh
@@ -27,6 +28,7 @@ install(PROGRAMS
     ${CMAKE_CURRENT_BINARY_DIR}/sortorbitals.py
     ${CMAKE_CURRENT_BINARY_DIR}/unstructured_grid_gen.py
     ${CMAKE_CURRENT_BINARY_DIR}/gimic-profile
+    ${CMAKE_CURRENT_BINARY_DIR}/vti2csv
     DESTINATION bin
     )
 

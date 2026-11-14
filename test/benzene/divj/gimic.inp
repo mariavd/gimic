@@ -17,6 +17,7 @@ Grid(base) {
 }
 
 Advanced {
+    vti_format=ascii   # the reference files are text
     spherical=off     # don't touch, unless you REALLY know what you are doing
     diamag=on           # turn on/off diamagnetic contributions
     paramag=on          # turn on/off paramagnetic contributions

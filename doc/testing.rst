@@ -23,3 +23,9 @@ serve as example. The definition of what are tested variables is done in the
 ``runtest``.
 
 .. _documentation: https://runtest.readthedocs.io
+
+Tests that compare ".vti" files with reference files set ``vti_format=ascii``
+in the Advanced section of their input, since ``runtest`` compares text. The
+binary files that GIMIC writes by default are covered by ``test/vti-binary``,
+which converts them with ``vti2csv`` and compares them with the text files of
+the same calculation.

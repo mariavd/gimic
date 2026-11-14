@@ -1,0 +1,215 @@
+#!@PYTHON_SHEBANG@
+"""
+vti2csv - write the data of a GIMIC .vti file as a CSV table
+
+GIMIC writes its .vti files (jvec.vti, jmod.vti, acid.vti, divj.vti, ...) in
+binary, which ParaView loads quickly but which cannot be read as text. This
+command writes the same numbers as a table with one row per grid point:
+
+    x,y,z,jx,jy,jz        for a file with vectors (jvec.vti)
+    x,y,z,value           for a file with one number per point (jmod.vti)
+
+The coordinates are those of the .vti file (origin and spacing of its
+header), in bohr; x runs fastest. Files written with vti_format=ascii are
+read as well.
+
+    vti2csv jvec.vti              writes jvec.csv
+    vti2csv jvec.vti -o out.csv
+    vti2csv jvec.vti -o -         writes to standard output
+"""
+import argparse
+import array
+import os
+import re
+import struct
+import sys
+
+
+class Unreadable(Exception):
+    pass
+
+
+TYPES = {'Float32': 'f', 'Float64': 'd'}
+HEADERS = {'UInt32': 'I', 'UInt64': 'Q'}
+
+
+def attributes(tag):
+    """The attributes of an XML start tag, names in lower case."""
+    return dict((k.lower(), v) for k, v in re.findall(r'([\w:]+)\s*=\s*"([^"]*)"', tag))
+
+
+def numbers(text, n, what):
+    try:
+        x = [float(v) for v in text.split()]
+    except ValueError:
+        raise Unreadable('bad number in ' + what)
+    if len(x) != n:
+        raise Unreadable('{0}: {1} numbers, expected {2}'.format(what, len(x), n))
+    return x
+
+
+def read_vti(path):
+    """Return (npts, origin, spacing, arrays); arrays is a list of
+    (name, number of components, values) of the point data."""
+    try:
+        with open(path, 'rb') as f:
+            raw = f.read()
+    except (IOError, OSError) as e:
+        raise Unreadable(e.strerror or str(e))
+
+    # the XML part ends where the appended block starts, if there is one
+    m = re.search(br'<AppendedData[^>]*>\s*_', raw)
+    xml = raw[:m.start()] if m else raw
+    try:
+        xml = xml.decode('ascii')
+    except UnicodeDecodeError:
+        raise Unreadable('not a .vti file')
+
+    m = re.search(r'<VTKFile\b[^>]*>', xml)
+    if not m:
+        raise Unreadable('not a .vti file')
+    vtkfile = attributes(m.group(0))
+    if vtkfile.get('type') != 'ImageData':
+        raise Unreadable('not an ImageData (.vti) file but {0}'.format(vtkfile.get('type', 'unknown')))
+    if 'compressor' in vtkfile:
+        raise Unreadable('compressed data is not supported')
+    order = '>' if vtkfile.get('byte_order', 'LittleEndian') == 'BigEndian' else '<'
+    try:
+        header = HEADERS[vtkfile.get('header_type', 'UInt32')]
+    except KeyError:
+        raise Unreadable('unknown header_type ' + vtkfile['header_type'])
+
+    m = re.search(r'<ImageData\b[^>]*>', xml)
+    if not m:
+        raise Unreadable('no ImageData element')
+    image = attributes(m.group(0))
+    try:
+        extent = [int(v) for v in image['wholeextent'].split()]
+        origin = numbers(image['origin'], 3, 'Origin')
+        spacing = numbers(image['spacing'], 3, 'Spacing')
+    except (KeyError, ValueError):
+        raise Unreadable('incomplete ImageData element')
+    if len(extent) != 6:
+        raise Unreadable('bad WholeExtent')
+    npts = [extent[1] - extent[0] + 1, extent[3] - extent[2] + 1, extent[5] - extent[4] + 1]
+    if min(npts) < 1:
+        raise Unreadable('bad WholeExtent')
+    origin = [origin[i] + extent[2*i]*spacing[i] for i in range(3)]
+    npoints = npts[0]*npts[1]*npts[2]
+
+    m = re.search(r'<PointData\b[^>]*>(.*?)</PointData>', xml, re.S)
+    if not m:
+        raise Unreadable('no point data')
+    arrays = []
+    for tag, inline, body in re.findall(r'(<DataArray\b[^>]*?(/?)>)(?:(.*?)</DataArray>)?', m.group(1), re.S):
+        a = attributes(tag)
+        name = a.get('name', 'data')
+        ncomp = int(a.get('numberofcomponents', '1'))
+        n = ncomp*npoints
+        fmt = a.get('format', 'ascii').lower()
+        if fmt == 'ascii':
+            if inline:
+                raise Unreadable('array {0} has no data'.format(name))
+            values = numbers(body, n, 'array ' + name)
+        elif fmt == 'appended':
+            if a.get('type') not in TYPES:
+                raise Unreadable('array {0}: type {1} is not supported'.format(name, a.get('type')))
+            values = appended(raw, int(a.get('offset', '0')), order, header, TYPES[a['type']], n, name)
+        else:
+            raise Unreadable('array {0}: format {1} is not supported'.format(name, fmt))
+        arrays.append((name, ncomp, values))
+    if not arrays:
+        raise Unreadable('no point data')
+    return npts, origin, spacing, arrays
+
+
+def appended(raw, offset, order, header, code, n, name):
+    m = re.search(br'<AppendedData[^>]*>\s*_', raw)
+    if not m:
+        raise Unreadable('no appended data')
+    if b'raw' not in m.group(0):
+        raise Unreadable('only raw appended data is supported')
+    start = m.end() + offset
+    hsize = struct.calcsize(header)
+    if start + hsize > len(raw):
+        raise Unreadable('file is truncated')
+    nbytes = struct.unpack(order + header, raw[start:start + hsize])[0]
+    values = array.array(code)
+    if nbytes != n*values.itemsize:
+        raise Unreadable('array {0}: {1} bytes, expected {2}'.format(name, nbytes, n*values.itemsize))
+    start += hsize
+    if start + nbytes > len(raw):
+        raise Unreadable('file is truncated')
+    values.frombytes(raw[start:start + nbytes])
+    if (order == '<') != (sys.byteorder == 'little'):
+        values.byteswap()
+    return values
+
+
+def columns(arrays):
+    """Column names; the array name is added if there are several arrays."""
+    cols = []
+    for name, ncomp, _ in arrays:
+        if ncomp == 1:
+            names = ['value']
+        elif ncomp == 3:
+            names = ['jx', 'jy', 'jz']
+        else:
+            names = [str(c) for c in range(ncomp)]
+        if len(arrays) > 1:
+            names = [name + '_' + c for c in names]
+        cols.extend(names)
+    return cols
+
+
+def write_csv(out, npts, origin, spacing, arrays):
+    out.write(','.join(['x', 'y', 'z'] + columns(arrays)) + '\n')
+    xs = ['{0:.10g}'.format(origin[0] + i*spacing[0]) for i in range(npts[0])]
+    p = 0
+    for k in range(npts[2]):
+        z = '{0:.10g}'.format(origin[2] + k*spacing[2])
+        for j in range(npts[1]):
+            yz = ',{0:.10g},{1}'.format(origin[1] + j*spacing[1], z)
+            for i in range(npts[0]):
+                row = [xs[i] + yz]
+                for _, ncomp, values in arrays:
+                    row.extend('{0:.7e}'.format(v) for v in values[p*ncomp:(p + 1)*ncomp])
+                out.write(','.join(row) + '\n')
+                p += 1
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        prog='vti2csv', formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__.split('\n\n', 1)[1])
+    ap.add_argument('vti', metavar='FILE.vti', help='a .vti file written by GIMIC')
+    ap.add_argument('-o', '--output', metavar='FILE',
+                    help='output file (default: the name of the input with .csv; - for standard output)')
+    args = ap.parse_args()
+
+    try:
+        data = read_vti(args.vti)
+    except Unreadable as e:
+        sys.stderr.write('vti2csv: {0}: {1}\n'.format(args.vti, e))
+        return 1
+
+    target = args.output or os.path.splitext(args.vti)[0] + '.csv'
+    try:
+        if target == '-':
+            write_csv(sys.stdout, *data)
+            sys.stdout.flush()
+        else:
+            with open(target, 'w') as out:
+                write_csv(out, *data)
+    except BrokenPipeError:
+        # e.g. piped into head
+        sys.stderr.close()
+        return 0
+    except (IOError, OSError) as e:
+        sys.stderr.write('vti2csv: {0}: {1}\n'.format(target, e.strerror or e))
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

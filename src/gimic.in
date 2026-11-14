@@ -63,7 +63,7 @@ def parse_keywords(args):
     top.add_kw('openshell', 'BOOL', (False,))
     top.add_kw('dryrun', 'BOOL', (False,))
 
-    adv=getkw.Section('Advanced')
+    adv=getkw.Section('Advanced', callback=check_advanced)
     adv.add_kw('screening', 'BOOL', (False,))
     adv.add_kw('screening_thrs', 'DBL', (1.0e-8,))
     adv.add_kw('spherical', 'BOOL', (True,))
@@ -72,6 +72,7 @@ def parse_keywords(args):
     adv.add_kw('paramag', 'BOOL', (True,))
     adv.add_kw('lip_order', 'INT', (3,))
     adv.add_kw('divj_step', 'DBL', (1.0e-3,))
+    adv.add_kw('vti_format', 'STR', ('binary',))
 
     ess=getkw.Section('Essential')
     ess.add_kw('acid', 'BOOL', (False,))
@@ -261,6 +262,12 @@ def check_grid(grid):
         if not check_opt(grid,'spacing') and not check_opt(grid, 'grid_points'):
             print("Error: either spacing or grid_points must be specified")
             sys.exit(1)
+
+def check_advanced(adv):
+    fmt=adv.getkw('vti_format')[0]
+    if fmt.lower() not in ('binary', 'ascii'):
+        print("Error: vti_format must be binary or ascii, not '%s'" % fmt)
+        sys.exit(1)
 
 def check_top(top):
     calc=top.getkw('calc')[0]

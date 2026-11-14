@@ -42,6 +42,8 @@ module settings_module
         integer(I4), dimension(2) :: morange
         integer(I4) :: lip_order
         real(DP) :: divj_step=1.d-3
+        ! .vti files as text instead of binary (Advanced.vti_format=ascii)
+        logical :: vti_ascii=.false.
     end type
 
     type(settings_t), save :: settings

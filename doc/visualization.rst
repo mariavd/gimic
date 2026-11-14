@@ -22,6 +22,13 @@ interpolates the values given at grid points within each cell.
 In case of vti files, all required information is given by the grid and no
 further input is required.
 
+The vti files are written in binary, so that large grids load quickly. If the
+values at the grid points are needed as text, convert the file with
+``vti2csv jvec.vti``, or set ``vti_format=ascii`` in the Advanced section of
+the input (see :doc:`input` and :doc:`output`). In a binary ``jvec.vti`` each
+cell also carries the norm of the current averaged over its corners, as the
+cell array ``norm``.
+
 In case of vtu files we require an external program to create a tetrahedral
 mesh.  One choice for such a program is TetGen
 (http://wias-berlin.de/software/index.jsp?id=TetGen&lang=1).  The workflow is:

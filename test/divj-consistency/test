@@ -42,6 +42,7 @@ Advanced {{
     screening=on
     screening_thrs=1.d-8
     divj_step={step}
+    vti_format=ascii
 }}
 """
 

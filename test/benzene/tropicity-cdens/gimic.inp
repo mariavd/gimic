@@ -18,6 +18,7 @@ Grid(base) {
 }
 
 Advanced {
+    vti_format=ascii   # the reference files are text
     lip_order=5
     spherical=off
     diamag=on
