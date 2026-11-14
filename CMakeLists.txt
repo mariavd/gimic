@@ -100,6 +100,48 @@ find_package(Python3 COMPONENTS Interpreter)
 set(PYTHON_SHEBANG "${Python3_EXECUTABLE}" CACHE STRING
     "Interpreter for the first line of the installed Python scripts")
 
+# The gimic launcher parses the input with pyparsing >= 3.0. Nothing in the
+# build imports it, so without this check a missing or older pyparsing only
+# shows when gimic is first run, as a Python traceback. It is checked with
+# the interpreter of the launcher. If that one cannot be started here (a
+# wrapper that only exists where GIMIC is run), the check is skipped.
+separate_arguments(_python_cmd UNIX_COMMAND "${PYTHON_SHEBANG}")
+execute_process(
+    COMMAND ${_python_cmd} -c "print('python runs')"
+    RESULT_VARIABLE _python_rc OUTPUT_QUIET ERROR_QUIET
+    )
+if(NOT _python_rc EQUAL 0)
+    message(WARNING "Cannot start \"${PYTHON_SHEBANG}\" here: not checked whether it has pyparsing >= 3.0, which gimic needs to run.")
+else()
+    execute_process(
+        COMMAND ${_python_cmd} -c "import pyparsing; print(pyparsing.__version__ + ';' + pyparsing.__file__)"
+        RESULT_VARIABLE _pyparsing_rc
+        OUTPUT_VARIABLE _pyparsing_out
+        OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+        )
+    if(NOT _pyparsing_rc EQUAL 0)
+        message(FATAL_ERROR
+            "The Python module pyparsing was not found for ${PYTHON_SHEBANG}.\n"
+            "gimic needs pyparsing >= 3.0 to read its input. Install it with\n"
+            "    ${PYTHON_SHEBANG} -m pip install \"pyparsing>=3.0\"\n"
+            "(or with conda), or choose another Python with ./setup --python-shebang=<interpreter>, "
+            "then run setup again.")
+    endif()
+    list(GET _pyparsing_out 0 _pyparsing_version)
+    list(GET _pyparsing_out 1 _pyparsing_file)
+    if(_pyparsing_version VERSION_LESS 3.0)
+        message(FATAL_ERROR
+            "pyparsing ${_pyparsing_version} is too old: gimic needs pyparsing >= 3.0 to read its input.\n"
+            "Found for ${PYTHON_SHEBANG} at ${_pyparsing_file}\n"
+            "Upgrade it with\n"
+            "    ${PYTHON_SHEBANG} -m pip install --upgrade \"pyparsing>=3.0\"\n"
+            "(or with conda), or choose another Python with ./setup --python-shebang=<interpreter>, "
+            "then run setup again. If the version stays the same after upgrading, the copy at the "
+            "path above is found first: remove it.")
+    endif()
+    message(STATUS "Found pyparsing ${_pyparsing_version} for ${PYTHON_SHEBANG}")
+endif()
+
 # included cmake modules
 include(rpath-workaround)
 include(autocmake_fc)
