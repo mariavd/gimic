@@ -10,7 +10,7 @@ into a CSV table.
 `settings%vti_ascii`; the ASCII branch is today's code, the binary branch
 writes the XML header and one raw appended block through stream access.
 `vti2csv` is a standalone standard-library Python script configured and
-installed like `gimic-profile`.
+installed like `gimic-prepare`.
 
 **Tech Stack:** Fortran 2003 (stream I/O), Python 3 standard library,
 CMake/CTest, runtest.
@@ -71,7 +71,7 @@ CMake/CTest, runtest.
 **Files:**
 - Create: `tools/vti2csv.py.in`
 - Modify: `tools/CMakeLists.txt` (configure to `vti2csv`, install, and
-  wherever `gimic-profile` is copied into the build `bin`)
+  wherever `gimic-prepare` is copied into the build `bin`)
 
 **Interfaces:**
 - `vti2csv FILE.vti [-o OUT]`; default output `FILE.csv`, `-o -` is

@@ -32,7 +32,7 @@ https://www.youtube.com/channel/UC_5dN4qhYTOtr-itnsjoE0w/videos.
 -----------------
 
 A current density calculation can be performed using the ``cdens`` set of
-keywords in the input file. The command ``gimic-profile --mode 3d`` (also
+keywords in the input file. The command ``gimic-prepare --mode 3d`` (also
 available as ``3D-run.sh``) defines a box around the molecule, asks for the
 distance between the grid points and runs the calculation, see the section
 on the scripts. We recommend to use Paraview to visualise the results
@@ -40,7 +40,7 @@ on the scripts. We recommend to use Paraview to visualise the results
 this video (https://www.youtube.com/watch?v=NngG1g3Bb7Q&t=5s). 
 
 The ``jvec.vti`` files is what concerns us the most. ParaView also needs the
-molecular coordinates in CML format and bohr units: ``gimic-profile --mode 3d``
+molecular coordinates in CML format and bohr units: ``gimic-prepare --mode 3d``
 writes them as ``mol-bohr.cml`` next to ``jvec.vti``.
 
 It is possible to do streamline plots using the StreamTracer tool. Slices on a
@@ -57,7 +57,7 @@ In this video (https://www.youtube.com/watch?v=Pjy_0jucmGQ&t=28s) we present in
 short how to create the streamline "spaghetti" plots using Paraview. A
 pre-requisite is to have performed a current density calculations and that the
 jvec.vti and mol-bohr.cml files exist. Both are written by
-``gimic-profile --mode 3d``.
+``gimic-prepare --mode 3d``.
 
 After the two files are loaded on the blank board we see the molecule and a
 rectangular object which shows the boundaries of the defined integration grid

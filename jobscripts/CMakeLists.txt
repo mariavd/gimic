@@ -1,7 +1,7 @@
 # The interactive scripts, configured for this installation and installed
-# next to gimic: they are wrappers that call gimic-profile by its full path.
+# next to gimic: they are wrappers that call gimic-prepare by its full path.
 
-set(GIMIC_PROFILE ${CMAKE_INSTALL_FULL_BINDIR}/gimic-profile)
+set(GIMIC_PREPARE ${CMAKE_INSTALL_FULL_BINDIR}/gimic-prepare)
 
 file(GLOB _script_templates RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.sh.in)

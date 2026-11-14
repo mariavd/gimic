@@ -12,11 +12,11 @@ then
     echo export PATH=\"/path/to/gimic/bin\":\${PATH}
 fi
 
-GIMIC_PROFILE=$(command -v gimic-profile)
-if [ -z "$GIMIC_PROFILE" ]
+GIMIC_PREPARE=$(command -v gimic-prepare)
+if [ -z "$GIMIC_PREPARE" ]
 then
-    echo "gimic-profile is not on the PATH: the profile scripts will look for it at run time."
-    GIMIC_PROFILE=gimic-profile
+    echo "gimic-prepare is not on the PATH: the profile scripts will look for it at run time."
+    GIMIC_PREPARE=gimic-prepare
 fi
 
 # Prepare all other scripts
@@ -25,7 +25,7 @@ SCRIPTS_IN=$(ls src/*in)
 for file in $SCRIPTS_IN
 do
     SCRIPT_OUT=$(echo $file | sed -e s:^src/:: -e s:.in:: )
-    sedstring="s:@GIMIC_PROFILE@:$GIMIC_PROFILE:"
+    sedstring="s:@GIMIC_PREPARE@:$GIMIC_PREPARE:"
     if [ $SCRIPT_OUT -ot $file ] 
     then 
         sed "$sedstring" $file > $SCRIPT_OUT

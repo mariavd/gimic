@@ -47,12 +47,12 @@ gimic_test(benzene/profile)
 gimic_test(benzene/profile-orientation)
 gimic_test(benzene/profile-default-fixpoint)
 
-# the gimic-profile command end to end (needs the gimic launcher and python3)
+# the gimic-prepare command end to end (needs the gimic launcher and python3)
 add_test(
-  NAME profile-tool
-  COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/profile-tool/test
+  NAME prepare-tool
+  COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/prepare-tool/test
           --binary-dir=${PROJECT_BINARY_DIR}/bin
-          --work-dir=${PROJECT_BINARY_DIR}/test/profile-tool
+          --work-dir=${PROJECT_BINARY_DIR}/test/prepare-tool
   )
 gimic_test(benzene/profile-squares)
 gimic_test(benzene/int-cdens)

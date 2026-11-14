@@ -62,7 +62,7 @@ Declared in `src/gimic.in`, read in `src/fgimic/gimic.F90` into
 
 ### Converter (`tools/vti2csv.py.in`, installed as `vti2csv`)
 
-- Python standard library only, like `gimic-profile`.
+- Python standard library only, like `gimic-prepare`.
 - Reads both the binary and the ASCII files.
 - Writes one row per grid point: `x,y,z` in bohr (from the origin and
   spacing in the header) followed by `jx,jy,jz` for a vector file or

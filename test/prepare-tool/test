@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gimic-profile end to end on benzene: --yes with all options given, the
+gimic-prepare end to end on benzene: --yes with all options given, the
 geometry taken from MOL alone (no coord file), a coarse profile. Checks that
 the command runs, writes its files, records its settings, and that the total
 current agrees with the bond-grid reference (11.802 nA/T for this plane),
@@ -27,14 +27,14 @@ for n in ('MOL', 'XDENS'):
 
 env = dict(os.environ, PATH=a.binary_dir + os.pathsep + os.environ.get('PATH', ''),
            OPENBLAS_NUM_THREADS='1', MPLBACKEND='Agg')
-cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-profile'), '--bond', '1', '2', '--ring', '1', '2', '3', '4', '5', '6',
+cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-prepare'), '--bond', '1', '2', '--ring', '1', '2', '3', '4', '5', '6',
        '--in', '2.2', '--out', '5', '--up', '5', '--down', '5', '--slice', '0.5', '--spacing', '0.28',
        '--threads', '2', '--tropicity', '--yes']
 r = subprocess.run(cmd, cwd=a.work_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 if a.verbose or r.returncode != 0:
     print(r.stdout)
 if r.returncode != 0:
-    sys.exit('gimic-profile failed')
+    sys.exit('gimic-prepare failed')
 
 d = os.path.join(a.work_dir, 'current_profile_1.2')
 for n in ('gimic.inp', 'gimic.out', 'current_profile.dat', 'profile.dat', 'profile_points.dat', 'profile.json', 'coord'):
@@ -69,17 +69,17 @@ if abs(dia - 15.2) > 0.5 or abs(para + 3.4) > 0.5:
     sys.exit('tropicity split %.3f / %.3f nA/T, expected about 15.2 / -3.4' % (dia, para))
 if not rec.get('tropicity'):
     sys.exit('profile.json does not record --tropicity')
-print('gimic-profile: total %.4f nA/T, files written, settings recorded' % total)
+print('gimic-prepare: total %.4f nA/T, files written, settings recorded' % total)
 
 # --mode 3d: the current density in a box around the molecule
 import re, struct
-cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-profile'), '--mode', '3d', '--field', '0', '0', '-2',
+cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-prepare'), '--mode', '3d', '--field', '0', '0', '-2',
        '--margin', '4', '4', '2', '--spacing', '0.8', '--threads', '2', '--yes']
 r = subprocess.run(cmd, cwd=a.work_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 if a.verbose or r.returncode != 0:
     print(r.stdout)
 if r.returncode != 0:
-    sys.exit('gimic-profile --mode 3d failed')
+    sys.exit('gimic-prepare --mode 3d failed')
 d3 = os.path.join(a.work_dir, '3D')
 for n in ('gimic.inp', 'gimic.out', 'jvec.vti', 'mol-bohr.cml', 'settings.json'):
     if not os.path.exists(os.path.join(d3, n)):
@@ -137,4 +137,4 @@ pv = open(os.path.join(d, 'paraview_profile_1.2.py')).read()
 compile(pv, 'paraview_profile_1.2.py', 'exec')
 if "'3D', 'jvec.vti'" not in pv or 'mol-bohr.cml' not in pv:
     sys.exit('the ParaView script does not look for 3D/jvec.vti and mol-bohr.cml')
-print('gimic-profile --mode 3d: %d grid points, jvec.vti and mol-bohr.cml written' % npts)
+print('gimic-prepare --mode 3d: %d grid points, jvec.vti and mol-bohr.cml written' % npts)

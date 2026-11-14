@@ -27,7 +27,7 @@ GIMIC requires CMake to configure and build. CMake is invoked via a front-end sc
   $ make
   $ make install
 
-``make install`` also installs ``gimic-profile`` and the interactive scripts
+``make install`` also installs ``gimic-prepare`` and the interactive scripts
 of the ``jobscripts`` directory (``current-profile-local.sh``, ``3D-run.sh``
 and the others), configured for the installation, into the same ``bin``
 directory as ``gimic``; ``jobscripts/setup.sh`` is not needed any more.

@@ -1,12 +1,16 @@
-Current profiles: gimic-profile
-===============================
+Current profiles and the 3D current density: gimic-prepare
+==========================================================
 
 Introduction
 ----------------------------
 
-Current profiles (the current through an integration plane resolved into thin
-slices) are set up, run and plotted with the command ``gimic-profile``, which
-is installed together with ``gimic``. GIMIC computes all slices of a profile in
+The command ``gimic-prepare``, which is installed together with ``gimic``,
+prepares the common calculations: it writes the input, shows the dry run,
+runs GIMIC or submits the job, and plots the result. Current profiles (the
+current through an integration plane resolved into thin slices) are its
+default; ``--mode integral`` integrates over the plane without slices, and
+``--mode 3d`` computes the current density in a box around the molecule (see
+the section on the current density in 3D below). GIMIC computes all slices of a profile in
 one run (keyword ``slice_thickness``, see the grids section), in parallel with
 OpenMP over the columns of the integration grid, so a profile is one
 calculation on a laptop or one batch job on a cluster.
@@ -22,22 +26,22 @@ Quick summary
 
 ::
 
-   gimic-profile                                   # asks for everything, defaults in brackets
-   gimic-profile --bond 4 5 --ring 1 2 3 4 5 6     # asks only what is missing
-   gimic-profile --bond 4 5 --ring 1 2 3 4 5 6 --in 2.9 --slice 0.02 --threads 8 --yes
-   gimic-profile --mode squares --bond 4 5 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
-   gimic-profile --rerun current_profile_4.5/profile.json --slice 0.01 --suffix fine
-   gimic-profile --plot current_profile_4.5 --zero origin --mark "7 8 9 10 11 12"
-   gimic-profile --help
+   gimic-prepare                                   # asks for everything, defaults in brackets
+   gimic-prepare --bond 4 5 --ring 1 2 3 4 5 6     # asks only what is missing
+   gimic-prepare --bond 4 5 --ring 1 2 3 4 5 6 --in 2.9 --slice 0.02 --threads 8 --yes
+   gimic-prepare --mode squares --bond 4 5 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
+   gimic-prepare --rerun current_profile_4.5/profile.json --slice 0.01 --suffix fine
+   gimic-prepare --plot current_profile_4.5 --zero origin --mark "7 8 9 10 11 12"
+   gimic-prepare --help
 
 The old script names (``current-profile-local.sh``, ``current-profile-cluster.sh``,
 ``vertical-profile-*.sh``, ``squares-profile-*.sh``, ``gimic-run.sh``,
 ``plot-current-profile.sh``, ``crit_pts.sh``) remain as thin wrappers around
-``gimic-profile`` with the corresponding options, and so does ``3D-run.sh``
-(``gimic-profile --mode 3d``, see below). ``make install`` configures
+``gimic-prepare`` with the corresponding options, and so does ``3D-run.sh``
+(``gimic-prepare --mode 3d``, see below). ``make install`` configures
 them and installs them next to ``gimic``, so no
 separate setup step is needed: with the ``bin`` directory of the installation
-on the ``PATH`` they can be called by name, and they find ``gimic-profile``
+on the ``PATH`` they can be called by name, and they find ``gimic-prepare``
 and ``gimic`` of their own installation even without it.
 ``jobscripts/setup.sh`` still prepares the same scripts inside the
 ``jobscripts`` directory for those who prefer to run them from there.
@@ -156,7 +160,7 @@ Results
   molecule (``mol-bohr.cml``, written into the profile directory) and a
   slice of the current density of a 3D calculation in the plane of the
   profile. The current density is taken from ``3D/jvec.vti`` next to the
-  profile directory, where ``gimic-profile --mode 3d`` writes it, or from
+  profile directory, where ``gimic-prepare --mode 3d`` writes it, or from
   the file given with ``--jvec FILE``. The script looks for the file when
   it runs, so the 3D calculation can also be done after the profile.
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
@@ -168,7 +172,7 @@ Results
   peak; the net current between consecutive zero crossings is written
   along the bottom. With ``--compare``, ``compare_net.*`` shows the net
   currents of the profiles and ``compare_contributions.*`` their positive
-  and negative contributions. ``gimic-profile --plot DIR`` plots again: ``--zero origin``
+  and negative contributions. ``gimic-prepare --plot DIR`` plots again: ``--zero origin``
   puts x = 0 at the vortex origin, ``--zero bond`` at the bond,
   ``--mark 7 "9 10 11"`` marks atom 7 and the centroid of atoms 9, 10 and
   11 along the profile (also at run time; the marks are kept in
@@ -265,14 +269,14 @@ The magnetic field vector can be drawn using the following VMD procedure:
 The current density in 3D
 -----------------------------
 
-``gimic-profile --mode 3d`` (or ``3D-run.sh``, which is the same command)
+``gimic-prepare --mode 3d`` (or ``3D-run.sh``, which is the same command)
 computes the current density on a grid in a box around the whole molecule,
 for ParaView::
 
-   gimic-profile --mode 3d
-   gimic-profile --mode 3d --spacing 0.5 --threads 8 --yes
-   gimic-profile --mode 3d --field molecule --margin 10 10 5 --slurm --time 2 --submit
-   gimic-profile --rerun 3D/settings.json --spacing 0.25 --suffix fine
+   gimic-prepare --mode 3d
+   gimic-prepare --mode 3d --spacing 0.5 --threads 8 --yes
+   gimic-prepare --mode 3d --field molecule --margin 10 10 5 --slurm --time 2 --submit
+   gimic-prepare --rerun 3D/settings.json --spacing 0.25 --suffix fine
 
 Like a profile it needs ``MOL`` and ``XDENS`` in the working directory and
 takes the geometry from ``coord``, ``coord.xyz`` or ``MOL``. It needs no

@@ -1,4 +1,4 @@
 #!/bin/bash
 # wrapper: the current density in a box around the molecule (directory 3D,
-# jvec.vti and mol-bohr.cml for ParaView) is set up and run by gimic-profile
-exec @GIMIC_PROFILE@ --mode 3d "$@"
+# jvec.vti and mol-bohr.cml for ParaView) is set up and run by gimic-prepare
+exec @GIMIC_PREPARE@ --mode 3d "$@"

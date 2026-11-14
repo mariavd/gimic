@@ -3,15 +3,15 @@ USEFUL ALIASES AND FUNCTIONS:
 
 alias grid="xmakemol -f grid.xyz &"
 alias revcurrent="mv current_profile.dat current_profile.dat.1 && awk '{printf \"%.6f\t%.6f\t%.6f\t%.6f\n\", $1, -$2, -$4, -$3}' current_profile.dat.1 > current_profile.dat"
-alias gim="gimic-profile --mode integral"
+alias gim="gimic-prepare --mode integral"
 alias 3g="3D-run.sh"
-alias plotcurrent="gimic-profile --plot"
+alias plotcurrent="gimic-prepare --plot"
 alias gplot="display *png &"
 
-alias gcurrent="gimic-profile"
-alias gvertical="gimic-profile --mode vertical"
-alias gsquares="gimic-profile --mode squares"
-alias gcluster="gimic-profile --slurm"
+alias gcurrent="gimic-prepare"
+alias gvertical="gimic-prepare --mode vertical"
+alias gsquares="gimic-prepare --mode squares"
+alias gcluster="gimic-prepare --slurm"
 
 function anprofile() { awk -v lower=$1 -v upper=$2 '{ if (($1 >= lower) && ($1 <= upper)) { total+=$2; dia+=$3; para+=$4; } } END { printf("\nNet current: %f\nDiatropic: %f\nParatropic: %f\n\n", total, dia, para); } ' current_profile.dat ;  };
 
@@ -24,14 +24,14 @@ function dryrun() { gimic --dryrun "$@" > /dev/null ; xmakemol -f grid.xyz;  };
 
 function critpoints() { cat profile_points.dat; };
 
-# "gimic-profile --mode 3d" (3D-run.sh) writes mol-bohr.cml itself; this is for calculations set up by hand
+# "gimic-prepare --mode 3d" (3D-run.sh) writes mol-bohr.cml itself; this is for calculations set up by hand
 function molecule() {
 babel -ixyz mol.xyz -ocml mol.cml
 awk '{ {FS="\""}; {OFS="\""};
      if ($1 ~ "<atom id") {
          if ($5 ~ "spinMultiplicity")
-             { print $1, $2, $3, $4, $5, $6, $7, $8/0.526, $9, $10/0.526, $11, $12/0.526, $13 }
-         else  { print $1, $2, $3, $4, $5, $6/0.526, $7, $8/0.526, $9, $10/0.526, $11 }
+             { print $1, $2, $3, $4, $5, $6, $7, $8/0.52917721, $9, $10/0.52917721, $11, $12/0.52917721, $13 }
+         else  { print $1, $2, $3, $4, $5, $6/0.52917721, $7, $8/0.52917721, $9, $10/0.52917721, $11 }
          }
      else print $0; }' mol.cml > mol-bohr.cml
 }

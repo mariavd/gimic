@@ -1,8 +1,10 @@
 #!@PYTHON_SHEBANG@
 # -*- coding: utf-8 -*-
 """
-gimic-profile: set up, run and plot current profiles with GIMIC, and set up
-and run the current density in a box around the molecule (--mode 3d).
+gimic-prepare: prepare and run the common GIMIC calculations: current
+profiles (set up, run and plotted), the current through a plane without
+slices (--mode integral), and the current density in a box around the
+molecule (--mode 3d).
 
 A current profile is the current through an integration plane, perpendicular
 to a bond, resolved into slices from the start of the integration (typically
@@ -11,12 +13,12 @@ the centre of a ring) outwards. GIMIC computes all slices in one run.
 Every parameter can be given as an option; whatever is missing is asked for,
 with the default in brackets (Enter accepts it). With --yes nothing is asked.
 
-    gimic-profile --bond 1 2 --ring 1 2 3 4 5 6
-    gimic-profile --bond 1 2 --ring 1 2 3 4 5 6 --in 2.9 --out 8 --slice 0.02 --threads 8 --yes
-    gimic-profile --mode squares --bond 1 2 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
-    gimic-profile --rerun current_profile_1.2/profile.json --slice 0.01
-    gimic-profile --plot current_profile_1.2 --zero origin --mark 7 "9 10 11"
-    gimic-profile --mode 3d --spacing 0.5 --threads 8 --yes
+    gimic-prepare --bond 1 2 --ring 1 2 3 4 5 6
+    gimic-prepare --bond 1 2 --ring 1 2 3 4 5 6 --in 2.9 --out 8 --slice 0.02 --threads 8 --yes
+    gimic-prepare --mode squares --bond 1 2 --ring 1 2 3 4 5 6 --slice 0.25 --slurm --time 4 --submit
+    gimic-prepare --rerun current_profile_1.2/profile.json --slice 0.01
+    gimic-prepare --plot current_profile_1.2 --zero origin --mark 7 "9 10 11"
+    gimic-prepare --mode 3d --spacing 0.5 --threads 8 --yes
 
 --mode 3d computes the current density on a grid in a box around the whole
 molecule (directory 3D: jvec.vti and the molecule as mol-bohr.cml, both in
@@ -101,7 +103,7 @@ def write_coord(atoms, fname='coord'):
 
 def write_xyz(atoms, fname='coord.xyz'):
     with open(fname, 'w') as f:
-        f.write('%d\nconverted by gimic-profile\n' % len(atoms))
+        f.write('%d\nconverted by gimic-prepare\n' % len(atoms))
         for sym, x, y, z in atoms:
             f.write('%s %14.8f %14.8f %14.8f\n' % (sym, x * BOHR, y * BOHR, z * BOHR))
 
@@ -109,7 +111,7 @@ def write_xyz(atoms, fname='coord.xyz'):
 def load_geometry():
     for name in ('MOL', 'XDENS'):
         if not os.path.exists(name):
-            sys.exit('%s not found: run gimic-profile in the directory with MOL and XDENS' % name)
+            sys.exit('%s not found: run gimic-prepare in the directory with MOL and XDENS' % name)
     if os.path.exists('coord'):
         atoms = read_coord()
     elif os.path.exists('coord.xyz'):
@@ -267,7 +269,7 @@ class Asker:
 
 # -------------------------------------------------------------- input file
 
-INPUT = """# GIMIC input written by gimic-profile {version} on {date}
+INPUT = """# GIMIC input written by gimic-prepare {version} on {date}
 # {comment}
 
 calc=integral
@@ -383,7 +385,7 @@ def write_job(dirname, threads, hours, header_path, result='grep "Induced curren
     header, used = slurm_header(header_path)
     job = header.rstrip('\n') + """
 
-# written by gimic-profile; GIMIC runs in parallel with OpenMP over the grid
+# written by gimic-prepare; GIMIC runs in parallel with OpenMP over the grid
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 cd "%s"
 date
@@ -692,7 +694,7 @@ def show_analysis(dirname):
 
 # -------------------------------------------------------------- ParaView
 
-PARAVIEW_SCRIPT = r"""# ParaView pipeline for the current profile {tag}, written by gimic-profile.
+PARAVIEW_SCRIPT = r"""# ParaView pipeline for the current profile {tag}, written by gimic-prepare.
 # Run it with  paraview --script=THIS_FILE  or load it in ParaView's Python
 # shell (View > Python Shell > Run Script), then save a state file from there.
 # The plane is coloured by the current through each slice, the profile runs
@@ -701,8 +703,8 @@ PARAVIEW_SCRIPT = r"""# ParaView pipeline for the current profile {tag}, written
 # vortex origin). With a jvec.vti of a 3D calculation of the same molecule,
 # a slice of the current density in the plane of the profile is added, as
 # arrows (and as Surface LIC if that plugin is available). The file is the
-# one given to gimic-profile with --jvec, or else 3D/jvec.vti next to the
-# directory of this profile, where "gimic-profile --mode 3d" writes it; it
+# one given to gimic-prepare with --jvec, or else 3D/jvec.vti next to the
+# directory of this profile, where "gimic-prepare --mode 3d" writes it; it
 # is looked for when this script runs, so the 3D calculation can be done
 # after the profile. The molecule is read from mol-bohr.cml.
 from paraview.simple import *
@@ -746,7 +748,7 @@ spheres.GlyphMode = 'All Points'
 sd = Show(spheres, view)
 ColorBy(sd, ('POINTS', 'marker'))
 
-# the molecule (bohr), written by gimic-profile
+# the molecule (bohr), written by gimic-prepare
 for mol in (os.path.join(here, 'mol-bohr.cml'), os.path.normpath(os.path.join(here, os.pardir, '3D', 'mol-bohr.cml'))):
     if os.path.exists(mol):
         try:
@@ -846,7 +848,7 @@ def run_gimic(args, ask, p, dirname, result='grep "Induced current (nA/T)" gimic
 
 # -------------------------------------------------------------- 3D current density
 
-INPUT_3D = """# GIMIC input written by gimic-profile {version} on {date}
+INPUT_3D = """# GIMIC input written by gimic-prepare {version} on {date}
 # current density in a box around the molecule, for ParaView (jvec.vti)
 
 calc=cdens
@@ -1062,7 +1064,7 @@ def main_3d(args, ask, atoms, rec):
 
     p['dirname'] = dirname
     p['angstrom'] = args.angstrom
-    p['gimic_profile_version'] = VERSION
+    p['gimic_prepare_version'] = VERSION
     p['date'] = time.strftime('%Y-%m-%d %H:%M')
     with open(os.path.join(dirname, 'settings.json'), 'w') as f:
         json.dump(p, f, indent=2)
@@ -1394,7 +1396,7 @@ def main():
     p['threads'] = args.threads or (rec and rec.get('threads')) or os.cpu_count() or 4
     p['dirname'] = dirname
     p['angstrom'] = args.angstrom
-    p['gimic_profile_version'] = VERSION
+    p['gimic_prepare_version'] = VERSION
     p['date'] = time.strftime('%Y-%m-%d %H:%M')
     with open(os.path.join(dirname, 'profile.json'), 'w') as f:
         json.dump(p, f, indent=2)
@@ -1416,7 +1418,7 @@ def main():
     pv = write_paraview_script(dirname, p, args.jvec)
     if pv:
         print('ParaView script: %s (paraview --script=%s); it adds the current density of 3D/jvec.vti'
-              ' (gimic-profile --mode 3d) or of the file given with --jvec' % (pv, pv))
+              ' (gimic-prepare --mode 3d) or of the file given with --jvec' % (pv, pv))
     print('Settings recorded in %s/profile.json (rerun with --rerun, replot with --plot %s)' % (dirname, dirname))
 
 
