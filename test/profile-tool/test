@@ -4,7 +4,9 @@ gimic-profile end to end on benzene: --yes with all options given, the
 geometry taken from MOL alone (no coord file), a coarse profile. Checks that
 the command runs, writes its files, records its settings, and that the total
 current agrees with the bond-grid reference (11.802 nA/T for this plane),
-and that --tropicity writes a consistent tropicity profile.
+and that --tropicity writes a consistent tropicity profile. Then --mode 3d:
+the box around the molecule, jvec.vti on that box, the molecule as CML in
+bohr, and the ParaView script of the profile.
 
 Usage: test --binary-dir=DIR --work-dir=DIR
 """
@@ -68,3 +70,71 @@ if abs(dia - 15.2) > 0.5 or abs(para + 3.4) > 0.5:
 if not rec.get('tropicity'):
     sys.exit('profile.json does not record --tropicity')
 print('gimic-profile: total %.4f nA/T, files written, settings recorded' % total)
+
+# --mode 3d: the current density in a box around the molecule
+import re, struct
+cmd = [sys.executable, os.path.join(a.binary_dir, 'gimic-profile'), '--mode', '3d', '--field', '0', '0', '-2',
+       '--margin', '4', '4', '2', '--spacing', '0.8', '--threads', '2', '--yes']
+r = subprocess.run(cmd, cwd=a.work_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+if a.verbose or r.returncode != 0:
+    print(r.stdout)
+if r.returncode != 0:
+    sys.exit('gimic-profile --mode 3d failed')
+d3 = os.path.join(a.work_dir, '3D')
+for n in ('gimic.inp', 'gimic.out', 'jvec.vti', 'mol-bohr.cml', 'settings.json'):
+    if not os.path.exists(os.path.join(d3, n)):
+        sys.exit('missing %s' % os.path.join(d3, n))
+with open(os.path.join(d3, 'settings.json')) as f:
+    rec3 = json.load(f)
+# the field is a direction: (0, 0, -2) is normalised
+if rec3['mode'] != '3d' or max(abs(x - y) for x, y in zip(rec3['field'], [0.0, 0.0, -1.0])) > 1e-12:
+    sys.exit('settings.json: mode %s, field %s' % (rec3['mode'], rec3['field']))
+if 'Estimated' not in r.stdout:
+    sys.exit('the dry run of the 3D calculation gave no run-time estimate')
+# the box: the atoms plus the margins, each length a whole number of
+# spacings, centred on the molecule
+atoms = []
+for l in open(os.path.join(a.work_dir, 'coord')):
+    w = l.split()
+    if len(w) == 4:
+        atoms.append([float(x) for x in w[:3]])
+for k, m in enumerate((4.0, 4.0, 2.0)):
+    lo = min(x[k] for x in atoms); hi = max(x[k] for x in atoms)
+    o = rec3['origin'][k]; L = rec3['lengths'][k]; n = rec3['points'][k]
+    if abs(L - (n - 1) * 0.8) > 1e-9 or L < hi - lo + 2 * m - 1e-9 or L > hi - lo + 2 * m + 0.8:
+        sys.exit('3D box, axis %d: length %f for %d points' % (k, L, n))
+    if abs((o + 0.5 * L) - 0.5 * (lo + hi)) > 1e-9:
+        sys.exit('3D box, axis %d: not centred on the molecule' % k)
+# jvec.vti is on that box, with all its vectors
+with open(os.path.join(d3, 'jvec.vti'), 'rb') as f:
+    raw = f.read()
+head = raw[:raw.index(b'<AppendedData')].decode()
+ext = [int(x) for x in re.search(r'WholeExtent="([^"]*)"', head).group(1).split()]
+org = [float(x) for x in re.search(r'Origin="([^"]*)"', head).group(1).split()]
+spc = [float(x) for x in re.search(r'Spacing="([^"]*)"', head).group(1).split()]
+if [ext[1] + 1, ext[3] + 1, ext[5] + 1] != rec3['points'] or max(abs(x - y) for x, y in zip(org, rec3['origin'])) > 1e-5 \
+        or max(abs(x - 0.8) for x in spc) > 1e-9:
+    sys.exit('jvec.vti: extent %s origin %s spacing %s do not match the box %s %s' % (ext, org, spc, rec3['points'], rec3['origin']))
+npts = rec3['points'][0] * rec3['points'][1] * rec3['points'][2]
+if rec3['grid_points'] != npts:
+    sys.exit('settings.json: %d grid points, GIMIC counted %d' % (npts, rec3['grid_points']))
+data = raw[raw.index(b'<AppendedData'):]
+data = data[data.index(b'_') + 1:]
+if struct.unpack('<Q', data[:8])[0] != 12 * npts:
+    sys.exit('jvec.vti does not hold three numbers per grid point')
+# the molecule in CML: all atoms, in bohr as in coord, and the 12 bonds of benzene
+cml = open(os.path.join(d3, 'mol-bohr.cml')).read()
+xyz = [[float(v) for v in m] for m in re.findall(r'x3="([^"]*)" y3="([^"]*)" z3="([^"]*)"', cml)]
+if len(xyz) != len(atoms) or max(abs(p - q) for u, v in zip(xyz, atoms) for p, q in zip(u, v)) > 1e-5:
+    sys.exit('mol-bohr.cml does not hold the atoms of coord in bohr')
+if cml.count('<bond ') != 12:
+    sys.exit('mol-bohr.cml: %d bonds, 12 expected for benzene' % cml.count('<bond '))
+# the profile directory has the molecule too, and its ParaView script looks
+# for the 3D current density by itself
+if not os.path.exists(os.path.join(d, 'mol-bohr.cml')):
+    sys.exit('missing mol-bohr.cml in the profile directory')
+pv = open(os.path.join(d, 'paraview_profile_1.2.py')).read()
+compile(pv, 'paraview_profile_1.2.py', 'exec')
+if "'3D', 'jvec.vti'" not in pv or 'mol-bohr.cml' not in pv:
+    sys.exit('the ParaView script does not look for 3D/jvec.vti and mol-bohr.cml')
+print('gimic-profile --mode 3d: %d grid points, jvec.vti and mol-bohr.cml written' % npts)

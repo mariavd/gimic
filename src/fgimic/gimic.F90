@@ -238,11 +238,35 @@ contains
         type(jfield_t) :: jf
         type(dens_t) :: xdens
         type(molecule_t) :: mol
+        type(cao2sao_t) :: c2s
+        logical :: have_dens
         call msg_out('Calculating current density')
         call msg_out('*****************************************')
         call new_jfield(jf, grid, magnet)
 
-        if (settings%dryrun) return
+        if (settings%dryrun) then
+            ! estimate the run time when the density is there to be read
+            inquire(file=settings%xdens, exist=have_dens)
+            if (have_dens) then
+                if (settings%use_spherical) then
+                    call new_c2sop(c2s,mol)
+                    call set_c2sop(mol, c2s)
+                end if
+                call new_dens(xdens, mol)
+                call read_dens(xdens, settings%xdens)
+                ! an open-shell run computes four fields: total, alpha,
+                ! beta and the spin density
+                if (settings%is_uhf) then
+                    call jfield_eta(jf, mol, xdens, 4.d0)
+                else
+                    call jfield_eta(jf, mol, xdens)
+                end if
+                call del_dens(xdens)
+                if (settings%use_spherical) call del_c2sop(c2s)
+            end if
+            call del_jfield(jf)
+            return
+        end if
 
         call calc_jvectors(jf, mol, xdens)
         call jvector_plots(jf)

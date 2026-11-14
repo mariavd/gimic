@@ -33,8 +33,9 @@ Quick summary
 The old script names (``current-profile-local.sh``, ``current-profile-cluster.sh``,
 ``vertical-profile-*.sh``, ``squares-profile-*.sh``, ``gimic-run.sh``,
 ``plot-current-profile.sh``, ``crit_pts.sh``) remain as thin wrappers around
-``gimic-profile`` with the corresponding options. ``make install`` configures
-them, together with ``3D-run.sh``, and installs them next to ``gimic``, so no
+``gimic-profile`` with the corresponding options, and so does ``3D-run.sh``
+(``gimic-profile --mode 3d``, see below). ``make install`` configures
+them and installs them next to ``gimic``, so no
 separate setup step is needed: with the ``bin`` directory of the installation
 on the ``PATH`` they can be called by name, and they find ``gimic-profile``
 and ``gimic`` of their own installation even without it.
@@ -151,8 +152,13 @@ Results
   current per unit length as point data and carries the sign changes of the
   net current as vertices (``marker`` 1 is the first one, the vortex
   origin). Coordinates in bohr, like ``jvec.vti``. ``paraview_profile_1.2.py``
-  assembles them in ParaView (``paraview --script=...``; ``--jvec FILE``
-  adds a slice of the current density of a 3D calculation).
+  assembles them in ParaView (``paraview --script=...``), together with the
+  molecule (``mol-bohr.cml``, written into the profile directory) and a
+  slice of the current density of a 3D calculation in the plane of the
+  profile. The current density is taken from ``3D/jvec.vti`` next to the
+  profile directory, where ``gimic-profile --mode 3d`` writes it, or from
+  the file given with ``--jvec FILE``. The script looks for the file when
+  it runs, so the 3D calculation can also be done after the profile.
 * ``current_profile.png`` and ``.pdf`` (``vertical_profile.*``,
   ``squares_profile.*``): the plots, made with matplotlib if it is
   installed. ``current_profile_annotated.*`` adds the strengths of the
@@ -256,6 +262,84 @@ The magnetic field vector can be drawn using the following VMD procedure:
 
 
 
+The current density in 3D
+-----------------------------
+
+``gimic-profile --mode 3d`` (or ``3D-run.sh``, which is the same command)
+computes the current density on a grid in a box around the whole molecule,
+for ParaView::
+
+   gimic-profile --mode 3d
+   gimic-profile --mode 3d --spacing 0.5 --threads 8 --yes
+   gimic-profile --mode 3d --field molecule --margin 10 10 5 --slurm --time 2 --submit
+   gimic-profile --rerun 3D/settings.json --spacing 0.25 --suffix fine
+
+Like a profile it needs ``MOL`` and ``XDENS`` in the working directory and
+takes the geometry from ``coord``, ``coord.xyz`` or ``MOL``. It needs no
+bond. What is not given as an option is asked for:
+
+1. **The field** (``--field``): three components (default ``0 0 -1``),
+   ``molecule`` for the normal of the mean plane of all atoms, or ``ring``
+   for the normal of the plane of the atoms given with ``--ring``. The
+   vector is used as a direction and normalised, since the currents are per
+   unit field strength.
+2. **The margin** (``--margin``): how far the box extends beyond the
+   outermost atoms, one value for all sides or three for x, y and z. The
+   default is 8 bohr, and 4 bohr along the field when the field is along
+   x, y or z (for a planar molecule with the field along its normal the
+   current density has died off sooner in that direction).
+3. **The spacing** (``--spacing``): the distance between the grid points,
+   0.5 bohr by default and 1 bohr for molecules of more than 100 atoms.
+   Less than 0.5 bohr is rarely needed, unless for close-up views. The
+   lengths of the box are rounded up to a whole number of spacings, the
+   extra shared between the two sides.
+
+The box always runs along the Cartesian axes x, y and z, also when the
+field does not: a vti file stores only the first grid point and one spacing
+along each of x, y and z, so ParaView would place the points of a rotated
+box wrongly (see the note in the visualisation chapter). For a tight box
+around a molecule whose field direction is oblique, give the molecule with
+the field along a Cartesian axis.
+
+For a grid along x, y and z GIMIC reverses a field that has a positive z
+component (it reports "Left handed coordinate system, reversing magnetic
+field"), so that the current density is that of the opposite field. The
+command says so when the field given is affected; the normal of the
+molecule or the ring is chosen with a negative z component for that reason.
+
+Before anything is calculated the command shows the dry run: the box, the
+number of grid points, the estimated run time for the chosen number of
+threads, and the size of ``jvec.vti`` (16 bytes per grid point). With
+``--dry-run`` it stops there. The calculation runs in parallel with OpenMP
+(``--threads``, all cores by default), or as a SLURM job with ``--slurm``,
+as for the profiles. An open-shell density is given with ``--openshell``;
+the alpha, beta and spin-density files are then written as well.
+
+The directory ``3D`` (``3D_suffix`` with ``--suffix``) then holds:
+
+* ``jvec.vti``: the current density, in bohr.
+* ``mol-bohr.cml``: the molecule in CML format with the coordinates in
+  bohr, for ParaView, which cannot read XYZ files. It is written directly;
+  Open Babel or Avogadro are not needed. The bonds are the pairs of atoms
+  within 1.25 times the sum of their covalent radii, all written as single
+  bonds.
+* ``gimic.inp``, ``gimic.out``, ``grid.xyz`` (the corners of the box and the
+  molecule, in Ångström) and ``settings.json``, the record of the settings
+  that ``--rerun`` takes.
+
+In ParaView, load ``jvec.vti`` and ``mol-bohr.cml``. The provided state
+file ``tools/Visualization/3D-LIC.pvsm`` asks for the location of the two files and presents
+the line integral convolution (LIC) representation. In the *Slice* filter
+changing the z component of the origin permits exploring the current
+densities vertically. The number of arrows illustrating the current
+direction is adjusted from the *Glyph* filter. In the *Masking* group the
+selected Glyph Mode is *Every Nth Point*. Change the stride according to
+your preference. The length of the arrows is adjusted from the Scaling
+group, the *Scaling Factor* value.
+
+The ParaView script of a profile made in the same working directory lays
+the plane and the profile over this current density (see above).
+
 Some tips and advice
 -----------------------------
 
@@ -266,25 +350,7 @@ Some tips and advice
    function dryrun() { gimic --dryrun "$@" > /dev/null ; xmakemol -f grid.xyz;  };
 
 
-Choosing integration planes can be tricky. One way to get a better feeling for the current densities in a molecule is to start with the 3D calculation of the current density and exploring it in Paraview. You can use the new ``3D-run.sh`` script. It is rather basic at the moment, and the input file needs to be inspected and the grid checked before starting the calculation. Its aim is to create a decently large box around the molecule. For molecules larger than 100 atoms it is reasonable to use spacing of 1 bohr, otherwise the calculation takes too long. In small systems 0.5 bohr is a good choice; less than that might be an overkill, unless one needs close-up views of currents. The calculation can only run in serial. Once the calculation starts, GIMIC gives a good estimate of how long it will take. If it is unreasonable, size of the box or the spacing should be adjusted. The 3D calculation will give the ``jvec.vti`` file. It also prints the ``mol.xyz`` file. Paraview cannot handle XYZ files at the moment, so they need to be converted to CML format first. The bash function below can be used. It employs openbabel. In case openbabel is missing, the ``mol.xyz`` file can be saved as ``mol.cml`` in Avogadro and the first line of the function commented out. 
-
-::
-
-   function molecule() {
-   babel -ixyz mol.xyz -ocml mol.cml
-   awk '{ {FS="\""}; {OFS="\""};
-        if ($1 ~ "<atom id") {
-            if ($5 ~ "spinMultiplicity")
-                { print $1, $2, $3, $4, $5, $6, $7, $8/0.526, $9, $10/0.526, $11, $12/0.526, $13 }
-            else  { print $1, $2, $3, $4, $5, $6/0.526, $7, $8/0.526, $9, $10/0.526, $11 }
-            }
-        else print $0; }' mol.cml > mol-bohr.cml
-
-   # It takes an XYZ file as an argument:
-
-   $ molecule mol.xyz
-
-The provided Paraview state file ``3D-LIC.pvsm``, it will ask about the location of the ``jvec.vti`` and ``mol-bohr.cml`` files. After they are loaded, it should present the line integral convolution (LIC) representation. In the *Slice* filter changing the z component of the origin permits exploring the current densities vertically. The number of arrows illustrating the current direction is adjusted from the *Glyph* filter. In the *Masking* group the selected Glyph Mode is *Every Nth Point*. Change the stride according to your preference. The length of the arrows is adjusted from the Scaling group, the *Scaling Factor* value. 
+Choosing integration planes can be tricky. One way to get a better feeling for the current densities in a molecule is to start with the 3D calculation of the current density and to explore it in ParaView, see the section on the current density in 3D above.
 
 The 3D visual inspection help identifying which current vortices are interesting and where the integration plane would cross as few other vortices as possible. 
 

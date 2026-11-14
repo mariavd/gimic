@@ -24,6 +24,7 @@ function dryrun() { gimic --dryrun "$@" > /dev/null ; xmakemol -f grid.xyz;  };
 
 function critpoints() { cat profile_points.dat; };
 
+# "gimic-profile --mode 3d" (3D-run.sh) writes mol-bohr.cml itself; this is for calculations set up by hand
 function molecule() {
 babel -ixyz mol.xyz -ocml mol.cml
 awk '{ {FS="\""}; {OFS="\""};

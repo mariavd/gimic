@@ -86,10 +86,12 @@ Streamlines
 Follow the instructions under ``/examples/benzene/ParaView-README``
 
 File needed: "jvec.vti"
-Note, you need to generate your own molecule file, eg. in cml format,
-which is readable in ParaView. You can use for example Avogadro
-(https://avogadro.cc/) and read in mol.xyz and export it to mol.cml.
-Then you need to convert the mol.cml file to bohr.
+ParaView also needs the molecule in a format it can read, with the
+coordinates in bohr like those of jvec.vti. ``gimic-profile --mode 3d``
+(see the section on the scripts) writes it as ``mol-bohr.cml`` next to
+``jvec.vti``. For a calculation set up by hand, export mol.xyz to mol.cml
+with for example Avogadro (https://avogadro.cc/) and convert the
+coordinates in mol.cml to bohr.
 
 Note that animations are also possible using ParaView.
 

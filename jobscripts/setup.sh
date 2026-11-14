@@ -25,7 +25,7 @@ SCRIPTS_IN=$(ls src/*in)
 for file in $SCRIPTS_IN
 do
     SCRIPT_OUT=$(echo $file | sed -e s:^src/:: -e s:.in:: )
-    sedstring="s:@SCRIPTS_DIR@:$SCRIPTS_DIR:; s:@GIMIC_PROFILE@:$GIMIC_PROFILE:"
+    sedstring="s:@GIMIC_PROFILE@:$GIMIC_PROFILE:"
     if [ $SCRIPT_OUT -ot $file ] 
     then 
         sed "$sedstring" $file > $SCRIPT_OUT
