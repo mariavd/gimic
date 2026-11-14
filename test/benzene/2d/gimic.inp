@@ -20,6 +20,7 @@ Grid(base) {                    # define grid orthogonal to a bond
 }
 
 Advanced {
+    vti_format=ascii   # the reference files are text
     lip_order=5      # order of Lagrange Interpolating Polynominals to use
     spherical=off     # don't touch, unless you REALLY know what you are doing
     diamag=on           # turn on/off diamagnetic contributions

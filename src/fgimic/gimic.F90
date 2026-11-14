@@ -69,8 +69,9 @@ program gimic
 
 contains
     subroutine initialize()
-        integer(I4) :: hostnm, ierr
+        integer(I4) :: hostnm, ierr, i
         character(BUFLEN) :: fdate, sys
+        character(BUFLEN) :: vti_format
 
 
         call getkw(input, 'debug', debug_level)
@@ -99,6 +100,24 @@ contains
         call getkw(input, 'Advanced.screening', settings%use_screening)
         call getkw(input, 'Advanced.screening_thrs', settings%screen_thrs)
         call getkw(input, 'Advanced.divj_step', settings%divj_step)
+        vti_format = 'binary'
+        call getkw(input, 'Advanced.vti_format', vti_format)
+        ! not case sensitive
+        do i=1,len_trim(vti_format)
+            if (vti_format(i:i) >= 'A' .and. vti_format(i:i) <= 'Z') then
+                vti_format(i:i) = achar(iachar(vti_format(i:i)) + 32)
+            end if
+        end do
+        select case (trim(adjustl(vti_format)))
+        case ('binary')
+            settings%vti_ascii = .false.
+        case ('ascii')
+            settings%vti_ascii = .true.
+        case default
+            call msg_error('vti_format must be binary or ascii, not ' // &
+                trim(vti_format))
+            stop 1
+        end select
 
         call getkw(input, 'Essential.acid', settings%acid)
         call getkw(input, 'Essential.jmod', settings%jmod)

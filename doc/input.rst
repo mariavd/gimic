@@ -229,6 +229,14 @@ Advanced {
 
 The available keywords are:
 
+vti_format=binary
+    Format of the ".vti" files for ParaView: ``binary`` (the default) or
+    ``ascii``. Binary files are several times smaller and load much faster;
+    they hold single precision numbers (about seven digits), text files six
+    digits. Use ``ascii`` only if the files have to be readable as text; to
+    get the numbers of a binary file as a table, use ``vti2csv``
+    (see :doc:`output`).
+
 lip_order=5
     Polynomial order of the Lagrange Interpolation Polynomials.
     If a calculation has been preformed on a even spaced grid, generate a

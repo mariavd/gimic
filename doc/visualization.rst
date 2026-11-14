@@ -22,6 +22,33 @@ interpolates the values given at grid points within each cell.
 In case of vti files, all required information is given by the grid and no
 further input is required.
 
+The vti files are written in binary, so that large grids load quickly. If the
+values at the grid points are needed as text, convert the file with
+``vti2csv jvec.vti``, or set ``vti_format=ascii`` in the Advanced section of
+the input (see :doc:`input` and :doc:`output`). In a binary ``jvec.vti`` each
+cell also carries the norm of the current averaged over its corners, as the
+cell array ``norm``.
+
+.. note::
+
+   A vti file stores only the first grid point and one spacing along each of
+   x, y and z, so it can only describe a grid whose basis vectors point along
+   the Cartesian axes: ``ivec`` along x, ``jvec`` along y, and the third
+   vector along z. Two kinds of grid do not fit this:
+
+   * A rotated grid, that is one whose basis vectors do not point along x, y
+     and z in this order, for example ``ivec=[1.0, 1.0, 0.0]``, a grid with
+     ``ivec`` along y, or most bond grids. The values in the file are correct
+     and in the order of the grid points, but ParaView and ``vti2csv`` place
+     them at the wrong positions. Use a grid along the Cartesian axes for
+     plots, or take the positions from the grid definition.
+   * A grid along the axes that runs towards smaller values, for example
+     ``origin=[8.0, -8.0, 0.0]`` with ``ivec=[-1.0, 0.0, 0.0]``. The binary
+     files describe such a grid correctly, with a negative spacing. The text
+     files written with ``vti_format=ascii`` give the whole length of the grid
+     as the spacing in that direction, which stretches the plot; use the
+     binary files for these grids.
+
 In case of vtu files we require an external program to create a tetrahedral
 mesh.  One choice for such a program is TetGen
 (http://wias-berlin.de/software/index.jsp?id=TetGen&lang=1).  The workflow is:

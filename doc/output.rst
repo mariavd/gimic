@@ -3,7 +3,12 @@
 Description of generated files
 ==============================
 
-Note "file.txt" means text file format and "file.vti" stands for VTK file format, which is compatible with ParaView. The text files start with a given grid point (x,y,z) followed by either information about the modulus of the current density f(x,y,z) or the components of the current density vector Jx,Jy,Jz.  
+Note "file.txt" means text file format and "file.vti" stands for VTK file format, which is compatible with ParaView. The text files start with a given grid point (x,y,z) followed by either information about the modulus of the current density f(x,y,z) or the components of the current density vector Jx,Jy,Jz.
+
+The ".vti" files are binary, which keeps them small and quick to load in
+ParaView. They cannot be read as text; use ``vti2csv`` (see below) to get the
+numbers as a table, or set ``vti_format=ascii`` in the Advanced section of the
+input to have GIMIC write them as text.
 
 * ``MOL``: contains molecular coordinates and basis functions, needed as input file for a gimic calculation
 * ``XDENS``: contains information about the AO density and first order perturbed AO density, needed as input for a gimic calculation
@@ -20,7 +25,6 @@ Note "file.txt" means text file format and "file.vti" stands for VTK file format
 closed-shell calculation:
 
 * ``acid.vti``: contains information about ACID function 
-* ``jvec.txt``: contains information about a grid point x,y,z and the current density vector in that point jx, jy, jz (x,y,z, f_current(x,y,z), the point is given in bohr (it used to be in Ångstrøm)
 * ``jvec.vti``: contains information about the current density vector function 
 * ``jmod.txt``: contains a grid point and the modulus of the current density vector function, x,y,z, f_mod(x,y,z)
 * ``jmod.vti``: contains the signed modulus of the current density vector function 
@@ -42,10 +46,29 @@ only for open-shell calculations:
 * ``jmodspindens.txt``: contains the signed modulus of the difference (alpha - beta) current density vector function 
 * ``jmodspindens.vti``: contains the signed modulus of the difference (alpha - beta) current density vector function 
 
-* ``jvecalpha.txt``: contains information about the alpha current density vector function 
 * ``jvecalpha.vti``: contains information about the alpha current density vector function 
-* ``jvecbeta.txt``: contains information about the beta current density vector function 
 * ``jvecbeta.vti``: contains information about the beta current density vector function 
-* ``jvecspindens.txt``: contains information about the difference (alpha - beta) current density vector function 
 * ``jvecspindens.vti``: contains information about the difference (alpha - beta) current density vector function 
 
+Getting the numbers out of a .vti file: vti2csv
+------------------------------------------------
+
+``vti2csv`` writes the data of a ".vti" file as a CSV table with one row per
+grid point, which can be read by a spreadsheet, gnuplot or pandas::
+
+   vti2csv jvec.vti              # writes jvec.csv
+   vti2csv jvec.vti -o out.csv
+   vti2csv jvec.vti -o -         # writes to standard output
+
+The columns are ``x,y,z,jx,jy,jz`` for a file with vectors (``jvec.vti``) and
+``x,y,z,value`` for a file with one number per point (``jmod.vti``,
+``acid.vti``, ``divj.vti``, ``tropicity.vti``). The coordinates are those of
+the ".vti" file, in bohr, with x running fastest; the data are in the units of
+the file. A ".vti" file describes a grid along the Cartesian axes, so the
+coordinates are those of the grid points only if the basis vectors of the grid
+point along x, y and z; for a rotated grid take the positions from the grid
+definition instead (see the note in :doc:`visualization`). Both binary and text ".vti" files are read. The command needs only
+Python and is installed next to ``gimic``.
+
+A CSV file is several times larger than the binary ".vti" file, so convert
+only the files you need as a table.

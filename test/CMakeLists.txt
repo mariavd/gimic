@@ -82,6 +82,16 @@ add_test(
            --work-dir=${PROJECT_BINARY_DIR}/test/divj-consistency
            --case=${PROJECT_SOURCE_DIR}/test/benzene
   )
+# binary .vti files against the ascii ones, through vti2csv; see test/vti-binary/test
+add_test(
+  NAME
+    vti-binary
+  COMMAND
+    ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/vti-binary/test
+           --binary-dir=${PROJECT_BINARY_DIR}/bin
+           --work-dir=${PROJECT_BINARY_DIR}/test/vti-binary
+           --case=${PROJECT_SOURCE_DIR}/test/benzene
+  )
 # a serial build would pass these trivially
 if(ENABLE_OPENMP)
   gimic_thread_test(cdens-closed-shell benzene/3d 1,4,16)

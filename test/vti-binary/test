@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""
+Binary .vti output and the vti2csv converter, without reference files.
+
+Runs the 3D and the 2D benzene case twice, with the default (binary) .vti
+files and with vti_format=ascii, and requires:
+  * the default files to hold appended binary data and to be smaller;
+  * vti2csv to give the same table for both, to the six digits the text
+    format carries;
+  * an unknown vti_format to stop the run with a message naming the keyword;
+  * vti2csv to fail with a one-line message on input it cannot read.
+
+Usage: test --binary-dir=DIR --work-dir=DIR --case=DIR
+"""
+import argparse
+import glob
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+
+def fail(msg):
+    print('FAILED: ' + msg)
+    sys.exit(1)
+
+
+def gimic(binary_dir, case, work, fmt, edit=None):
+    """Run the case in work; fmt is None (default), or a vti_format value."""
+    if os.path.isdir(work):
+        shutil.rmtree(work)
+    os.makedirs(work)
+    for name in ('MOL', 'XDENS'):
+        shutil.copy(os.path.realpath(os.path.join(case, name)), os.path.join(work, name))
+    with open(os.path.join(case, 'gimic.inp')) as f:
+        lines = [l for l in f if not re.match(r'\s*vti_format\s*=', l)]
+    if edit is not None:
+        lines = [edit(l) for l in lines]
+    with open(os.path.join(work, 'gimic.inp'), 'w') as f:
+        for l in lines:
+            f.write(l)
+            if fmt is not None and re.match(r'\s*Advanced\s*{', l):
+                f.write('    vti_format={0}\n'.format(fmt))
+    env = dict(os.environ, OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1')
+    with open(os.path.join(work, 'stdout'), 'w') as out, \
+            open(os.path.join(work, 'stderr'), 'w') as err:
+        rc = subprocess.call([os.path.join(binary_dir, 'gimic'), 'gimic.inp'],
+                             cwd=work, env=env, stdout=out, stderr=err)
+    return rc
+
+
+def output(work):
+    text = ''
+    for name in ('stdout', 'stderr'):
+        with open(os.path.join(work, name), errors='replace') as f:
+            text += f.read()
+    return text
+
+
+def vti2csv(binary_dir, *args, **kw):
+    p = subprocess.run([sys.executable, os.path.join(binary_dir, 'vti2csv')] + list(args),
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       universal_newlines=True, **kw)
+    return p.returncode, p.stdout, p.stderr
+
+
+def table(binary_dir, path):
+    rc, out, err = vti2csv(binary_dir, path, '-o', '-')
+    if rc != 0:
+        fail('vti2csv failed on {0}: {1}'.format(path, err.strip()))
+    rows = out.splitlines()
+    return rows[0], [[float(x) for x in r.split(',')] for r in rows[1:]]
+
+
+def compare(binary_dir, name, wb, wa):
+    fb, fa = os.path.join(wb, name), os.path.join(wa, name)
+    with open(fb, 'rb') as f:
+        head = f.read(2000)
+    if b'format="appended"' not in head:
+        fail('{0} is not binary by default'.format(fb))
+    with open(fa, 'rb') as f:
+        if b'ormat="ascii"' not in f.read(2000):
+            fail('{0} is not ascii with vti_format=ascii'.format(fa))
+    if os.path.getsize(fb) >= os.path.getsize(fa):
+        fail('binary {0} is not smaller than the ascii file'.format(name))
+    hb, tb = table(binary_dir, fb)
+    ha, ta = table(binary_dir, fa)
+    if hb != ha:
+        fail('{0}: header {1} vs {2}'.format(name, hb, ha))
+    if len(tb) != len(ta) or not tb:
+        fail('{0}: {1} vs {2} rows'.format(name, len(tb), len(ta)))
+    worst = 0.0
+    for rb, ra in zip(tb, ta):
+        if len(rb) != len(ra):
+            fail('{0}: rows of different length'.format(name))
+        for b, a in zip(rb, ra):
+            d = abs(b - a)
+            # the text format rounds 0.dddddd to six digits: up to 5e-6 of the value
+            if d > 6.0e-6*abs(a) + 1.0e-12:
+                fail('{0}: {1!r} (binary) vs {2!r} (ascii)'.format(name, b, a))
+            worst = max(worst, d)
+    return hb, len(tb), worst
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--binary-dir', required=True)
+    p.add_argument('--work-dir', required=True)
+    p.add_argument('--case', required=True)
+    args = p.parse_args()
+    for k in ('binary_dir', 'work_dir', 'case'):
+        setattr(args, k, os.path.abspath(getattr(args, k)))
+
+    expected = {'3d': {'jvec.vti': ('x,y,z,jx,jy,jz', 30*30*30),
+                       'jmod.vti': ('x,y,z,value', 30*30*30),
+                       'acid.vti': ('x,y,z,value', 30*30*30)},
+                '2d': {'jvec.vti': ('x,y,z,jx,jy,jz', 30*30)}}
+    for case in ('3d', '2d'):
+        src = os.path.join(args.case, case)
+        wb = os.path.join(args.work_dir, case + '-binary')
+        wa = os.path.join(args.work_dir, case + '-ascii')
+        if gimic(args.binary_dir, src, wb, None) != 0:
+            fail('gimic failed in ' + wb)
+        if gimic(args.binary_dir, src, wa, 'ascii') != 0:
+            fail('gimic failed in ' + wa)
+        names = sorted(os.path.basename(f) for f in glob.glob(os.path.join(wb, '*.vti')))
+        if names != sorted(expected[case]):
+            fail('{0}: .vti files {1}'.format(case, names))
+        for name in names:
+            head, n, worst = compare(args.binary_dir, name, wb, wa)
+            if (head, n) != expected[case][name]:
+                fail('{0}/{1}: header {2!r}, {3} rows'.format(case, name, head, n))
+            print('{0}/{1}: {2} rows, largest difference {3:.2e}'.format(case, name, n, worst))
+
+    # the default output file name, next to the input
+    wb = os.path.join(args.work_dir, '3d-binary')
+    rc, out, err = vti2csv(args.binary_dir, 'jvec.vti', cwd=wb)
+    if rc != 0 or not os.path.isfile(os.path.join(wb, 'jvec.csv')):
+        fail('vti2csv jvec.vti did not write jvec.csv: ' + err.strip())
+    with open(os.path.join(wb, 'jvec.csv')) as f:
+        if sum(1 for _ in f) != 30*30*30 + 1:
+            fail('jvec.csv has the wrong number of lines')
+
+    # an explicit vti_format=binary is the default
+    we = os.path.join(args.work_dir, '2d-explicit')
+    if gimic(args.binary_dir, os.path.join(args.case, '2d'), we, 'binary') != 0:
+        fail('gimic failed with vti_format=binary')
+    with open(os.path.join(we, 'jvec.vti'), 'rb') as f, \
+            open(os.path.join(args.work_dir, '2d-binary', 'jvec.vti'), 'rb') as g:
+        if f.read() != g.read():
+            fail('vti_format=binary differs from the default')
+
+    # the value is not case sensitive
+    wc = os.path.join(args.work_dir, '2d-case')
+    if gimic(args.binary_dir, os.path.join(args.case, '2d'), wc, 'Ascii') != 0:
+        fail('gimic failed with vti_format=Ascii')
+    with open(os.path.join(wc, 'jvec.vti'), 'rb') as f, \
+            open(os.path.join(args.work_dir, '2d-ascii', 'jvec.vti'), 'rb') as g:
+        if f.read() != g.read():
+            fail('vti_format=Ascii differs from vti_format=ascii')
+
+    # a grid that runs towards negative x: the coordinates must follow it
+    def reverse(line):
+        line = line.replace('origin=[-8.0, -8.0, 0.0]', 'origin=[8.0, -8.0, 0.0]')
+        return line.replace('ivec=[1.0, 0.0, 0.0]', 'ivec=[-1.0, 0.0, 0.0]')
+    wr = os.path.join(args.work_dir, '2d-reversed')
+    if gimic(args.binary_dir, os.path.join(args.case, '2d'), wr, None, edit=reverse) != 0:
+        fail('gimic failed on the reversed grid')
+    head, rows = table(args.binary_dir, os.path.join(wr, 'jvec.vti'))
+    step = 16.0/29
+    for n, want in ((0, (8.0, -8.0)), (1, (8.0 - step, -8.0)), (29, (-8.0, -8.0)), (30, (8.0, -8.0 + step))):
+        if abs(rows[n][0] - want[0]) > 1e-8 or abs(rows[n][1] - want[1]) > 1e-8:
+            fail('reversed grid: point {0} at {1}, expected {2}'.format(n, rows[n][:2], want))
+
+    # an unknown format stops the run
+    wx = os.path.join(args.work_dir, 'unknown')
+    rc = gimic(args.binary_dir, os.path.join(args.case, '2d'), wx, 'foo')
+    if rc == 0 or 'vti_format' not in output(wx):
+        fail('vti_format=foo: exit status {0}, keyword not named'.format(rc))
+    if glob.glob(os.path.join(wx, '*.vti')):
+        fail('vti_format=foo still wrote .vti files')
+
+    # input vti2csv cannot read
+    bad = os.path.join(args.work_dir, 'bad')
+    os.makedirs(bad, exist_ok=True)
+    with open(os.path.join(bad, 'grid.vtu'), 'w') as f:
+        f.write('<?xml version="1.0"?>\n<VTKFile type="UnstructuredGrid">\n</VTKFile>\n')
+    with open(os.path.join(bad, 'junk.vti'), 'wb') as f:
+        f.write(b'\x00\x01\x02 not a vti file')
+    with open(os.path.join(wb, 'jvec.vti'), 'rb') as f:
+        data = f.read()
+    with open(os.path.join(bad, 'short.vti'), 'wb') as f:
+        f.write(data[:len(data)//2])
+    with open(os.path.join(bad, 'offset.vti'), 'wb') as f:
+        f.write(data.replace(b'offset="0"', b'offset="x"'))
+    for name in ('missing.vti', 'grid.vtu', 'junk.vti', 'short.vti', 'offset.vti'):
+        rc, out, err = vti2csv(args.binary_dir, os.path.join(bad, name), '-o', '-')
+        if rc != 1:
+            fail('vti2csv {0}: exit status {1}'.format(name, rc))
+        if 'Traceback' in err or len(err.strip().splitlines()) != 1:
+            fail('vti2csv {0}: expected a one-line error, got: {1}'.format(name, err))
+
+    print('PASSED')
+
+
+if __name__ == '__main__':
+    main()

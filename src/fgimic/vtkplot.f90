@@ -20,6 +20,11 @@ contains
         integer(I4), dimension(3) :: npts
         real(DP), dimension(3) :: qmin, qmax, step
 
+        if (.not.settings%vti_ascii) then
+            call write_vtk_imagedata_binary(fname, grid, pdata)
+            return
+        end if
+
         call getfd(fd)
         open(fd, file=trim(fname), form='formatted', status='unknown')
 
@@ -93,6 +98,11 @@ contains
         real(DP), dimension(3) :: qmin, qmax, step
         real(DP) :: avg_x, avg_y, avg_z
         real(DP) :: norm
+
+        if (.not.settings%vti_ascii) then
+            call write_vtk_vector_imagedata_binary(fname, grid, pdata)
+            return
+        end if
 
         call getfd(fd)
         open(fd, file=trim(fname), form='formatted', status='unknown')
@@ -226,6 +236,184 @@ contains
         write(fd, *) '   </ImageData>'
         write(fd, *) '</VTKFile>'
 
+        call closefd(fd)
+    end subroutine
+
+    ! The binary files: the XML header, then the numbers as Float32 in one
+    ! raw appended block. Each array in the block is its length in bytes
+    ! (eight bytes, so that arrays above 4 GB work) followed by the values,
+    ! x running fastest.
+
+    ! Open fname and write the header down to <Piece>
+    subroutine open_vtk_imagedata_binary(fd, fname, grid, npts)
+        integer(I4), intent(out) :: fd
+        character(*), intent(in) :: fname
+        type(grid_t) :: grid
+        integer(I4), dimension(3), intent(out) :: npts
+
+        integer(I4) :: i, one
+        integer(int8), dimension(4) :: bytes
+        real(DP), dimension(3) :: qmin, qmax, step
+        character(16) :: byte_order
+        character(64) :: extent
+        character(512) :: buf
+
+        call get_grid_size(grid, npts(1), npts(2), npts(3))
+        qmin=gridpoint(grid,1,1,1)
+        qmax=gridpoint(grid,npts(1),npts(2),npts(3))
+        ! a direction with a single point has spacing 0; the spacing is
+        ! negative if the grid runs towards smaller values
+        do i=1,3
+           step(i) = qmax(i) - qmin(i)
+           if ( abs(step(i)) > 1E-8 ) then
+               step(i) = step(i) / ( npts(i) - 1)
+           end if
+        end do
+
+        one = 1
+        bytes = transfer(one, bytes)
+        if (bytes(1) == 1) then
+            byte_order = 'LittleEndian'
+        else
+            byte_order = 'BigEndian'
+        end if
+
+        call getfd(fd)
+        open(fd, file=trim(fname), access='stream', form='unformatted', &
+            status='replace')
+
+        write(extent, '(5(i0,1x),i0)') 0, npts(1)-1, 0, npts(2)-1, 0, npts(3)-1
+        call put(fd, '<?xml version="1.0"?>')
+        call put(fd, '<VTKFile type="ImageData" version="1.0" byte_order="' // &
+            trim(byte_order) // '" header_type="UInt64">')
+        write(buf, '(5a,3es25.16,a,3es25.16,a)') &
+            '  <ImageData WholeExtent="', trim(extent), '"', ' ', 'Origin="', &
+            qmin, '" Spacing="', step, '">'
+        call put(fd, trim(buf))
+        call put(fd, '    <Piece Extent="' // trim(extent) // '">')
+    end subroutine
+
+    ! One line of the header
+    subroutine put(fd, line)
+        integer(I4), intent(in) :: fd
+        character(*), intent(in) :: line
+
+        write(fd) line, new_line('a')
+    end subroutine
+
+    ! The <DataArray> element of an array that starts offset bytes into the
+    ! appended block
+    subroutine put_dataarray(fd, name, ncomp, offset)
+        integer(I4), intent(in) :: fd
+        character(*), intent(in) :: name
+        integer(I4), intent(in) :: ncomp
+        integer(int64), intent(in) :: offset
+
+        character(256) :: buf
+
+        write(buf, '(3a,i0,a,i0,a)') '        <DataArray Name="', name, &
+            '" type="Float32" NumberOfComponents="', ncomp, &
+            '" format="appended" offset="', offset, '"/>'
+        call put(fd, trim(buf))
+    end subroutine
+
+    subroutine write_vtk_imagedata_binary(fname, grid, pdata)
+        character(*), intent(in) :: fname
+        type(grid_t) :: grid
+        real(DP), dimension(:,:,:) :: pdata
+
+        integer(I4) :: k, fd
+        integer(I4), dimension(3) :: npts
+        integer(int64) :: nbytes
+        real(real32), allocatable :: buf(:,:)
+
+        call open_vtk_imagedata_binary(fd, fname, grid, npts)
+        call put(fd, '      <PointData Scalars="scalars">')
+        call put_dataarray(fd, 'scalars', 1, 0_int64)
+        call put(fd, '      </PointData>')
+        call put(fd, '    </Piece>')
+        call put(fd, '  </ImageData>')
+        call put(fd, '  <AppendedData encoding="raw">')
+        write(fd) '_'
+
+        nbytes = 4_int64*npts(1)*npts(2)*npts(3)
+        write(fd) nbytes
+        allocate(buf(npts(1),npts(2)))
+        do k=1,npts(3)
+            buf = real(pdata(1:npts(1),1:npts(2),k), real32)
+            write(fd) buf
+        end do
+        deallocate(buf)
+
+        call put(fd, '')
+        call put(fd, '  </AppendedData>')
+        call put(fd, '</VTKFile>')
+        call closefd(fd)
+    end subroutine
+
+    subroutine write_vtk_vector_imagedata_binary(fname, grid, pdata)
+        character(*), intent(in) :: fname
+        type(grid_t) :: grid
+        real(DP), dimension(:,:,:,:) :: pdata
+
+        integer(I4) :: i, j, k, c, fd
+        integer(I4), dimension(3) :: npts, ncell, d
+        integer(int64) :: nbytes, cbytes
+        real(DP), dimension(3) :: avg
+        real(real32), allocatable :: buf(:,:,:), cbuf(:,:)
+
+        call open_vtk_imagedata_binary(fd, fname, grid, npts)
+
+        ! A cell is bounded by eight points, or by four if the grid is a
+        ! plane; along a direction with a single point it has no extent.
+        ncell = max(npts - 1, 1)
+        d = min(npts - 1, 1)
+        nbytes = 12_int64*npts(1)*npts(2)*npts(3)
+        cbytes = 4_int64*ncell(1)*ncell(2)*ncell(3)
+
+        call put(fd, '      <PointData Vectors="vectors">')
+        call put_dataarray(fd, 'vectors', 3, 0_int64)
+        call put(fd, '      </PointData>')
+        call put(fd, '      <CellData Scalars="norm">')
+        call put_dataarray(fd, 'norm', 1, nbytes + 8_int64)
+        call put(fd, '      </CellData>')
+        call put(fd, '    </Piece>')
+        call put(fd, '  </ImageData>')
+        call put(fd, '  <AppendedData encoding="raw">')
+        write(fd) '_'
+
+        allocate(buf(3,npts(1),npts(2)))
+        write(fd) nbytes
+        do k=1,npts(3)
+            do j=1,npts(2)
+                do i=1,npts(1)
+                    buf(:,i,j) = real(pdata(i,j,k,1:3), real32)
+                end do
+            end do
+            write(fd) buf
+        end do
+        deallocate(buf)
+
+        ! The norm of the current averaged over the corners of each cell
+        allocate(cbuf(ncell(1),ncell(2)))
+        write(fd) cbytes
+        do k=1,ncell(3)
+            do j=1,ncell(2)
+                do i=1,ncell(1)
+                    do c=1,3
+                        avg(c) = sum(pdata(i:i+d(1),j:j+d(2),k:k+d(3),c)) / &
+                            ((d(1)+1)*(d(2)+1)*(d(3)+1))
+                    end do
+                    cbuf(i,j) = real(sqrt(sum(avg**2)), real32)
+                end do
+            end do
+            write(fd) cbuf
+        end do
+        deallocate(cbuf)
+
+        call put(fd, '')
+        call put(fd, '  </AppendedData>')
+        call put(fd, '</VTKFile>')
         call closefd(fd)
     end subroutine
 
